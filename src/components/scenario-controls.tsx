@@ -22,7 +22,7 @@ interface ScenarioControlsProps {
 export function ScenarioControls({
   inputs,
   onChange,
-  selectedProvider,
+  selectedProvider: _selectedProvider,
   disabled = false,
 }: ScenarioControlsProps) {
   return (
