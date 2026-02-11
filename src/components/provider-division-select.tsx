@@ -1,14 +1,7 @@
 import { useState, useMemo } from 'react'
-import { Users, Building2 } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Command,
   CommandEmpty,
@@ -31,18 +24,14 @@ interface ProviderDivisionSelectProps {
   providerRows: ProviderRow[]
   selectedSpecialty: string | null
   selectedProviderId: string | null
-  selectedDivision: string | null
   onSelectProvider: (id: string | null) => void
-  onSelectDivision: (division: string | null) => void
 }
 
 export function ProviderDivisionSelect({
   providerRows,
   selectedSpecialty,
   selectedProviderId,
-  selectedDivision,
   onSelectProvider,
-  onSelectDivision,
 }: ProviderDivisionSelectProps) {
   const [providerOpen, setProviderOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -64,33 +53,23 @@ export function ProviderDivisionSelect({
     )
   }, [filteredBySpecialty, search])
 
-  const divisions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          filteredBySpecialty.map((r) => r.division).filter((d): d is string => !!d)
-        )
-      ).sort(),
-    [filteredBySpecialty]
-  )
-
   const selectedProvider = providerRows.find((p) => p.providerId === selectedProviderId)
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-3 text-left">
           <span className="flex size-10 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
             <Users className="size-5" />
           </span>
-          <span>Select provider or division</span>
+          <span>Select provider</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label className="text-muted-foreground flex items-center gap-2 text-xs">
             <Users className="size-3.5" />
-            Single provider
+            Provider
           </Label>
           <Dialog open={providerOpen} onOpenChange={setProviderOpen}>
             <DialogTrigger asChild>
@@ -121,7 +100,6 @@ export function ProviderDivisionSelect({
                         value={`${p.providerName ?? ''} ${p.providerId ?? ''}`}
                         onSelect={() => {
                           onSelectProvider(p.providerId ?? null)
-                          onSelectDivision(null)
                           setProviderOpen(false)
                         }}
                       >
@@ -135,32 +113,6 @@ export function ProviderDivisionSelect({
               </Command>
             </DialogContent>
           </Dialog>
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-muted-foreground flex items-center gap-2 text-xs">
-            <Building2 className="size-3.5" />
-            Division (table view)
-          </Label>
-          <Select
-            value={selectedDivision ?? ''}
-            onValueChange={(v) => {
-              onSelectDivision(v || null)
-              onSelectProvider(null)
-            }}
-            disabled={divisions.length === 0}
-          >
-            <SelectTrigger className="min-h-[44px] w-full max-w-xs touch-manipulation">
-              <SelectValue placeholder="Choose division…" />
-            </SelectTrigger>
-            <SelectContent>
-              {divisions.map((d) => (
-                <SelectItem key={d} value={d}>
-                  {d}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
       </CardContent>
     </Card>

@@ -26,18 +26,18 @@ export function SpecialtySelect({
   ).sort()
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-3 text-left">
           <span className="flex size-10 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
             <Target className="size-5" />
           </span>
-          <span>Select specialty / market</span>
+          <span>Select Survey Data. Market (optional override)</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Label className="text-muted-foreground mb-2 block text-xs">
-          Market cut (from market file)
+          Choose a market from your survey report. Override the provider’s specialty to model a different market (e.g. a provider not in the upload).
         </Label>
         <Select
           value={selectedSpecialty ?? ''}
@@ -45,7 +45,7 @@ export function SpecialtySelect({
           disabled={specialties.length === 0}
         >
           <SelectTrigger className="min-h-[44px] w-full max-w-xs touch-manipulation">
-            <SelectValue placeholder="Choose specialty…" />
+            <SelectValue placeholder="Choose market from survey…" />
           </SelectTrigger>
           <SelectContent>
             {specialties.map((s) => (

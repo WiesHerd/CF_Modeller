@@ -7,6 +7,10 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -24,6 +28,18 @@ body {
 /* Touch-friendly: remove tap delay */
 .touch-manipulation {
   touch-action: manipulation;
+}
+
+/* Horizontal scroll with momentum on iOS */
+.touch-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+}
+
+/* Momentum scroll for any overflow container (e.g. overflow-auto) */
+.overflow-touch {
+  -webkit-overflow-scrolling: touch;
 }
 
 @theme inline {
@@ -160,9 +176,17 @@ body {
 .section-title {
   font-size: 1.5rem;
   font-weight: 700;
-  color: oklch(0.2 0 0);
+  color: var(--foreground);
   letter-spacing: -0.02em;
   margin-bottom: 0.5rem;
+}
+
+/* Percentile Modeler main title: Apple-style clarity */
+.modeler-page-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--foreground);
 }
 
 .section-subtitle {
@@ -174,4 +198,38 @@ body {
 /* Card icon: muted green accent (CompLens-style) */
 .text-accent-icon {
   color: var(--accent-icon);
+}
+
+/* Impact report page: McKinsey/Apple-style refined palette and chart styling */
+.impact-report {
+  --impact-current: oklch(0.42 0.06 260);
+  --impact-modeled: oklch(0.52 0.14 240);
+  --impact-positive: oklch(0.52 0.16 155);
+  --impact-negative: oklch(0.55 0.2 25);
+  --impact-grid: oklch(0.92 0 0);
+  --impact-text-muted: oklch(0.5 0 0);
+  --chart-1: var(--impact-current);
+  --chart-2: var(--impact-modeled);
+}
+.dark .impact-report {
+  --impact-current: oklch(0.65 0.08 260);
+  --impact-modeled: oklch(0.7 0.12 240);
+  --impact-positive: oklch(0.65 0.18 155);
+  --impact-negative: oklch(0.7 0.18 25);
+  --impact-grid: oklch(0.3 0 0);
+  --impact-text-muted: oklch(0.65 0 0);
+}
+.impact-report .recharts-cartesian-grid-horizontal line,
+.impact-report .recharts-cartesian-grid-vertical line {
+  stroke: var(--impact-grid);
+  stroke-dasharray: 2 6;
+  stroke-opacity: 0.8;
+}
+.impact-report .recharts-text {
+  fill: var(--impact-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.impact-report .recharts-tooltip-wrapper {
+  font-size: 12px;
 }

@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Sliders } from 'lucide-react'
-import type { ScenarioInputs, ThresholdMethod } from '@/types/scenario'
+import type { ScenarioInputs, ThresholdMethod, CFSource, PSQBasis } from '@/types/scenario'
 import type { ProviderRow } from '@/types/provider'
 
 interface ScenarioControlsProps {
@@ -35,119 +35,240 @@ export function ScenarioControls({
           <span>Scenario controls</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Proposed CF percentile</Label>
+      <CardContent className="space-y-8">
+        {/* Current (baseline) */}
+        <div className="space-y-5 rounded-xl border border-border/60 bg-muted/20 p-5">
+          <h3 className="border-border/60 border-b pb-2 text-sm font-semibold text-foreground">
+            Current (baseline)
+          </h3>
+          <div className="field-block space-y-1.5">
+            <Label className="text-sm font-medium text-foreground">PSQ percent (current)</Label>
             <Input
               type="number"
               min={0}
-              max={100}
-              step={1}
-              value={inputs.proposedCFPercentile}
-              onChange={(e) =>
-                onChange({
-                  proposedCFPercentile: Number(e.target.value) || 0,
-                })
-              }
+              max={50}
+              step={0.5}
+              value={inputs.currentPsqPercent ?? 0}
+              onChange={(e) => {
+                const raw = Number(e.target.value) || 0
+                onChange({ currentPsqPercent: Math.min(50, Math.max(0, raw)) })
+              }}
               disabled={disabled}
-              className="min-h-[44px] touch-manipulation"
+              className="h-10 max-w-[8rem] touch-manipulation"
             />
-          </div>
-          <div className="space-y-2">
-            <Label title="1.0 = no carve-out (e.g. no PSQ carve-out)">
-              CF Adjustment Factor
-            </Label>
-            <Input
-              type="number"
-              min={0}
-              max={2}
-              step={0.01}
-              value={inputs.cfAdjustmentFactor}
-              onChange={(e) =>
-                onChange({
-                  cfAdjustmentFactor: Number(e.target.value) || 1,
-                })
-              }
-              disabled={disabled}
-              className="min-h-[44px] touch-manipulation"
-            />
-            <p className="text-muted-foreground text-xs">1.0 = no carve-out</p>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Value-based payment % applied to current/actual compensation. Current TCC includes this PSQ.
+            </p>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>PSQ percent (value-based payment)</Label>
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            step={0.5}
-            value={inputs.psqPercent ?? 0}
-            onChange={(e) =>
-              onChange({ psqPercent: Number(e.target.value) || 0 })
-            }
-            disabled={disabled}
-            className="min-h-[44px] touch-manipulation"
-          />
-          <p className="text-muted-foreground text-xs">
-            Percentage of base salary; PSQ dollars = base salary × this %
-          </p>
-        </div>
+        {/* Modeled (scenario) */}
+        <div className="space-y-5 rounded-xl border border-border/60 bg-muted/20 p-5">
+          <h3 className="border-border/60 border-b pb-2 text-sm font-semibold text-foreground">
+            Modeled (scenario)
+          </h3>
 
-        <div className="space-y-2">
-          <Label>Threshold method</Label>
-          <Select
-            value={inputs.thresholdMethod}
-            onValueChange={(v) =>
-              onChange({ thresholdMethod: v as ThresholdMethod })
-            }
-            disabled={disabled}
-          >
-            <SelectTrigger className="min-h-[44px] w-full max-w-xs touch-manipulation">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="annual">Annual threshold (direct input)</SelectItem>
-              <SelectItem value="wrvu_percentile">
-                wRVU percentile (from market)
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+          <div className="field-block space-y-1.5">
+            <Label className="text-sm font-medium text-foreground">CF modeling method</Label>
+            <Select
+              value={inputs.cfSource}
+              onValueChange={(v) => onChange({ cfSource: v as CFSource })}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-10 w-full max-w-sm touch-manipulation">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="target_haircut">
+                  Target percentile + CF adjustment
+                </SelectItem>
+                <SelectItem value="override">Override CF ($)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        {inputs.thresholdMethod === 'annual' && (
-          <div className="space-y-2">
-            <Label>Annual threshold (wRVUs)</Label>
+          {inputs.cfSource === 'target_haircut' && (
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="field-block space-y-1.5">
+                <Label className="text-sm font-medium text-foreground">Target CF percentile</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={inputs.proposedCFPercentile}
+                  onChange={(e) =>
+                    onChange({
+                      proposedCFPercentile: Number(e.target.value) || 0,
+                    })
+                  }
+                  disabled={disabled}
+                  className="h-10 touch-manipulation"
+                />
+                <p className="min-h-[2.5rem] text-muted-foreground text-xs leading-relaxed">
+                  Market CF at this percentile (interpolated from market data)
+                </p>
+              </div>
+              <div className="field-block space-y-1.5">
+                <Label className="text-sm font-medium text-foreground">Conversion factor adjustment %</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  value={inputs.haircutPct ?? 5}
+                  onChange={(e) =>
+                    onChange({
+                      haircutPct: Number(e.target.value) ?? 5,
+                    })
+                  }
+                  disabled={disabled}
+                  className="h-10 touch-manipulation"
+                />
+                <p className="min-h-[2.5rem] text-muted-foreground text-xs leading-relaxed">
+                  Reduces the CF so compensation can cover value-based payment or other carve-outs (e.g. 5%). Modeled CF = market CF at target percentile × (1 − adjustment %).
+                </p>
+              </div>
+            </div>
+          )}
+
+          {inputs.cfSource === 'override' && (
+            <div className="field-block space-y-1.5">
+              <Label className="text-sm font-medium text-foreground">Override CF ($/wRVU)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={0.01}
+                value={inputs.overrideCF ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value
+                  onChange({
+                    overrideCF: v === '' ? undefined : Number(v),
+                  })
+                }
+                }
+                disabled={disabled}
+                placeholder="e.g. 44.00"
+                className="h-10 touch-manipulation"
+              />
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                Direct conversion factor for modeled scenario
+              </p>
+            </div>
+          )}
+
+          <div className="field-block border-border/40 border-t pt-4 space-y-1.5">
+            <Label className="text-sm font-medium text-foreground">PSQ percent (modeled)</Label>
             <Input
               type="number"
               min={0}
-              value={inputs.annualThreshold ?? 0}
-              onChange={(e) =>
-                onChange({ annualThreshold: Number(e.target.value) || 0 })
-              }
+              max={50}
+              step={0.5}
+              value={inputs.psqPercent ?? 0}
+              onChange={(e) => {
+                const raw = Number(e.target.value) || 0
+                onChange({ psqPercent: Math.min(50, Math.max(0, raw)) })
+              }}
               disabled={disabled}
-              className="min-h-[44px] touch-manipulation"
+              className="h-10 max-w-[8rem] touch-manipulation"
             />
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Value-based payment % for the modeled scenario. Can differ from current (e.g. 0% modeled vs 5% current).
+            </p>
           </div>
-        )}
+        </div>
 
-        {inputs.thresholdMethod === 'wrvu_percentile' && (
-          <div className="space-y-2">
-            <Label>wRVU percentile for threshold</Label>
-            <Input
-              type="number"
-              min={0}
-              max={100}
-              value={inputs.wrvuPercentile ?? 50}
-              onChange={(e) =>
-                onChange({ wrvuPercentile: Number(e.target.value) || 50 })
-              }
-              disabled={disabled}
-              className="min-h-[44px] touch-manipulation"
-            />
+        {/* Shared (both current and modeled) */}
+        <div className="space-y-5 rounded-xl border border-border/60 bg-muted/10 p-5">
+          <h3 className="border-border/60 border-b pb-2 text-sm font-semibold text-foreground">
+            Shared (both current and modeled)
+          </h3>
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="field-block space-y-1.5">
+              <Label className="text-sm font-medium text-foreground">PSQ basis</Label>
+              <Select
+                value={inputs.psqBasis ?? 'base_salary'}
+                onValueChange={(v) => onChange({ psqBasis: v as PSQBasis })}
+                disabled={disabled}
+              >
+                <SelectTrigger className="h-10 w-full touch-manipulation">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="base_salary">% of base salary</SelectItem>
+                  <SelectItem value="total_guaranteed">% of total guaranteed</SelectItem>
+                  <SelectItem value="total_pay">% of total pay (TCC)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="min-h-[2.5rem] text-muted-foreground text-xs leading-relaxed">
+                {inputs.psqBasis === 'total_guaranteed'
+                  ? 'PSQ dollars = (base + non-clinical) × this %'
+                  : inputs.psqBasis === 'total_pay'
+                    ? 'PSQ is this % of total compensation (base + incentive + non-clinical + PSQ)'
+                    : 'PSQ dollars = base salary × this %'}
+              </p>
+            </div>
+            <div className="field-block space-y-1.5">
+              <Label className="text-sm font-medium text-foreground">Threshold method</Label>
+              <Select
+                value={inputs.thresholdMethod}
+                onValueChange={(v) =>
+                  onChange({ thresholdMethod: v as ThresholdMethod })
+                }
+                disabled={disabled}
+              >
+                <SelectTrigger className="h-10 w-full touch-manipulation">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="derived">
+                    Derived (clinical base ÷ CF)
+                  </SelectItem>
+                  <SelectItem value="annual">Annual threshold (direct input)</SelectItem>
+                  <SelectItem value="wrvu_percentile">
+                    wRVU percentile (from market)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="min-h-[2.5rem] text-muted-foreground text-xs leading-relaxed">
+                Threshold = clinical base pay ÷ CF. Incentive is paid only on wRVUs above the threshold.
+              </p>
+            </div>
           </div>
-        )}
+
+          {inputs.thresholdMethod === 'annual' && (
+            <div className="field-block border-border/40 border-t pt-4 space-y-1.5">
+              <Label className="text-sm font-medium text-foreground">Annual threshold (wRVUs)</Label>
+              <Input
+                type="number"
+                min={0}
+                value={inputs.annualThreshold ?? 0}
+                onChange={(e) =>
+                  onChange({ annualThreshold: Number(e.target.value) || 0 })
+                }
+                disabled={disabled}
+                className="h-10 max-w-[8rem] touch-manipulation"
+              />
+            </div>
+          )}
+          {inputs.thresholdMethod === 'wrvu_percentile' && (
+            <div className="field-block border-border/40 border-t pt-4 space-y-1.5">
+              <Label className="text-sm font-medium text-foreground">wRVU percentile for threshold</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={inputs.wrvuPercentile ?? 50}
+                onChange={(e) =>
+                  onChange({ wrvuPercentile: Number(e.target.value) || 50 })
+                }
+                disabled={disabled}
+                className="h-10 max-w-[8rem] touch-manipulation"
+              />
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   )

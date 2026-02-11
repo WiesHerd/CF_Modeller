@@ -22,6 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import Papa from 'papaparse'
 import type { ProviderRow } from '@/types/provider'
 import type { ScenarioResults } from '@/types/scenario'
+import { formatCurrency } from '@/utils/format'
 
 export interface DivisionRow {
   provider: ProviderRow
@@ -168,19 +169,19 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
   const fmt = (n: number) =>
     n >= 1000 ? n.toLocaleString() : n.toFixed(0)
   const fmtMoney = (n: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+    formatCurrency(n, { decimals: 0 })
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <Input
           placeholder="Search provider…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
+          className="min-h-[44px] w-full touch-manipulation sm:max-w-xs"
         />
         <Select value={filterSpecialty} onValueChange={setFilterSpecialty}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="min-h-[44px] w-full min-w-0 touch-manipulation sm:w-[160px]">
             <SelectValue placeholder="Specialty" />
           </SelectTrigger>
           <SelectContent>
@@ -193,7 +194,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
           </SelectContent>
         </Select>
         <Select value={filterRisk} onValueChange={setFilterRisk}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="min-h-[44px] w-full min-w-0 touch-manipulation sm:w-[140px]">
             <SelectValue placeholder="Risk" />
           </SelectTrigger>
           <SelectContent>
@@ -202,13 +203,13 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
             <SelectItem value="warn">Warnings only</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" onClick={exportCSV}>
+        <Button variant="outline" size="sm" onClick={exportCSV} className="min-h-[44px] touch-manipulation">
           <Download className="size-4 mr-1" />
           Export CSV
         </Button>
       </div>
 
-      <div className="rounded-md border overflow-x-auto">
+      <div className="touch-scroll-x rounded-md border overflow-x-auto">
         <ScrollArea className="h-[400px] w-full">
           <Table>
             <TableHeader>

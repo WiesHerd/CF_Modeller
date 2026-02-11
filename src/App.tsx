@@ -1,18 +1,43 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '@/hooks/use-app-state'
 import { computeScenario } from '@/lib/compute'
-import { AppLayout, type AppStep } from '@/components/layout/app-layout'
+import { AppLayout, type AppStep, type AppMode } from '@/components/layout/app-layout'
 import { UploadAndMapping } from '@/components/upload-and-mapping'
-import { ModellerTopSection } from '@/components/modeller-top-section'
+import { MarketDataCard, ProviderStatisticsContent } from '@/components/modeller-top-section'
 import { SpecialtySelect } from '@/components/specialty-select'
-import { ProviderDivisionSelect } from '@/components/provider-division-select'
-import { ScenarioControls } from '@/components/scenario-controls'
-import { ResultsDashboard } from '@/components/results-dashboard'
-import { DivisionTable, type DivisionRow } from '@/components/division-table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ExistingProviderAndMarketCard } from '@/components/existing-provider-and-market-card'
+import { NewProviderForm, DEFAULT_NEW_PROVIDER, deriveBasePayFromComponents, type NewProviderFormValues } from '@/components/new-provider-form'
+import { BaselineVsModeledSection } from '@/components/baseline-vs-modeled-section'
+import { ImpactReportPage } from '@/components/impact-report-page'
+import { MarketPositionTable } from '@/components/market-position-table'
+import { ModellerStepper, type ModellerStep } from '@/components/modeller-stepper'
+import { GovernanceFlags } from '@/components/governance-flags'
+import { SavedScenariosSection } from '@/components/saved-scenarios-section'
+import { Card, CardContent } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { BatchScenarioStep } from '@/components/batch/batch-scenario-step'
+import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
+import { LegalPage } from '@/components/legal-page'
+import type { ProviderRow } from '@/types/provider'
+import type { BatchResults } from '@/types/batch'
+
+type ModelMode = 'existing' | 'new'
+
+function getLegalViewFromHash(): 'privacy' | 'terms' | null {
+  const h = window.location.hash.slice(1).toLowerCase()
+  if (h === 'privacy') return 'privacy'
+  if (h === 'terms') return 'terms'
+  return null
+}
 
 export default function App() {
-  const [step, setStep] = useState<AppStep>('upload')
+  const [legalView, setLegalView] = useState<'privacy' | 'terms' | null>(getLegalViewFromHash)
+
+  useEffect(() => {
+    const handler = () => setLegalView(getLegalViewFromHash())
+    window.addEventListener('hashchange', handler)
+    return () => window.removeEventListener('hashchange', handler)
+  }, [])
 
   const {
     state,
@@ -20,11 +45,45 @@ export default function App() {
     setMarketData,
     setSelectedSpecialty,
     setSelectedProvider,
-    setSelectedDivision,
+    updateProvider,
     setScenarioInputs,
     setLastResults,
-    setDivisionResults,
+    dismissScenarioLoadWarning,
+    saveCurrentScenario,
+    loadScenario,
+    deleteScenario,
+    duplicateScenario,
+    updateCurrentScenarioProviderSnapshot,
+    setBatchResults,
+    updateBatchSynonymMap,
+    removeBatchSynonym,
   } = useAppState()
+
+  const [step, setStep] = useState<AppStep>(
+    () =>
+      state.providerRows.length > 0 && state.marketRows.length > 0
+        ? 'modeller'
+        : 'upload'
+  )
+  const [appMode, setAppMode] = useState<AppMode>('single')
+  const [modelMode, setModelMode] = useState<ModelMode>('existing')
+  const [modellerStep, setModellerStep] = useState<ModellerStep>('provider')
+  const [newProviderForm, setNewProviderForm] = useState<NewProviderFormValues>(DEFAULT_NEW_PROVIDER)
+
+  const handleAppModeChange = (mode: AppMode) => {
+    setAppMode(mode)
+    if (mode === 'batch' && (step === 'modeller' || !['upload', 'batch-scenario', 'batch-results'].includes(step))) {
+      setStep('batch-scenario')
+    }
+    if (mode === 'single' && (step === 'batch-scenario' || step === 'batch-results')) {
+      setStep('modeller')
+    }
+  }
+
+  const handleBatchRunComplete = (results: BatchResults) => {
+    setBatchResults(results)
+    setStep('batch-results')
+  }
 
   const marketRow = useMemo(() => {
     if (!state.selectedSpecialty || state.marketRows.length === 0) return null
@@ -46,232 +105,446 @@ export default function App() {
     )
   }, [state.providerRows, state.selectedProviderId])
 
-  const divisionProviders = useMemo(() => {
-    if (!state.selectedDivision) return []
-    return state.providerRows.filter(
-      (p) =>
-        (p.division ?? '').toLowerCase() ===
-        state.selectedDivision!.toLowerCase()
-    )
-  }, [state.providerRows, state.selectedDivision])
-
   const hasData = state.providerRows.length > 0 && state.marketRows.length > 0
   const hasSpecialty = !!state.selectedSpecialty && !!marketRow
-  const canShowScenario =
-    hasData &&
-    hasSpecialty &&
-    (!!state.selectedProviderId || !!state.selectedDivision)
 
-  // Default selection when data exists but nothing selected
-  useEffect(() => {
-    if (!hasData) return
-    if (!state.selectedSpecialty && state.marketRows.length > 0) {
-      const first = state.marketRows[0]
-      if (first?.specialty) setSelectedSpecialty(first.specialty)
+  const syntheticProvider: ProviderRow | null = useMemo(() => {
+    if (modelMode !== 'new' || !state.selectedSpecialty) return null
+    const f = newProviderForm
+    const components = f.basePayComponents?.length ? f.basePayComponents : [{ id: 'default', label: 'Clinical', amount: 0 }]
+    const { baseSalary, nonClinicalPay, totalGuaranteed } = deriveBasePayFromComponents(components)
+    return {
+      providerId: 'hypothetical',
+      providerName: f.providerName.trim() || 'Hypothetical provider',
+      specialty: state.selectedSpecialty,
+      totalFTE: f.clinicalFTE,
+      clinicalFTE: f.clinicalFTE,
+      adminFTE: 0,
+      researchFTE: 0,
+      teachingFTE: 0,
+      baseSalary,
+      nonClinicalPay,
+      qualityPayments: 0,
+      otherIncentives: 0,
+      totalWRVUs: f.totalWRVUs,
+      workRVUs: f.totalWRVUs,
+      currentCF: 0,
+      currentTCC: totalGuaranteed,
+      currentThreshold: 0,
+      productivityModel: f.productivityModel,
     }
+  }, [modelMode, state.selectedSpecialty, newProviderForm])
+
+  const effectiveProvider: ProviderRow | null =
+    modelMode === 'existing' ? selectedProvider : syntheticProvider
+
+  const canShowScenarioExisting =
+    hasData && hasSpecialty && !!state.selectedProviderId
+  const canShowScenarioNew = modelMode === 'new' && !!hasSpecialty && !!marketRow
+  const canShowScenario =
+    modelMode === 'existing' ? canShowScenarioExisting : canShowScenarioNew
+
+  // Default to first provider only when list just became available (not when user cleared selection)
+  const prevProviderCountRef = useRef(0)
+  useEffect(() => {
+    if (modelMode !== 'existing' || !hasData || state.providerRows.length === 0) {
+      prevProviderCountRef.current = state.providerRows.length
+      return
+    }
+    const count = state.providerRows.length
+    if (state.selectedProviderId) {
+      prevProviderCountRef.current = count
+      return
+    }
+    // Only auto-select first provider when we went from 0 to N rows (e.g. after upload), not when user clicked X
+    if (count > prevProviderCountRef.current) {
+      const first = state.providerRows[0]
+      if (first?.providerId) setSelectedProvider(first.providerId)
+    }
+    prevProviderCountRef.current = count
   }, [
+    modelMode,
     hasData,
+    state.providerRows,
+    state.selectedProviderId,
+    setSelectedProvider,
+  ])
+
+  // When user selects a provider, set market (specialty) from that provider (existing mode only)
+  useEffect(() => {
+    if (modelMode !== 'existing') return
+    if (!selectedProvider?.specialty || state.marketRows.length === 0) return
+    const hasMarketForSpecialty = state.marketRows.some(
+      (r) => (r.specialty ?? '').toLowerCase() === (selectedProvider.specialty ?? '').toLowerCase()
+    )
+    if (hasMarketForSpecialty) setSelectedSpecialty(selectedProvider.specialty ?? null)
+  }, [
+    modelMode,
+    selectedProvider?.providerId,
+    selectedProvider?.specialty,
+    state.marketRows,
+    setSelectedSpecialty,
+  ])
+
+  // Default specialty when no provider selected (existing) or when in new mode with no specialty
+  useEffect(() => {
+    if (!state.marketRows.length) return
+    if (modelMode === 'existing' && state.selectedProviderId) return
+    if (state.selectedSpecialty) return
+    const first = state.marketRows[0]
+    if (first?.specialty) setSelectedSpecialty(first.specialty)
+  }, [
+    modelMode,
     state.marketRows,
     state.selectedSpecialty,
+    state.selectedProviderId,
     setSelectedSpecialty,
   ])
 
   useEffect(() => {
-    if (
-      hasData &&
-      hasSpecialty &&
-      !state.selectedProviderId &&
-      !state.selectedDivision &&
-      state.providerRows.length > 0
-    ) {
-      const first = state.providerRows[0]
-      if (first?.providerId) setSelectedProvider(first.providerId)
+    if (modelMode === 'existing') {
+      if (selectedProvider && marketRow) {
+        const results = computeScenario(
+          selectedProvider,
+          marketRow,
+          state.scenarioInputs
+        )
+        setLastResults(results)
+      } else if (!state.selectedProviderId) {
+        setLastResults(null)
+      }
+      return
     }
-  }, [
-    hasData,
-    hasSpecialty,
-    state.providerRows,
-    state.selectedProviderId,
-    state.selectedDivision,
-    setSelectedProvider,
-  ])
-
-  useEffect(() => {
-    if (selectedProvider && marketRow) {
+    if (modelMode === 'new' && syntheticProvider && marketRow) {
       const results = computeScenario(
-        selectedProvider,
+        syntheticProvider,
         marketRow,
         state.scenarioInputs
       )
       setLastResults(results)
-    } else if (!state.selectedProviderId) {
+    } else if (modelMode === 'new') {
       setLastResults(null)
     }
   }, [
+    modelMode,
     selectedProvider,
+    syntheticProvider,
     marketRow,
     state.scenarioInputs,
     state.selectedProviderId,
     setLastResults,
   ])
 
-  useEffect(() => {
-    if (state.selectedDivision && divisionProviders.length > 0 && marketRow) {
-      const results = divisionProviders.map((provider) =>
-        computeScenario(provider, marketRow, state.scenarioInputs)
-      )
-      setDivisionResults(results)
-    } else if (!state.selectedDivision) {
-      setDivisionResults(null)
-    }
-  }, [
-    state.selectedDivision,
-    divisionProviders,
-    marketRow,
-    state.scenarioInputs,
-    setDivisionResults,
-  ])
-
-  const divisionTableRows: DivisionRow[] = useMemo(() => {
-    if (!state.divisionResults || state.divisionResults.length === 0 || divisionProviders.length === 0)
-      return []
-    return divisionProviders.map((provider, i) => ({
-      provider,
-      results: state.divisionResults![i]!,
-    }))
-  }, [state.divisionResults, divisionProviders])
+  if (legalView) {
+    return (
+      <LegalPage
+        type={legalView}
+        onBack={() => {
+          window.location.hash = ''
+          setLegalView(null)
+        }}
+      />
+    )
+  }
 
   return (
     <AppLayout
       step={step}
       onStepChange={setStep}
-      canShowModeller={hasData}
+      appMode={appMode}
+      onAppModeChange={handleAppModeChange}
+      canShowModeller={hasData || state.marketRows.length > 0}
+      canShowBatchResults={!!state.batchResults}
     >
       {step === 'upload' && (
         <div className="space-y-6">
           <h2 className="section-title">Upload & data</h2>
-          <p className="section-subtitle mb-4">
-            Import provider and market files (CSV or XLSX), then map columns if needed. One example provider and market row are pre-loaded for testing.
-          </p>
           <UploadAndMapping
             onProviderData={setProviderData}
             onMarketData={setMarketData}
             existingProviderRows={state.providerRows}
             existingMarketRows={state.marketRows}
+            onUpdateProviderRow={updateProvider}
+            usedSampleDataOnLoad={state.usedSampleDataOnLoad}
           />
         </div>
       )}
 
       {step === 'modeller' && (
         <div className="space-y-8">
-          {/* Top portion: Provider Input + Market Data (Excel-style) */}
-          <section>
-            <ModellerTopSection
-              provider={selectedProvider}
-              marketRow={marketRow}
-              scenarioInputs={state.scenarioInputs}
-              specialtyLabel={state.selectedSpecialty ?? undefined}
-            />
-          </section>
+          <ModellerStepper
+            currentStep={modellerStep}
+            onStepChange={setModellerStep}
+            canAdvanceFromProvider={!!canShowScenario}
+            canAdvanceFromScenario={!!canShowScenario}
+            canAdvanceFromMarket={!!canShowScenario}
+          />
 
-          {/* Select specialty & provider */}
-          <section>
-            <h2 className="section-title">Select specialty & provider</h2>
-            <p className="section-subtitle mb-4">
-              Choose market cut and a single provider or division. Change any variable below to see how the model recalculates.
-            </p>
-            {state.marketRows.length > 0 && (
-              <SpecialtySelect
-                marketRows={state.marketRows}
-                selectedSpecialty={state.selectedSpecialty}
-                onSelect={setSelectedSpecialty}
-              />
-            )}
-            {state.providerRows.length > 0 && (
-              <ProviderDivisionSelect
-                providerRows={state.providerRows}
-                selectedSpecialty={state.selectedSpecialty}
-                selectedProviderId={state.selectedProviderId}
-                selectedDivision={state.selectedDivision}
-                onSelectProvider={setSelectedProvider}
-                onSelectDivision={setSelectedDivision}
-              />
-            )}
-            {!hasData && (
-              <Card>
-                <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                  Upload provider and market files on the Upload screen first.
-                </CardContent>
-              </Card>
-            )}
-          </section>
+          {/* Screen 1: Provider — select or enter provider + specialty */}
+          {modellerStep === 'provider' && (
+            <section>
+              <Tabs
+                value={modelMode}
+                onValueChange={(v) => {
+                  const mode = v as ModelMode
+                  setModelMode(mode)
+                  if (mode === 'new') setSelectedProvider(null)
+                }}
+                className="w-full"
+              >
+                <TabsList className="mb-4 w-full max-w-md sm:grid sm:grid-cols-2">
+                  <TabsTrigger value="existing" className="w-full">
+                    From upload
+                  </TabsTrigger>
+                  <TabsTrigger value="new" className="w-full">
+                    New
+                  </TabsTrigger>
+                </TabsList>
 
-          {/* Scenario controls */}
-          <section>
-            <h2 className="section-title">Scenario controls</h2>
-            <p className="section-subtitle mb-4">
-              Set CF percentile, adjustment factor, PSQ, and threshold method. Results update as you change values.
-            </p>
-            {canShowScenario ? (
-              <ScenarioControls
-                inputs={state.scenarioInputs}
-                onChange={setScenarioInputs}
-                selectedProvider={selectedProvider}
-              />
-            ) : (
-              <Card>
-                <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                  Select a specialty and a provider or division above to adjust scenario inputs.
-                </CardContent>
-              </Card>
-            )}
-          </section>
+                <TabsContent value="existing" className="mt-0">
+                  {hasData ? (
+                    <ExistingProviderAndMarketCard
+                      providerRows={state.providerRows}
+                      selectedSpecialty={state.selectedSpecialty}
+                      selectedProviderId={state.selectedProviderId}
+                      marketRows={state.marketRows}
+                      onSelectProvider={setSelectedProvider}
+                      onSelectSpecialty={setSelectedSpecialty}
+                      selectedProvider={effectiveProvider}
+                      onUpdateProvider={
+                        modelMode === 'existing' && state.selectedProviderId
+                          ? (updates) => updateProvider(state.selectedProviderId!, updates)
+                          : undefined
+                      }
+                      readOnlyProductivityModel={modelMode === 'existing'}
+                    >
+                      {effectiveProvider && (
+                        <ProviderStatisticsContent
+                          provider={effectiveProvider}
+                          onUpdateProvider={
+                            modelMode === 'existing' && state.selectedProviderId
+                              ? (updates) => updateProvider(state.selectedProviderId!, updates)
+                              : undefined
+                          }
+                          onSaveComplete={updateCurrentScenarioProviderSnapshot}
+                          readOnlyProductivityModel={modelMode === 'existing'}
+                        />
+                      )}
+                    </ExistingProviderAndMarketCard>
+                  ) : (
+                    <Card>
+                      <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                        Upload provider and market files on the Upload screen first.
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
 
-          {/* Results */}
-          <section>
-            <h2 className="section-title">Results</h2>
-            <p className="section-subtitle mb-4">
-              Current vs modeled TCC, percentiles, and risk assessment. Updates when you change selections or scenario inputs.
-            </p>
-            {state.lastResults && (
-              <ResultsDashboard results={state.lastResults} />
-            )}
-            {divisionTableRows.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    Division results
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <DivisionTable rows={divisionTableRows} />
-                </CardContent>
-              </Card>
-            )}
-            {canShowScenario && !state.lastResults && divisionTableRows.length === 0 && (
-              <Card>
-                <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                  Select a single provider (not a division) to see detailed results here, or view division results in the table above.
-                </CardContent>
-              </Card>
-            )}
-            {hasData && hasSpecialty && !state.selectedProviderId && !state.selectedDivision && (
-              <Card>
-                <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                  Select a provider or division above to see results.
-                </CardContent>
-              </Card>
-            )}
-            {!hasData && (
-              <Card>
-                <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                  Upload data on the Upload screen, then select a specialty and provider to see results.
-                </CardContent>
-              </Card>
-            )}
-          </section>
+                <TabsContent value="new" className="mt-0">
+                  <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2 lg:items-stretch">
+                    {state.marketRows.length > 0 && (
+                      <div className="flex min-w-0 flex-col">
+                        <SpecialtySelect
+                          marketRows={state.marketRows}
+                          selectedSpecialty={state.selectedSpecialty}
+                          onSelect={setSelectedSpecialty}
+                        />
+                      </div>
+                    )}
+                    <div className="flex min-w-0 flex-col">
+                      <NewProviderForm
+                        values={newProviderForm}
+                        onChange={(updates) =>
+                          setNewProviderForm((prev) => ({ ...prev, ...updates }))
+                        }
+                        disabled={state.marketRows.length === 0}
+                        psqPercent={state.scenarioInputs.psqPercent}
+                        psqBasis={state.scenarioInputs.psqBasis}
+                      />
+                    </div>
+                  </div>
+                  {state.marketRows.length === 0 && (
+                    <Card>
+                      <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                        Upload market data on the Upload screen first to model a hypothetical provider.
+                      </CardContent>
+                    </Card>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </section>
+          )}
+
+          {/* Screen 2: Scenario — current vs modeled table (main levers: CF, wRVUs, PSQ) */}
+          {modellerStep === 'scenario' && (
+            <section className="space-y-6">
+              {canShowScenario && state.lastResults ? (
+                <>
+                  {modelMode === 'existing' && effectiveProvider && (
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-sm">
+                      {effectiveProvider.providerName && (
+                        <span>
+                          <span className="text-muted-foreground font-medium">Provider:</span>{' '}
+                          <span className="text-foreground">{effectiveProvider.providerName}</span>
+                        </span>
+                      )}
+                      {(state.selectedSpecialty ?? effectiveProvider.specialty) && (
+                        <span>
+                          <span className="text-muted-foreground font-medium">Specialty:</span>{' '}
+                          <span className="text-foreground">{state.selectedSpecialty ?? effectiveProvider.specialty}</span>
+                        </span>
+                      )}
+                      <div className="ml-auto shrink-0">
+                        <SavedScenariosSection
+                          scenarios={state.savedScenarios}
+                          onLoad={loadScenario}
+                          onDuplicate={duplicateScenario}
+                          onDelete={deleteScenario}
+                          onSaveNew={(name) =>
+                            saveCurrentScenario(name, effectiveProvider ?? undefined)
+                          }
+                          loadWarning={state.lastScenarioLoadWarning}
+                          onDismissWarning={dismissScenarioLoadWarning}
+                          canSave={!!canShowScenario}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {modelMode === 'new' && (
+                    <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-sm">
+                      <SavedScenariosSection
+                        scenarios={state.savedScenarios}
+                        onLoad={loadScenario}
+                        onDuplicate={duplicateScenario}
+                        onDelete={deleteScenario}
+                        onSaveNew={(name) =>
+                          saveCurrentScenario(name, effectiveProvider ?? undefined)
+                        }
+                        loadWarning={state.lastScenarioLoadWarning}
+                        onDismissWarning={dismissScenarioLoadWarning}
+                        canSave={!!canShowScenario}
+                      />
+                    </div>
+                  )}
+                  <BaselineVsModeledSection
+                    provider={effectiveProvider}
+                    results={state.lastResults}
+                    scenarioInputs={state.scenarioInputs}
+                    onScenarioChange={setScenarioInputs}
+                  />
+                </>
+              ) : (
+                <>
+                  <Card>
+                    <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                      Select a provider on the Provider step first to set scenario parameters.
+                    </CardContent>
+                  </Card>
+                  <div className="flex justify-end">
+                    <SavedScenariosSection
+                      scenarios={state.savedScenarios}
+                      onLoad={loadScenario}
+                      onDuplicate={duplicateScenario}
+                      onDelete={deleteScenario}
+                      onSaveNew={(name) =>
+                        saveCurrentScenario(name, effectiveProvider ?? undefined)
+                      }
+                      loadWarning={state.lastScenarioLoadWarning}
+                      onDismissWarning={dismissScenarioLoadWarning}
+                      canSave={!!canShowScenario}
+                    />
+                  </div>
+                </>
+              )}
+            </section>
+          )}
+
+          {/* Screen 3: Market data */}
+          {modellerStep === 'market' && (
+            <section>
+              <h2 className="section-title">Market data</h2>
+              <p className="section-subtitle mb-4">
+                TCC, wRVU, and CF percentiles for the selected specialty.
+              </p>
+              {canShowScenario ? (
+                <MarketDataCard
+                  marketRow={marketRow}
+                  specialtyLabel={state.selectedSpecialty ?? undefined}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                    Select a provider and specialty on the Provider step first.
+                  </CardContent>
+                </Card>
+              )}
+            </section>
+          )}
+
+          {/* Screen 4: Results — impact report first, then detailed comparison */}
+          {modellerStep === 'results' && (
+            <div className="space-y-10">
+              {canShowScenario && state.lastResults ? (
+                <>
+                  <ImpactReportPage
+                    results={state.lastResults}
+                    provider={effectiveProvider}
+                    scenarioInputs={state.scenarioInputs}
+                    providerLabel={
+                      effectiveProvider?.providerName
+                        ? `${effectiveProvider.providerName}${effectiveProvider.specialty ? ` · ${effectiveProvider.specialty}` : ''}`
+                        : undefined
+                    }
+                  />
+                  <section className="border-border/60 border-t pt-8">
+                    <h2 className="section-title mb-4">Market position & governance</h2>
+                    <div className="grid gap-6 md:grid-cols-1">
+                      <MarketPositionTable results={state.lastResults} />
+                      <GovernanceFlags results={state.lastResults} />
+                    </div>
+                  </section>
+                </>
+              ) : (
+                <Card>
+                  <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                    Select a provider and set scenario parameters in the previous steps to see results.
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
         </div>
       )}
+
+      {step === 'batch-scenario' && (
+        <BatchScenarioStep
+          providerRows={state.providerRows}
+          marketRows={state.marketRows}
+          scenarioInputs={state.scenarioInputs}
+          setScenarioInputs={setScenarioInputs}
+          savedScenarios={state.savedScenarios}
+          batchSynonymMap={state.batchSynonymMap}
+          updateBatchSynonymMap={updateBatchSynonymMap}
+          removeBatchSynonym={removeBatchSynonym}
+          onRunComplete={handleBatchRunComplete}
+        />
+      )}
+
+      {step === 'batch-results' && state.batchResults && (
+        <BatchResultsDashboard results={state.batchResults} />
+      )}
+
+      {step === 'batch-results' && !state.batchResults && (
+        <div className="space-y-6">
+          <h2 className="section-title">Batch results</h2>
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground text-sm">
+              Run the model on the Batch scenario step first to see results.
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
     </AppLayout>
   )
 }

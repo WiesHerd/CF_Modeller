@@ -1,6 +1,6 @@
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
-import type { ScenarioInputs, ScenarioResults, RiskAssessment } from '@/types/scenario'
+import type { ScenarioInputs, ScenarioResults, RiskAssessment, GovernanceFlags } from '@/types/scenario'
 import { interpPercentile, inferPercentile } from '@/lib/interpolation'
 
 function num(x: unknown): number {
@@ -15,6 +15,26 @@ function safeDiv(a: number, b: number, fallback: number): number {
   return Number.isNaN(q) ? fallback : q
 }
 
+/**
+ * Imputed total cash compensation per wRVU.
+ * Inputs: salary (TCC), total FTE, clinical FTE, actual wRVUs.
+ * Normalizes wRVUs to a full 1.0 FTE (wRVUs / clinical FTE), then salary / adjusted wRVUs.
+ * Equivalently: (salary * clinical FTE) / wRVUs.
+ * Returns 0 on division by zero (clinical FTE or wRVUs zero).
+ */
+export function imputedTCCPerWRVU(
+  salary: number,
+  _totalFTE: number,
+  clinicalFTE: number,
+  actualWRVUs: number
+): number {
+  if (clinicalFTE <= 0 || actualWRVUs <= 0 || !Number.isFinite(salary)) return 0
+  const adjustedWRVUs = actualWRVUs / clinicalFTE
+  if (!Number.isFinite(adjustedWRVUs) || adjustedWRVUs <= 0) return 0
+  const value = salary / adjustedWRVUs
+  return Number.isFinite(value) ? value : 0
+}
+
 const LOW_FTE_RISK = 0.7
 const LOW_WRVU_WARNING = 1000
 
@@ -26,14 +46,31 @@ export function computeScenario(
   const warnings: string[] = []
   const highRisk: string[] = []
 
-  const baseSalary = num(provider.baseSalary)
+  const baseSalaryFromComponents =
+    provider.basePayComponents?.length &&
+    provider.basePayComponents.some((c) => Number(c?.amount) > 0)
+      ? provider.basePayComponents.reduce(
+          (sum, c) => sum + (typeof c?.amount === 'number' && Number.isFinite(c.amount) ? c.amount : 0),
+          0
+        )
+      : 0
+  const baseSalary =
+    baseSalaryFromComponents > 0 ? baseSalaryFromComponents : num(provider.baseSalary)
+  /** Clinical portion of salary: use explicit value when present, else baseSalary (treated as clinical base). */
+  const clinicalBaseSalary =
+    provider.clinicalFTESalary != null && Number.isFinite(provider.clinicalFTESalary)
+      ? num(provider.clinicalFTESalary)
+      : baseSalary
   const totalFTE = num(provider.totalFTE) || 1
   const clinicalFTE = num(provider.clinicalFTE) || totalFTE || 1
   const totalWRVUs =
     num(provider.totalWRVUs) ||
-    num(provider.pchWRVUs) + num(provider.outsideWRVUs)
+    num(provider.workRVUs) + num(provider.pchWRVUs) + num(provider.outsideWRVUs)
   const psqPercent = scenario.psqPercent ?? 0
-  const psqDollars = baseSalary * (psqPercent / 100)
+  const currentPsqPercent = scenario.currentPsqPercent ?? 0
+  const psqBasis = scenario.psqBasis ?? 'base_salary'
+  // PSQ $ for base_salary / total_guaranteed computed after we have modeled base/non-clinical and incentive (for total_pay)
+  const modeledBase = scenario.modeledBasePay != null && Number.isFinite(scenario.modeledBasePay) ? scenario.modeledBasePay : baseSalary
 
   if (clinicalFTE < LOW_FTE_RISK)
     highRisk.push(`Clinical FTE (${clinicalFTE}) < ${LOW_FTE_RISK}`)
@@ -42,9 +79,46 @@ export function computeScenario(
   if (totalWRVUs < LOW_WRVU_WARNING && totalWRVUs > 0)
     warnings.push(`Total wRVUs (${totalWRVUs}) low; ratios may be unstable`)
 
+  const currentCF = num(provider.currentCF)
+  // Baseline threshold: use provider value if set and positive, else clinical portion of salary ÷ CF
+  const currentThresholdRaw = num(provider.currentThreshold)
+  const currentThreshold =
+    currentThresholdRaw > 0
+      ? currentThresholdRaw
+      : safeDiv(clinicalBaseSalary, currentCF, 0)
+  const currentIncentive =
+    currentCF > 0
+      ? (totalWRVUs - currentThreshold) * currentCF
+      : 0
+
+  let modeledCF: number
+  if (scenario.cfSource === 'override' && scenario.overrideCF != null && Number.isFinite(scenario.overrideCF)) {
+    modeledCF = scenario.overrideCF
+  } else {
+    const interpolatedCF = interpPercentile(
+      scenario.proposedCFPercentile,
+      market.CF_25,
+      market.CF_50,
+      market.CF_75,
+      market.CF_90
+    )
+    const cfAdjustmentPct = scenario.haircutPct ?? (1 - num(scenario.cfAdjustmentFactor)) * 100
+    modeledCF = interpolatedCF * (1 - cfAdjustmentPct / 100)
+  }
+
+  // Threshold (wRVUs) = Clinical Salary ÷ CF (clinical portion of base pay ÷ conversion factor).
+  // Modeled clinical salary = modeled base × (clinical FTE / total FTE).
+  const modeledClinicalSalary =
+    totalFTE > 0 ? modeledBase * (clinicalFTE / totalFTE) : modeledBase
+  const derivedThreshold = safeDiv(modeledClinicalSalary, modeledCF, 0)
+
   let annualThreshold: number
-  if (scenario.thresholdMethod === 'annual') {
-    annualThreshold = num(scenario.annualThreshold) ?? num(provider.currentThreshold) ?? 0
+  if (scenario.thresholdMethod === 'derived') {
+    annualThreshold = derivedThreshold
+  } else if (scenario.thresholdMethod === 'annual') {
+    const manual = num(scenario.annualThreshold) ?? num(provider.currentThreshold)
+    // If no valid manual threshold, use derived (clinical base ÷ CF) so incentive is only above break-even
+    annualThreshold = manual > 0 ? manual : derivedThreshold
   } else {
     const wrvuPct = scenario.wrvuPercentile ?? 50
     const thresholdPerFTE = interpPercentile(
@@ -57,32 +131,39 @@ export function computeScenario(
     annualThreshold = thresholdPerFTE * clinicalFTE
   }
 
-  const wRVUsAboveThreshold = Math.max(0, totalWRVUs - annualThreshold)
-
-  const interpolatedCF = interpPercentile(
-    scenario.proposedCFPercentile,
-    market.CF_25,
-    market.CF_50,
-    market.CF_75,
-    market.CF_90
-  )
-  const modeledCF = interpolatedCF * num(scenario.cfAdjustmentFactor)
-  const currentCF = num(provider.currentCF)
-
+  const modeledTotalWRVUs =
+    scenario.modeledWRVUs != null && Number.isFinite(scenario.modeledWRVUs)
+      ? scenario.modeledWRVUs
+      : totalWRVUs
+  const wRVUsAboveThreshold = modeledTotalWRVUs - annualThreshold
   const annualIncentive = wRVUsAboveThreshold * modeledCF
 
-  const currentTCCFromProvider = num(provider.currentTCC)
-  const currentThreshold = num(provider.currentThreshold)
-  const currentIncentive =
-    currentCF > 0
-      ? Math.max(0, totalWRVUs - currentThreshold) * currentCF
-      : 0
-  const currentTCC =
-    currentTCCFromProvider > 0
-      ? currentTCCFromProvider
-      : baseSalary + currentIncentive + psqDollars
+  // Base salary = total salary (includes non-clinical as a component). Do not add non-clinical on top.
+  // TCC = base salary (total) + wRVU incentives (if positive) + PSQ + quality payments + other incentives.
+  const currentIncentiveForTCC = currentIncentive > 0 ? currentIncentive : 0
+  const annualIncentiveForTCC = annualIncentive > 0 ? annualIncentive : 0
+  // Quality payments: use qualityPayments column, or legacy currentTCC when file has that column.
+  const qualityPayments = num(provider.qualityPayments) || num(provider.currentTCC) || 0
+  const otherIncentives = num(provider.otherIncentives) || 0
 
-  const modeledTCC = baseSalary + annualIncentive + psqDollars
+  // PSQ dollars: current uses currentPsqPercent, modeled uses psqPercent. Same basis for both.
+  let psqDollars: number
+  let currentPsqDollars: number
+  if (psqBasis === 'total_pay') {
+    const otherComp = modeledBase + annualIncentiveForTCC
+    psqDollars = psqPercent > 0 && psqPercent < 100 ? (otherComp * (psqPercent / 100)) / (1 - psqPercent / 100) : 0
+    const currentOther = baseSalary + currentIncentiveForTCC
+    currentPsqDollars = currentPsqPercent > 0 && currentPsqPercent < 100 ? (currentOther * (currentPsqPercent / 100)) / (1 - currentPsqPercent / 100) : 0
+  } else {
+    const psqBase = baseSalary
+    currentPsqDollars = psqBase * (currentPsqPercent / 100)
+    const modeledPsqBase = modeledBase
+    psqDollars = modeledPsqBase * (psqPercent / 100)
+  }
+
+  // TCC = base + incentive + PSQ + quality payments + other incentives. Non-clinical is part of base.
+  const currentTCC = baseSalary + currentIncentiveForTCC + currentPsqDollars + qualityPayments + otherIncentives
+  const modeledTCC = modeledBase + annualIncentiveForTCC + psqDollars
   const changeInTCC = modeledTCC - currentTCC
 
   const wrvuNorm = safeDiv(totalWRVUs, clinicalFTE, totalWRVUs)
@@ -120,7 +201,17 @@ export function computeScenario(
           market.CF_90
         )
       : { percentile: 0 }
-  const cfModeledPct = scenario.proposedCFPercentile
+  const cfModeledPctResult =
+    scenario.cfSource === 'override'
+      ? inferPercentile(
+          modeledCF,
+          market.CF_25,
+          market.CF_50,
+          market.CF_75,
+          market.CF_90
+        )
+      : { percentile: scenario.proposedCFPercentile }
+  const cfModeledPct = cfModeledPctResult.percentile
 
   if (wrvuPctResult.belowRange || wrvuPctResult.aboveRange)
     warnings.push('wRVU percentile is off-scale (below 25 or above 90)')
@@ -129,32 +220,75 @@ export function computeScenario(
   if (cfPctResult.belowRange || cfPctResult.aboveRange)
     warnings.push('CF percentile is off-scale (below 25 or above 90)')
 
-  const imputedTCCPerWRVURatioCurrent = safeDiv(
-    currentTCC,
-    totalWRVUs,
-    0
-  )
-  const imputedTCCPerWRVURatioModeled = safeDiv(
-    modeledTCC,
-    totalWRVUs,
-    0
-  )
+  // Imputed TCC per wRVU: normalize wRVUs to 1.0 FTE (wRVUs / clinical FTE), then TCC / adjusted wRVUs. Handles FTE/wRVU zero.
+  const imputedTCCPerWRVURatioCurrent = imputedTCCPerWRVU(currentTCC, totalFTE, clinicalFTE, totalWRVUs)
+  const imputedTCCPerWRVURatioModeled = imputedTCCPerWRVU(modeledTCC, totalFTE, clinicalFTE, modeledTotalWRVUs)
+
+  // Benchmark imputed $/wRVU using market TCC/wRVU percentile ratios (Rule: assign percentile via market $/wRVU distributions)
+  const marketDp25 = safeDiv(market.TCC_25, market.WRVU_25, 0)
+  const marketDp50 = safeDiv(market.TCC_50, market.WRVU_50, 0)
+  const marketDp75 = safeDiv(market.TCC_75, market.WRVU_75, 0)
+  const marketDp90 = safeDiv(market.TCC_90, market.WRVU_90, 0)
+  const imputedPctCurrent =
+    marketDp50 > 0
+      ? inferPercentile(
+          imputedTCCPerWRVURatioCurrent,
+          marketDp25,
+          marketDp50,
+          marketDp75,
+          marketDp90
+        )
+      : { percentile: 0 }
+  const imputedPctModeled =
+    marketDp50 > 0
+      ? inferPercentile(
+          imputedTCCPerWRVURatioModeled,
+          marketDp25,
+          marketDp50,
+          marketDp75,
+          marketDp90
+        )
+      : { percentile: 0 }
+
+  const alignmentGapBaseline = tccPctResult.percentile - wrvuPctResult.percentile
+  const alignmentGapModeled = tccModeledPctResult.percentile - wrvuPctResult.percentile
+
+  const governanceFlags: GovernanceFlags = {
+    underpayRisk: alignmentGapBaseline < -15 || alignmentGapModeled < -15,
+    cfBelow25: cfPctResult.percentile < 25,
+    modeledInPolicyBand:
+      cfModeledPct >= 25 &&
+      cfModeledPct <= 75 &&
+      tccModeledPctResult.percentile >= 25 &&
+      tccModeledPctResult.percentile <= 75,
+    fmvCheckSuggested:
+      tccModeledPctResult.percentile > 75 || alignmentGapModeled > 15,
+  }
 
   const risk: RiskAssessment = { highRisk, warnings }
 
   return {
     totalWRVUs,
+    wrvuNormalized: wrvuNorm,
+    tccNormalized: tccNorm,
+    modeledTccNormalized: modeledTccNorm,
     annualThreshold,
     wRVUsAboveThreshold,
     currentCF,
     modeledCF,
+    currentIncentive,
     imputedTCCPerWRVURatioCurrent,
     imputedTCCPerWRVURatioModeled,
+    imputedTCCPerWRVUPercentileCurrent: imputedPctCurrent.percentile,
+    imputedTCCPerWRVUPercentileModeled: imputedPctModeled.percentile,
     annualIncentive,
     psqDollars,
+    currentPsqDollars,
     currentTCC,
     modeledTCC,
     changeInTCC,
+    alignmentGapBaseline,
+    alignmentGapModeled,
     wrvuPercentile: wrvuPctResult.percentile,
     wrvuPercentileBelowRange: wrvuPctResult.belowRange,
     wrvuPercentileAboveRange: wrvuPctResult.aboveRange,
@@ -166,6 +300,7 @@ export function computeScenario(
     cfPercentileCurrentBelowRange: cfPctResult.belowRange,
     cfPercentileCurrentAboveRange: cfPctResult.aboveRange,
     cfPercentileModeled: cfModeledPct,
+    governanceFlags,
     risk,
     warnings,
   }

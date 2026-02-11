@@ -7,20 +7,25 @@ import type { MarketRow } from '@/types/market'
  */
 export const SAMPLE_PROVIDER_ROWS: ProviderRow[] = [
   {
-    providerId: 'P001',
+    providerId: 'Jane Smith',
     providerName: 'Jane Smith',
     specialty: 'Cardiology',
     division: 'Heart',
     totalFTE: 1,
     clinicalFTE: 0.9,
     adminFTE: 0.1,
+    researchFTE: 0,
+    teachingFTE: 0,
     baseSalary: 450_000,
-    currentTCC: 475_000,
-    pchWRVUs: 5200,
+    qualityPayments: 0,
+    otherIncentives: 0,
+    workRVUs: 5200,
     outsideWRVUs: 200,
     totalWRVUs: 5400,
     currentCF: 85,
     currentThreshold: 80,
+    nonClinicalPay: 10_000,
+    productivityModel: 'productivity',
   },
 ]
 

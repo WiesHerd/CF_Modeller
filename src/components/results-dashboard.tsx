@@ -1,8 +1,18 @@
-import { BarChart3 } from 'lucide-react'
+import {
+  BarChart3,
+  DollarSign,
+  Target,
+  TrendingUp,
+  Activity,
+  Percent,
+  Gift,
+  BadgeDollarSign,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RiskBadges } from '@/components/risk-badges'
 import { PercentileComparisonChart } from '@/components/charts/percentile-comparison-chart'
-import { CFComparisonChart } from '@/components/charts/cf-comparison-chart'
+import { CFComparisonTable } from '@/components/cf-comparison-table'
+import { formatCurrency } from '@/utils/format'
 import type { ScenarioResults } from '@/types/scenario'
 
 interface ResultsDashboardProps {
@@ -13,12 +23,7 @@ function fmtNum(n: number): string {
   return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2)
 }
 function fmtMoney(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(n)
+  return formatCurrency(n, { decimals: 0 })
 }
 
 export function ResultsDashboard({ results }: ResultsDashboardProps) {
@@ -60,7 +65,12 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total wRVUs</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <Activity className="size-4" />
+              </span>
+              Total wRVUs
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{fmtNum(totalWRVUs)}</p>
@@ -68,7 +78,12 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Annual threshold</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <Target className="size-4" />
+              </span>
+              Annual threshold
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{fmtNum(annualThreshold)}</p>
@@ -76,7 +91,12 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">wRVUs above threshold</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <TrendingUp className="size-4" />
+              </span>
+              wRVUs above threshold
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{fmtNum(wRVUsAboveThreshold)}</p>
@@ -84,7 +104,12 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Current TCC</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <DollarSign className="size-4" />
+              </span>
+              Current TCC
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{fmtMoney(currentTCC)}</p>
@@ -92,7 +117,12 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Modeled TCC</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <DollarSign className="size-4" />
+              </span>
+              Modeled TCC
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{fmtMoney(modeledTCC)}</p>
@@ -100,7 +130,12 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Change in TCC</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <TrendingUp className="size-4" />
+              </span>
+              Change in TCC
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p
@@ -114,17 +149,27 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">CF (current / modeled)</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <Percent className="size-4" />
+              </span>
+              CF (current / modeled)
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-lg font-semibold">
-              ${currentCF.toFixed(2)} / ${modeledCF.toFixed(2)}
+              {formatCurrency(currentCF)} / {formatCurrency(modeledCF)}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Annual incentive</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <Gift className="size-4" />
+              </span>
+              Annual incentive
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{fmtMoney(annualIncentive)}</p>
@@ -132,7 +177,12 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">PSQ dollars</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <BadgeDollarSign className="size-4" />
+              </span>
+              PSQ dollars
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-semibold">{fmtMoney(psqDollars)}</p>
@@ -142,7 +192,12 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Percentile comparison</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+              <BarChart3 className="size-4" />
+            </span>
+            Percentile comparison
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <PercentileComparisonChart
@@ -156,10 +211,15 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">CF comparison</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+              <Percent className="size-4" />
+            </span>
+            CF comparison
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <CFComparisonChart
+          <CFComparisonTable
             cfPercentileCurrent={cfPercentileCurrent}
             cfPercentileModeled={cfPercentileModeled}
             currentCF={currentCF}

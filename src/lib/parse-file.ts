@@ -68,10 +68,15 @@ export async function parseFile(
   return { rows, headers }
 }
 
+/**
+ * Parse a string to a number. Tolerates commas, spaces, and trailing junk (e.g. "1 -" from Excel).
+ */
 function toNum(v: string): number {
   if (v == null || v === '') return 0
   const s = String(v).replace(/,/g, '').trim()
-  const n = Number(s)
+  // Allow leading number then ignore rest (e.g. "1 -" or "0.8 something")
+  const match = s.match(/^-?\d*\.?\d+/)
+  const n = match ? Number(match[0]) : Number(s)
   return Number.isNaN(n) ? 0 : n
 }
 
@@ -85,7 +90,7 @@ export function applyProviderMapping(
 ): { rows: ProviderRow[]; errors: string[] } {
   const errors: string[] = []
   const out: ProviderRow[] = []
-  const required: (keyof ProviderRow)[] = ['providerId', 'providerName', 'baseSalary', 'totalWRVUs']
+  const required: (keyof ProviderRow)[] = ['providerName', 'baseSalary']
   for (let i = 0; i < rows.length; i++) {
     const raw = rows[i]
     const row: ProviderRow = {}
@@ -98,26 +103,42 @@ export function applyProviderMapping(
           'totalFTE',
           'clinicalFTE',
           'adminFTE',
+          'researchFTE',
+          'teachingFTE',
           'baseSalary',
+          'clinicalFTESalary',
           'currentTCC',
-          'pchWRVUs',
+          'qualityPayments',
+          'otherIncentives',
+          'workRVUs',
           'outsideWRVUs',
-          'totalWRVUs',
           'currentCF',
           'currentThreshold',
+          'nonClinicalPay',
         ].includes(key)
       ) {
         ;(row as Record<string, number>)[key] = toNum(val)
       } else {
-        ;(row as Record<string, string>)[key] = val
+        if (key === 'productivityModel') {
+          const v = val.trim().toLowerCase()
+          ;(row as Record<string, string>)[key] = v === 'prod' ? 'productivity' : v === 'base' ? 'base' : val.trim()
+        } else {
+          ;(row as Record<string, string>)[key] = val
+        }
       }
     }
-    if (!row.totalWRVUs && (row.pchWRVUs != null || row.outsideWRVUs != null)) {
-      row.totalWRVUs = (row.pchWRVUs ?? 0) + (row.outsideWRVUs ?? 0)
+    // Total wRVUs = work RVUs + other (outside) wRVUs; not a file column
+    if (row.workRVUs != null || row.outsideWRVUs != null) {
+      row.totalWRVUs = (row.workRVUs ?? 0) + (row.outsideWRVUs ?? 0)
+    }
+    // Selection key: use provider name when no ID in file
+    if (row.providerName != null && row.providerName !== '' && row.providerId == null) {
+      row.providerId = String(row.providerName)
     }
     const missing = required.filter((k) => row[k] == null || row[k] === '')
     if (missing.length) {
       errors.push(`Row ${i + 2}: missing ${missing.join(', ')}`)
+      continue
     }
     out.push(row)
   }
@@ -138,6 +159,81 @@ export function buildDefaultMapping(
     if (h) mapping[exp] = h
   }
   return mapping
+}
+
+/** Aliases for provider file headers so "wRVUs", "Total FTE", "Quality payments", etc. map correctly. */
+const PROVIDER_ALIASES: Record<string, string[]> = {
+  workRVUs: ['workrvus', 'wrvus', 'work rvus'],
+  productivityModel: ['productivitymodel', 'productivity', 'prod model'],
+  totalFTE: ['totalfte', 'total fte', 'totalftes'],
+  clinicalFTE: ['clinicalfte', 'clinical fte', 'clinicalftes'],
+  adminFTE: ['adminfte', 'admin fte', 'adminftes'],
+  researchFTE: ['researchfte', 'research fte', 'researchftes'],
+  teachingFTE: ['teachingfte', 'teaching fte', 'teachingftes'],
+  qualityPayments: ['qualitypayments', 'quality payments', 'currenttcc', 'current tcc'],
+  otherIncentives: ['otherincentives', 'other incentives'],
+}
+
+/**
+ * Build default provider mapping with aliases so columns like "wRVUs" and "Productivity" match.
+ */
+export function buildDefaultProviderMapping(
+  headers: string[],
+  expected: readonly string[]
+): ColumnMapping {
+  const base = buildDefaultMapping(headers, expected)
+  const lowerHeaders = new Map(headers.map((h) => [h.toLowerCase().trim(), h]))
+  for (const [exp, aliases] of Object.entries(PROVIDER_ALIASES)) {
+    if (base[exp]) continue
+    for (const alias of aliases) {
+      const h = lowerHeaders.get(alias)
+      if (h) {
+        base[exp] = h
+        break
+      }
+    }
+    if (!base[exp]) {
+      for (const [headerLower, header] of lowerHeaders) {
+        if (exp === 'workRVUs' && headerLower.includes('wrvu') && !headerLower.includes('outside')) {
+          base.workRVUs = header
+          break
+        }
+        if (exp === 'productivityModel' && (headerLower.includes('productivity') || headerLower === 'prod')) {
+          base.productivityModel = header
+          break
+        }
+        if (exp === 'totalFTE' && headerLower.includes('total') && headerLower.includes('fte')) {
+          base.totalFTE = header
+          break
+        }
+        if (exp === 'clinicalFTE' && headerLower.includes('clinical') && headerLower.includes('fte')) {
+          base.clinicalFTE = header
+          break
+        }
+        if (exp === 'adminFTE' && headerLower.includes('admin') && headerLower.includes('fte')) {
+          base.adminFTE = header
+          break
+        }
+        if (exp === 'researchFTE' && headerLower.includes('research') && headerLower.includes('fte')) {
+          base.researchFTE = header
+          break
+        }
+        if (exp === 'teachingFTE' && headerLower.includes('teaching') && headerLower.includes('fte')) {
+          base.teachingFTE = header
+          break
+        }
+        if (exp === 'qualityPayments' && (headerLower.includes('quality') || headerLower.includes('currenttcc'))) {
+          base.qualityPayments = header
+          break
+        }
+        if (exp === 'otherIncentives' && headerLower.includes('other') && headerLower.includes('incentive')) {
+          base.otherIncentives = header
+          break
+        }
+      }
+    }
+  }
+  return base
 }
 
 /**
