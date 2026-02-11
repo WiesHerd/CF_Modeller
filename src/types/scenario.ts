@@ -5,7 +5,7 @@ import type { ProviderRow } from '@/types/provider'
  */
 export type ThresholdMethod = 'annual' | 'wrvu_percentile' | 'derived'
 
-export type CFSource = 'target_haircut' | 'override'
+export type CFSource = 'target_haircut' | 'target_percentile' | 'override'
 
 /** Basis for PSQ / value-based payment percentage. */
 export type PSQBasis = 'base_salary' | 'total_guaranteed' | 'total_pay'

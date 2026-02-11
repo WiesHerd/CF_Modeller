@@ -42,11 +42,18 @@ export interface BatchResults {
   providerCount: number
 }
 
+/** Optional overrides per specialty and/or provider; merged over base scenario inputs (provider overrides beat specialty). */
+export interface BatchOverrides {
+  bySpecialty?: Record<string, Partial<ScenarioInputs>>
+  byProviderId?: Record<string, Partial<ScenarioInputs>>
+}
+
 /** Options for runBatch. */
 export interface RunBatchOptions {
   synonymMap?: SynonymMap
   onProgress?: (processed: number, total: number, elapsedMs: number) => void
   chunkSize?: number
+  overrides?: BatchOverrides
 }
 
 /** Result of matchMarketRow. */

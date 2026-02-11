@@ -102,8 +102,12 @@ export function computeScenario(
       market.CF_75,
       market.CF_90
     )
-    const cfAdjustmentPct = scenario.haircutPct ?? (1 - num(scenario.cfAdjustmentFactor)) * 100
-    modeledCF = interpolatedCF * (1 - cfAdjustmentPct / 100)
+    if (scenario.cfSource === 'target_percentile') {
+      modeledCF = interpolatedCF
+    } else {
+      const cfAdjustmentPct = scenario.haircutPct ?? (1 - num(scenario.cfAdjustmentFactor)) * 100
+      modeledCF = interpolatedCF * (1 - cfAdjustmentPct / 100)
+    }
   }
 
   // Threshold (wRVUs) = Clinical Salary ÷ CF (clinical portion of base pay ÷ conversion factor).
@@ -210,7 +214,7 @@ export function computeScenario(
           market.CF_75,
           market.CF_90
         )
-      : { percentile: scenario.proposedCFPercentile }
+      : { percentile: scenario.proposedCFPercentile } // target_haircut and target_percentile: modeled CF is at this percentile
   const cfModeledPct = cfModeledPctResult.percentile
 
   if (wrvuPctResult.belowRange || wrvuPctResult.aboveRange)

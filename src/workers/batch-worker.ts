@@ -5,7 +5,7 @@
 import type { ProviderRow } from '../types/provider'
 import type { MarketRow } from '../types/market'
 import type { ScenarioInputs } from '../types/scenario'
-import type { BatchResults, SynonymMap } from '../types/batch'
+import type { BatchResults, BatchOverrides, SynonymMap } from '../types/batch'
 import { runBatch } from '../lib/batch'
 
 export interface BatchWorkerRunPayload {
@@ -15,6 +15,7 @@ export interface BatchWorkerRunPayload {
   scenarios: { id: string; name: string; scenarioInputs: ScenarioInputs }[]
   synonymMap?: SynonymMap
   chunkSize?: number
+  overrides?: BatchOverrides
 }
 
 export interface BatchWorkerProgressMessage {
@@ -32,12 +33,13 @@ export interface BatchWorkerDoneMessage {
 export type BatchWorkerOutMessage = BatchWorkerProgressMessage | BatchWorkerDoneMessage
 
 self.onmessage = (e: MessageEvent<BatchWorkerRunPayload>) => {
-  const { type, providers, marketRows, scenarios, synonymMap, chunkSize } = e.data
+  const { type, providers, marketRows, scenarios, synonymMap, chunkSize, overrides } = e.data
   if (type !== 'run') return
 
   const results = runBatch(providers, marketRows, scenarios, {
     synonymMap: synonymMap ?? {},
     chunkSize: chunkSize ?? 200,
+    overrides,
     onProgress(processed, total, elapsedMs) {
       const msg: BatchWorkerProgressMessage = {
         type: 'progress',

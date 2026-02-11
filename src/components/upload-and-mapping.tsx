@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Users, BarChart2, FileSpreadsheet, AlertCircle, ChevronRight, ChevronLeft, Search, Eye, Download, Pencil, Trash2 } from 'lucide-react'
+import { Users, BarChart2, FileSpreadsheet, AlertCircle, ChevronRight, ChevronLeft, Search, Eye, Download, Pencil, Trash2, Link2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -24,8 +24,10 @@ import type { RawRow } from '@/types/upload'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ColumnMapping } from '@/types/upload'
+import type { SynonymMap } from '@/types/batch'
 import { PROVIDER_EXPECTED_COLUMNS } from '@/types/provider'
 import { MARKET_EXPECTED_COLUMNS } from '@/types/market'
+import { SynonymEditor } from '@/components/batch/synonym-editor'
 import {
   downloadSampleCsv,
   PROVIDER_SAMPLE_CSV,
@@ -81,6 +83,10 @@ interface UploadAndMappingProps {
   onUpdateProviderRow?: (providerId: string, updates: Partial<ProviderRow>) => void
   /** When true, the current provider/market rows are built-in sample data (no saved upload). */
   usedSampleDataOnLoad?: boolean
+  /** Specialty synonym map (provider → market); edited here and reused in batch. */
+  batchSynonymMap: SynonymMap
+  onAddSynonym: (key: string, value: string) => void
+  onRemoveSynonym: (key: string) => void
 }
 
 export function UploadAndMapping({
@@ -90,6 +96,9 @@ export function UploadAndMapping({
   existingMarketRows,
   onUpdateProviderRow,
   usedSampleDataOnLoad = false,
+  batchSynonymMap,
+  onAddSynonym,
+  onRemoveSynonym,
 }: UploadAndMappingProps) {
   const [providerRaw, setProviderRaw] = useState<RawFileState | null>(null)
   const [marketRaw, setMarketRaw] = useState<RawFileState | null>(null)
@@ -144,6 +153,7 @@ export function UploadAndMapping({
     productivityModel: '',
   }
   const [editForm, setEditForm] = useState<EditFormState>(emptyEditForm)
+  const [showMappings, setShowMappings] = useState(false)
   const providerFileInputRef = useRef<HTMLInputElement>(null)
   const marketFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -358,6 +368,15 @@ export function UploadAndMapping({
   const marketTotalPages = Math.max(1, Math.ceil(marketFiltered.length / marketPageSize))
   const marketStart = marketFiltered.length === 0 ? 0 : marketPage * marketPageSize + 1
   const marketEnd = Math.min((marketPage + 1) * marketPageSize, marketFiltered.length)
+
+  const providerSpecialties = useMemo(() => {
+    const set = new Set(existingProviderRows.map((r) => r.specialty).filter(Boolean))
+    return Array.from(set).sort() as string[]
+  }, [existingProviderRows])
+  const marketSpecialties = useMemo(() => {
+    const set = new Set(existingMarketRows.map((r) => r.specialty).filter(Boolean))
+    return Array.from(set).sort() as string[]
+  }, [existingMarketRows])
 
   const parseNum = (s: string): number | undefined => {
     const n = parseFloat(s)
@@ -702,10 +721,7 @@ export function UploadAndMapping({
         </Alert>
       )}
       <div className="grid gap-6 sm:grid-cols-2">
-        <Card
-          className={`overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-shadow hover:shadow-md ${providerHasData ? 'cursor-pointer' : ''}`}
-          onClick={() => providerHasData && setExpandedCard((c) => (c === 'provider' ? null : 'provider'))}
-        >
+        <Card className="cursor-default overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-shadow hover:shadow-md">
           <CardContent className="flex flex-col p-6">
             <div className="mb-4 flex items-center justify-between gap-3" onClick={(e) => e.stopPropagation()}>
               <div className="flex min-w-0 items-center gap-3">
@@ -735,7 +751,7 @@ export function UploadAndMapping({
                 type="button"
                 variant="default"
                 size="sm"
-                className="shrink-0"
+                className="shrink-0 cursor-pointer"
                 onClick={() => providerFileInputRef.current?.click()}
                 disabled={!!loading}
               >
@@ -755,19 +771,41 @@ export function UploadAndMapping({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="size-9 shrink-0"
+                  className="size-9 shrink-0 cursor-pointer"
                   onClick={() => downloadSampleCsv(PROVIDER_SAMPLE_FILENAME, PROVIDER_SAMPLE_CSV)}
                   title="Download sample"
                   aria-label="Download sample"
                 >
                   <Download className="size-4" />
                 </Button>
+                {providerHasData && existingMarketRows.length > 0 && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-9 shrink-0 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowMappings((prev) => !prev)
+                        }}
+                        aria-label={showMappings ? 'Hide specialty mapping' : 'Manage specialty mapping'}
+                      >
+                        <Link2 className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={6}>
+                      Specialty mapping{Object.keys(batchSynonymMap).length > 0 ? ` (${Object.keys(batchSynonymMap).length} saved)` : ''}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 {providerHasData && (
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="size-9 shrink-0"
+                    className="size-9 shrink-0 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
                       setExpandedCard((c) => (c === 'provider' ? null : 'provider'))
@@ -783,7 +821,7 @@ export function UploadAndMapping({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="size-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="size-9 shrink-0 cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation()
                       if (window.confirm('Clear all provider data and start over? This cannot be undone.')) {
@@ -807,10 +845,7 @@ export function UploadAndMapping({
           </CardContent>
         </Card>
 
-        <Card
-          className={`overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-shadow hover:shadow-md ${marketHasData ? 'cursor-pointer' : ''}`}
-          onClick={() => marketHasData && setExpandedCard((c) => (c === 'market' ? null : 'market'))}
-        >
+        <Card className="cursor-default overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-shadow hover:shadow-md">
           <CardContent className="flex flex-col p-6">
             <div className="mb-4 flex items-center justify-between gap-3" onClick={(e) => e.stopPropagation()}>
               <div className="flex min-w-0 items-center gap-3">
@@ -840,7 +875,7 @@ export function UploadAndMapping({
                 type="button"
                 variant="default"
                 size="sm"
-                className="shrink-0"
+                className="shrink-0 cursor-pointer"
                 onClick={() => marketFileInputRef.current?.click()}
                 disabled={!!loading}
               >
@@ -860,7 +895,7 @@ export function UploadAndMapping({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="size-9 shrink-0"
+                  className="size-9 shrink-0 cursor-pointer"
                   onClick={() => downloadSampleCsv(MARKET_SAMPLE_FILENAME, MARKET_SAMPLE_CSV)}
                   title="Download sample"
                   aria-label="Download sample"
@@ -872,7 +907,7 @@ export function UploadAndMapping({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="size-9 shrink-0"
+                    className="size-9 shrink-0 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
                       setExpandedCard((c) => (c === 'market' ? null : 'market'))
@@ -888,7 +923,7 @@ export function UploadAndMapping({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="size-9 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="size-9 shrink-0 cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation()
                       if (window.confirm('Clear all market data and start over? This cannot be undone.')) {
@@ -912,6 +947,17 @@ export function UploadAndMapping({
           </CardContent>
         </Card>
       </div>
+
+      {existingProviderRows.length > 0 && existingMarketRows.length > 0 && showMappings && (
+        <SynonymEditor
+          synonymMap={batchSynonymMap}
+          onAdd={onAddSynonym}
+          onRemove={onRemoveSynonym}
+          onHide={() => setShowMappings(false)}
+          providerSpecialties={providerSpecialties}
+          marketSpecialties={marketSpecialties}
+        />
+      )}
       </TooltipProvider>
 
       {loading && (

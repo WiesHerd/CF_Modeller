@@ -93,28 +93,57 @@ export function ResizableDataTable<T extends object>({
   }, [resizing, columns])
 
   const tableMinWidth = columns.reduce((sum, col) => sum + getWidth(col.key), 0)
+  const headerScrollRef = useRef<HTMLDivElement>(null)
+  const bodyScrollRef = useRef<HTMLDivElement>(null)
+
+  const syncHeaderScroll = useCallback(() => {
+    const body = bodyScrollRef.current
+    const header = headerScrollRef.current
+    if (body && header && body.scrollLeft !== header.scrollLeft) {
+      header.scrollLeft = body.scrollLeft
+    }
+  }, [])
+  const syncBodyScroll = useCallback(() => {
+    const body = bodyScrollRef.current
+    const header = headerScrollRef.current
+    if (body && header && header.scrollLeft !== body.scrollLeft) {
+      body.scrollLeft = header.scrollLeft
+    }
+  }, [])
+
+  /** Table fills container; columns use % so they distribute and no empty gap on the right. */
+  const tableStyles = { tableLayout: 'fixed' as const, width: '100%', minWidth: tableMinWidth }
+  const getColWidthPct = useCallback(
+    (key: string) => (tableMinWidth > 0 ? (getWidth(key) / tableMinWidth) * 100 : 100 / columns.length),
+    [tableMinWidth, getWidth, columns.length]
+  )
 
   return (
     <div
-      className={cn('relative w-full overflow-hidden rounded-lg border border-border/60 bg-card', className)}
+      className={cn('relative flex w-full flex-col overflow-hidden rounded-xl bg-card shadow-sm', className)}
       style={{ height: maxHeight, maxHeight }}
     >
-      <div className="overflow-touch h-full min-h-0 overflow-auto">
-        <table className="border-collapse text-sm" style={{ tableLayout: 'fixed', width: '100%', minWidth: tableMinWidth }}>
-          <thead className="sticky top-0 z-10 border-b border-border/60 bg-muted/50 shadow-sm">
+      {/* Header: outside scroll area so native scrollbar appears only on body */}
+      <div
+        ref={headerScrollRef}
+        className="flex-none overflow-x-auto overflow-y-hidden border-b border-border bg-muted [&::-webkit-scrollbar]:h-0"
+        onScroll={syncBodyScroll}
+        style={{ scrollbarWidth: 'none' }}
+      >
+        <table className="border-collapse text-sm" style={tableStyles}>
+          <thead className="group/thead [&_th]:bg-muted [&_th]:text-foreground">
             <tr>
               {columns.map((col) => {
-                const w = getWidth(col.key)
                 const align = col.align ?? 'left'
                 return (
                   <th
                     key={col.key}
                     className={cn(
-                      'relative h-11 px-3 text-xs font-semibold text-muted-foreground',
+                      'relative h-12 px-4 text-xs font-semibold tracking-wide',
                       align === 'right' && 'text-right',
                       align === 'center' && 'text-center'
                     )}
-                    style={{ width: w, minWidth: col.minWidth ?? DEFAULT_MIN }}
+                    style={{ width: `${getColWidthPct(col.key)}%`, minWidth: col.minWidth ?? DEFAULT_MIN }}
                     title={col.title}
                   >
                     <span className="block truncate">{col.label}</span>
@@ -124,8 +153,8 @@ export function ResizableDataTable<T extends object>({
                         aria-label={`Resize ${col.label}`}
                         onMouseDown={handleResizeStart(col.key)}
                         className={cn(
-                          'absolute right-0 top-0 h-full w-1 cursor-col-resize select-none border-r border-transparent hover:border-primary/40 hover:bg-primary/10',
-                          resizing === col.key && 'border-primary/60 bg-primary/20'
+                          'absolute right-0 top-0 h-full w-1 cursor-col-resize select-none opacity-0 transition-opacity group-hover/thead:opacity-100 hover:opacity-100 border-r border-transparent hover:border-primary/30 hover:bg-primary/5',
+                          resizing === col.key && 'opacity-100 border-primary/50 bg-primary/10'
                         )}
                       />
                     )}
@@ -134,10 +163,19 @@ export function ResizableDataTable<T extends object>({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-border/40">
+        </table>
+      </div>
+      {/* Body: native overflow scrollbar only here */}
+      <div
+        ref={bodyScrollRef}
+        className="overflow-touch min-h-0 flex-1 overflow-auto"
+        onScroll={syncHeaderScroll}
+      >
+        <table className="border-collapse text-sm" style={tableStyles}>
+          <tbody className="divide-y divide-border/30">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="py-8 text-center text-sm text-muted-foreground">
+                <td colSpan={columns.length} className="py-12 text-center text-sm text-muted-foreground">
                   No rows to display.
                 </td>
               </tr>
@@ -145,7 +183,7 @@ export function ResizableDataTable<T extends object>({
               rows.map((row, i) => (
                 <tr
                   key={((row as Record<string, unknown>)[keyField] as string) ?? i}
-                  className="hover:bg-muted/30 transition-colors"
+                  className="group hover:bg-muted/40 transition-colors"
                 >
                   {columns.map((col) => {
                     const value = (row as Record<string, unknown>)[col.key]
@@ -155,14 +193,14 @@ export function ResizableDataTable<T extends object>({
                       <td
                         key={col.key}
                         className={cn(
-                          'px-3 py-2 text-foreground',
+                          'px-4 py-3 text-foreground',
                           align === 'right' && 'text-right tabular-nums',
                           align === 'center' && 'text-center'
                         )}
                         style={{
-                          width: getWidth(col.key),
+                          width: `${getColWidthPct(col.key)}%`,
                           minWidth: col.minWidth ?? DEFAULT_MIN,
-                          maxWidth: getWidth(col.key),
+                          maxWidth: `${getColWidthPct(col.key)}%`,
                         }}
                       >
                         <span className="block truncate" title={typeof content === 'string' ? content : undefined}>

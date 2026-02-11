@@ -72,8 +72,11 @@ export default function App() {
 
   const handleAppModeChange = (mode: AppMode) => {
     setAppMode(mode)
-    if (mode === 'batch' && (step === 'modeller' || !['upload', 'batch-scenario', 'batch-results'].includes(step))) {
-      setStep('batch-scenario')
+    if (mode === 'batch') {
+      // When switching to Batch, show batch content: go to Batch scenario (or keep Results if already there)
+      if (step !== 'batch-scenario' && step !== 'batch-results') {
+        setStep('batch-scenario')
+      }
     }
     if (mode === 'single' && (step === 'batch-scenario' || step === 'batch-results')) {
       setStep('modeller')
@@ -87,14 +90,17 @@ export default function App() {
 
   const marketRow = useMemo(() => {
     if (!state.selectedSpecialty || state.marketRows.length === 0) return null
-    return (
-      state.marketRows.find(
-        (r) =>
-          (r.specialty ?? '').toLowerCase() ===
-          state.selectedSpecialty!.toLowerCase()
-      ) ?? null
+    const selected = state.selectedSpecialty
+    const direct = state.marketRows.find(
+      (r) => (r.specialty ?? '').toLowerCase() === selected.toLowerCase()
     )
-  }, [state.marketRows, state.selectedSpecialty])
+    if (direct) return direct
+    const mapped = state.batchSynonymMap[selected] ?? state.batchSynonymMap[selected.trim()] ?? state.batchSynonymMap[selected.toLowerCase()]
+    if (mapped) {
+      return state.marketRows.find((r) => (r.specialty ?? '').toLowerCase() === mapped.toLowerCase()) ?? null
+    }
+    return null
+  }, [state.marketRows, state.selectedSpecialty, state.batchSynonymMap])
 
   const selectedProvider = useMemo(() => {
     if (!state.selectedProviderId) return null
@@ -266,6 +272,9 @@ export default function App() {
             existingMarketRows={state.marketRows}
             onUpdateProviderRow={updateProvider}
             usedSampleDataOnLoad={state.usedSampleDataOnLoad}
+            batchSynonymMap={state.batchSynonymMap}
+            onAddSynonym={updateBatchSynonymMap}
+            onRemoveSynonym={removeBatchSynonym}
           />
         </div>
       )}
@@ -524,9 +533,8 @@ export default function App() {
           setScenarioInputs={setScenarioInputs}
           savedScenarios={state.savedScenarios}
           batchSynonymMap={state.batchSynonymMap}
-          updateBatchSynonymMap={updateBatchSynonymMap}
-          removeBatchSynonym={removeBatchSynonym}
           onRunComplete={handleBatchRunComplete}
+          onNavigateToUpload={() => setStep('upload')}
         />
       )}
 

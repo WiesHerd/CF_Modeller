@@ -2,6 +2,7 @@ import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, ScenarioResults } from '@/types/scenario'
 import type {
+  BatchOverrides,
   BatchRowResult,
   BatchResults,
   BatchRiskLevel,
@@ -111,7 +112,29 @@ export function deriveRiskLevel(results: ScenarioResults): BatchRiskLevel {
 const DEFAULT_CHUNK_SIZE = 200
 
 /**
+ * Resolve effective scenario inputs for one provider × scenario: base + bySpecialty + byProviderId (provider wins).
+ */
+function getEffectiveInputs(
+  base: ScenarioInputs,
+  specialty: string,
+  providerId: string,
+  overrides?: BatchOverrides
+): ScenarioInputs {
+  if (!overrides?.bySpecialty && !overrides?.byProviderId) {
+    return base
+  }
+  const bySpec = overrides.bySpecialty?.[specialty]
+  const byProv = overrides.byProviderId?.[providerId]
+  return {
+    ...base,
+    ...bySpec,
+    ...byProv,
+  }
+}
+
+/**
  * Run batch: for each provider × scenario, match market, then computeScenario (or emit Missing row).
+ * Optional overrides apply per specialty and/or provider; effective inputs are stored in each row.
  * Calls onProgress after each chunk. Returns BatchResults.
  */
 export function runBatch(
@@ -124,6 +147,7 @@ export function runBatch(
     synonymMap = {},
     onProgress,
     chunkSize = DEFAULT_CHUNK_SIZE,
+    overrides,
   } = options
 
   const scenarioList =
@@ -160,6 +184,7 @@ export function runBatch(
       if (!warnings.includes(missingWarn)) warnings.push(missingWarn)
 
       for (const sc of scenarioList) {
+        const effectiveInputs = getEffectiveInputs(sc.scenarioInputs, specialty, providerId, overrides)
         rows.push({
           providerId,
           providerName,
@@ -167,7 +192,7 @@ export function runBatch(
           division,
           scenarioId: sc.id,
           scenarioName: sc.name,
-          scenarioInputsSnapshot: sc.scenarioInputs,
+          scenarioInputsSnapshot: effectiveInputs,
           results: null,
           matchStatus: status,
           warnings: [...warnings],
@@ -176,7 +201,8 @@ export function runBatch(
       }
     } else {
       for (const sc of scenarioList) {
-        const results = computeScenario(provider, match.marketRow, sc.scenarioInputs)
+        const effectiveInputs = getEffectiveInputs(sc.scenarioInputs, specialty, providerId, overrides)
+        const results = computeScenario(provider, match.marketRow, effectiveInputs)
         const allWarnings = [...warnings, ...results.warnings, ...results.risk.warnings]
         if (results.risk.highRisk.length) {
           allWarnings.push(...results.risk.highRisk.map((r) => `High risk: ${r}`))
@@ -188,7 +214,7 @@ export function runBatch(
           division,
           scenarioId: sc.id,
           scenarioName: sc.name,
-          scenarioInputsSnapshot: sc.scenarioInputs,
+          scenarioInputsSnapshot: effectiveInputs,
           results,
           matchStatus: match.status,
           matchedMarketSpecialty: match.matchedKey,
