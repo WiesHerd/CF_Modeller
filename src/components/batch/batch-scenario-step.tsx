@@ -122,19 +122,6 @@ export function BatchScenarioStep({
     })
   }, [providersAfterSpecialtyFilter, providerSearch])
 
-  /** Providers grouped by specialty for the By-provider dropdown (target specialty then provider). */
-  const providersBySpecialty = useMemo(() => {
-    const map = new Map<string, typeof providersToRun>()
-    for (const p of providersToRun) {
-      const spec = (p.specialty ?? '').trim() || '(No specialty)'
-      if (!map.has(spec)) map.set(spec, [])
-      map.get(spec)!.push(p)
-    }
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([specialty, providers]) => ({ specialty, providers }))
-  }, [providersToRun])
-
   /** For Overrides > By specialty: options when a row dropdown is open, filtered by search. */
   const filteredSpecialtyOverrideOptions = useMemo(() => {
     const q = specialtyOverrideSearch.trim().toLowerCase()
