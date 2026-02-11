@@ -53,27 +53,33 @@ export function BatchResultsTable({ rows, maxHeight = '60vh' }: BatchResultsTabl
       columnHelper.accessor('providerName', {
         header: 'Provider',
         cell: (c) => c.getValue() || EMPTY,
+        meta: { wrap: true, sticky: true, minWidth: '140px' },
       }),
       columnHelper.accessor('providerId', {
         header: 'ID',
         cell: (c) => c.getValue() || EMPTY,
+        meta: { wrap: true, minWidth: '80px' },
       }),
       columnHelper.accessor('specialty', {
         header: 'Specialty',
         cell: (c) => c.getValue() || EMPTY,
+        meta: { wrap: true, minWidth: '140px' },
       }),
       columnHelper.accessor('division', {
         header: 'Division',
         cell: (c) => c.getValue() || EMPTY,
+        meta: { wrap: true, minWidth: '100px' },
       }),
       columnHelper.accessor('scenarioName', {
         header: 'Model name',
         cell: (c) => c.getValue() || EMPTY,
+        meta: { wrap: true, minWidth: '120px' },
       }),
       columnHelper.accessor((r) => r.results?.currentTCC, {
         id: 'currentTCC',
         header: 'Current TCC',
         cell: (c) => curOrEmpty(c.getValue()),
+        meta: { minWidth: '90px' },
       }),
       columnHelper.accessor((r) => r.results?.modeledTCC, {
         id: 'modeledTCC',
@@ -98,12 +104,28 @@ export function BatchResultsTable({ rows, maxHeight = '60vh' }: BatchResultsTabl
       columnHelper.accessor((r) => r.results?.annualIncentive, {
         id: 'annualIncentive',
         header: 'Incentive',
-        cell: (c) => curOrEmpty(c.getValue()),
+        cell: (c) => {
+          const val = c.getValue() as number | undefined
+          const text = curOrEmpty(val)
+          if (text === EMPTY) return text
+          const isNegative = val != null && Number.isFinite(val) && val < 0
+          const isPositive = val != null && Number.isFinite(val) && val > 0
+          const colorClass = isNegative ? 'text-destructive font-medium' : isPositive ? 'text-green-600 dark:text-green-400 font-medium' : undefined
+          return colorClass ? <span className={colorClass}>{text}</span> : text
+        },
       }),
       columnHelper.accessor((r) => r.results?.psqDollars, {
         id: 'psqDollars',
         header: 'PSQ',
-        cell: (c) => curOrEmpty(c.getValue()),
+        cell: (c) => {
+          const val = c.getValue() as number | undefined
+          const text = curOrEmpty(val)
+          if (text === EMPTY) return text
+          const isNegative = val != null && Number.isFinite(val) && val < 0
+          const isPositive = val != null && Number.isFinite(val) && val > 0
+          const colorClass = isNegative ? 'text-destructive font-medium' : isPositive ? 'text-green-600 dark:text-green-400 font-medium' : undefined
+          return colorClass ? <span className={colorClass}>{text}</span> : text
+        },
       }),
       columnHelper.accessor((r) => r.results?.tccPercentile, {
         id: 'tccPercentile',
@@ -147,6 +169,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh' }: BatchResultsTabl
       columnHelper.accessor('matchedMarketSpecialty', {
         header: 'Matched market',
         cell: (c) => c.getValue() || EMPTY,
+        meta: { wrap: true, minWidth: '120px' },
       }),
       columnHelper.accessor('riskLevel', {
         header: 'Risk',
@@ -162,13 +185,14 @@ export function BatchResultsTable({ rows, maxHeight = '60vh' }: BatchResultsTabl
         cell: (c) => {
           const w = c.getValue() as string[]
           if (!w?.length) return '—'
+          const full = w.join('; ')
           return (
-            <span className="max-w-[200px] truncate block" title={w.join('; ')}>
-              {w.slice(0, 2).join('; ')}
-              {w.length > 2 ? ` (+${w.length - 2})` : ''}
+            <span className="block max-w-[220px] break-words text-left" title={full}>
+              {w.length > 2 ? `${w.slice(0, 2).join('; ')} (+${w.length - 2} more)` : full}
             </span>
           )
         },
+        meta: { wrap: true, minWidth: '180px' },
       }),
     ],
     []
@@ -197,36 +221,57 @@ export function BatchResultsTable({ rows, maxHeight = '60vh' }: BatchResultsTabl
         />
       </div>
       <div className="rounded-md border overflow-auto" style={{ maxHeight }}>
-        <Table>
+        <Table className="min-w-max">
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>
-                {hg.headers.map((h) => (
-                  <TableHead key={h.id} className="whitespace-nowrap">
-                    {h.column.getCanSort() ? (
-                      <button
-                        type="button"
-                        onClick={() => h.column.toggleSorting()}
-                        className="hover:underline"
-                      >
-                        {flexRender(h.column.columnDef.header, h.getContext())}
-                      </button>
-                    ) : (
-                      flexRender(h.column.columnDef.header, h.getContext())
-                    )}
-                  </TableHead>
-                ))}
+                {hg.headers.map((h) => {
+                  const meta = h.column.columnDef.meta as { sticky?: boolean; minWidth?: string; wrap?: boolean } | undefined
+                  const stickyClass = meta?.sticky ? 'sticky left-0 z-20 bg-muted/95 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]' : ''
+                  const wrapClass = meta?.wrap ? 'whitespace-normal' : 'whitespace-nowrap'
+                  return (
+                    <TableHead
+                      key={h.id}
+                      className={`${wrapClass} ${stickyClass} px-3 py-2.5`}
+                      style={{ minWidth: meta?.minWidth }}
+                    >
+                      {h.column.getCanSort() ? (
+                        <button
+                          type="button"
+                          onClick={() => h.column.toggleSorting()}
+                          className="hover:underline text-left"
+                        >
+                          {flexRender(h.column.columnDef.header, h.getContext())}
+                        </button>
+                      ) : (
+                        flexRender(h.column.columnDef.header, h.getContext())
+                      )}
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="whitespace-nowrap">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const meta = cell.column.columnDef.meta as { sticky?: boolean; minWidth?: string; wrap?: boolean } | undefined
+                  const stickyClass = meta?.sticky ? 'sticky left-0 z-10 bg-background shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
+                  const wrapClass = meta?.wrap ? 'whitespace-normal break-words align-top' : 'whitespace-nowrap'
+                  const value = cell.getValue()
+                  const titleAttr = meta?.wrap && typeof value === 'string' && value ? value : undefined
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      className={`${wrapClass} ${stickyClass} px-3 py-2.5`}
+                      style={{ minWidth: meta?.minWidth }}
+                      title={titleAttr}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  )
+                })}
               </TableRow>
             ))}
           </TableBody>

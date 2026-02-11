@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { AlertTriangle, AlertCircle, MapPinOff, Gauge } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { BatchResultsTable } from '@/components/batch/batch-results-table'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
 import type { BatchResults, BatchRiskLevel, MarketMatchStatus } from '@/types/batch'
@@ -35,6 +35,7 @@ export function BatchResultsDashboard({
   const [matchStatusFilter, setMatchStatusFilter] = useState<string>('all')
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false)
   const [showMissingOnly, setShowMissingOnly] = useState(false)
+  const gapChartRef = useRef<HTMLDivElement>(null)
 
   const { rows } = results
 
@@ -127,63 +128,222 @@ export function BatchResultsDashboard({
       .slice(0, 10)
   }, [rows])
 
+  const incentiveHistogramData = useMemo(() => {
+    const buckets: { name: string; count: number; fill: string }[] = [
+      { name: '< -100k', count: 0, fill: 'hsl(var(--destructive))' },
+      { name: '-100k to 0', count: 0, fill: 'hsl(var(--destructive))' },
+      { name: '0 to 50k', count: 0, fill: 'hsl(142 76% 36%)' },
+      { name: '50k to 100k', count: 0, fill: 'hsl(142 76% 36%)' },
+      { name: '> 100k', count: 0, fill: 'hsl(142 76% 36%)' },
+    ]
+    const getBucket = (v: number) => {
+      if (v < -100_000) return 0
+      if (v < 0) return 1
+      if (v < 50_000) return 2
+      if (v < 100_000) return 3
+      return 4
+    }
+    let hasAny = false
+    for (const r of rows) {
+      const inc = r.results?.annualIncentive
+      if (inc != null && Number.isFinite(inc)) {
+        buckets[getBucket(inc)].count++
+        hasAny = true
+      }
+    }
+    return hasAny ? buckets : []
+  }, [rows])
+
   return (
     <div className="space-y-8">
-      <h2 className="section-title">Batch results</h2>
       <p className="section-subtitle">
         Run at {new Date(results.runAt).toLocaleString()} — {results.providerCount} providers ×{' '}
         {results.scenarioCount} scenario(s) = {results.rows.length} rows.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="overflow-hidden border-l-4 border-l-destructive/80 bg-destructive/5 dark:bg-destructive/10">
-          <CardContent className="flex flex-col gap-1 pt-5 pb-5">
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="size-5 shrink-0" aria-hidden />
-              <span className="text-sm font-medium text-foreground">High risk</span>
-            </div>
-            <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
-              {summary.byRisk.high}
-            </p>
-            <p className="text-xs text-muted-foreground">rows need review</p>
-          </CardContent>
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Card className="overflow-hidden border-l-4 border-l-destructive/80 bg-destructive/5 dark:bg-destructive/10 transition-all hover:shadow-md p-0 gap-0">
+          <button
+            type="button"
+            onClick={() => {
+              setRiskFilter('high')
+              setMatchStatusFilter('all')
+              setShowMissingOnly(false)
+            }}
+            aria-pressed={riskFilter === 'high'}
+            className="w-full cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg"
+          >
+            <CardContent className="flex flex-row items-center gap-3 px-4 py-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-destructive/15 text-destructive">
+                <AlertTriangle className="size-4" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-muted-foreground">High risk</p>
+                <p className="text-xl font-semibold tabular-nums text-foreground">{summary.byRisk.high}</p>
+                <p className="text-[11px] text-muted-foreground">rows need review</p>
+              </div>
+              {riskFilter === 'high' && (
+                <span className="text-xs text-destructive font-medium shrink-0">Filtered</span>
+              )}
+            </CardContent>
+          </button>
         </Card>
-        <Card className="overflow-hidden border-l-4 border-l-amber-500/70 bg-amber-500/5 dark:bg-amber-500/10">
-          <CardContent className="flex flex-col gap-1 pt-5 pb-5">
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-              <AlertCircle className="size-5 shrink-0" aria-hidden />
-              <span className="text-sm font-medium text-foreground">Medium risk</span>
-            </div>
-            <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
-              {summary.byRisk.medium}
-            </p>
-            <p className="text-xs text-muted-foreground">watch list</p>
-          </CardContent>
+        <Card className="overflow-hidden border-l-4 border-l-amber-500/70 bg-amber-500/5 dark:bg-amber-500/10 transition-all hover:shadow-md p-0 gap-0">
+          <button
+            type="button"
+            onClick={() => {
+              setRiskFilter('medium')
+              setMatchStatusFilter('all')
+              setShowMissingOnly(false)
+            }}
+            aria-pressed={riskFilter === 'medium'}
+            className="w-full cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg"
+          >
+            <CardContent className="flex flex-row items-center gap-3 px-4 py-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                <AlertCircle className="size-4" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-muted-foreground">Medium risk</p>
+                <p className="text-xl font-semibold tabular-nums text-foreground">{summary.byRisk.medium}</p>
+                <p className="text-[11px] text-muted-foreground">watch list</p>
+              </div>
+              {riskFilter === 'medium' && (
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-medium shrink-0">Filtered</span>
+              )}
+            </CardContent>
+          </button>
         </Card>
-        <Card className="overflow-hidden border-l-4 border-l-orange-500/70 bg-orange-500/5 dark:bg-orange-500/10">
-          <CardContent className="flex flex-col gap-1 pt-5 pb-5">
-            <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
-              <MapPinOff className="size-5 shrink-0" aria-hidden />
-              <span className="text-sm font-medium text-foreground">Missing market</span>
-            </div>
-            <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
-              {summary.missingMarket}
-            </p>
-            <p className="text-xs text-muted-foreground">no benchmark match</p>
-          </CardContent>
+        <Card className="overflow-hidden border-l-4 border-l-orange-500/70 bg-orange-500/5 dark:bg-orange-500/10 transition-all hover:shadow-md p-0 gap-0">
+          <button
+            type="button"
+            onClick={() => {
+              setMatchStatusFilter('Missing')
+              setRiskFilter('all')
+              setShowMissingOnly(false)
+            }}
+            aria-pressed={matchStatusFilter === 'Missing'}
+            className="w-full cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg"
+          >
+            <CardContent className="flex flex-row items-center gap-3 px-4 py-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-orange-500/15 text-orange-600 dark:text-orange-400">
+                <MapPinOff className="size-4" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-muted-foreground">Missing market</p>
+                <p className="text-xl font-semibold tabular-nums text-foreground">{summary.missingMarket}</p>
+                <p className="text-[11px] text-muted-foreground">no benchmark match</p>
+              </div>
+              {matchStatusFilter === 'Missing' && (
+                <span className="text-xs text-orange-600 dark:text-orange-400 font-medium shrink-0">Filtered</span>
+              )}
+            </CardContent>
+          </button>
         </Card>
-        <Card className="overflow-hidden border-l-4 border-l-[var(--chart-1)] bg-[var(--chart-1)]/10">
-          <CardContent className="flex flex-col gap-1 pt-5 pb-5">
-            <div className="flex items-center gap-2 text-[var(--chart-1)]">
-              <Gauge className="size-5 shrink-0" aria-hidden />
-              <span className="text-sm font-medium text-foreground">Avg alignment gap</span>
-            </div>
-            <p className="text-2xl font-bold tracking-tight text-foreground tabular-nums">
-              {summary.avgGap != null ? summary.avgGap.toFixed(1) : '—'}
-            </p>
-            <p className="text-xs text-muted-foreground">comp vs prod %</p>
-          </CardContent>
+        <Card className="overflow-hidden border-l-4 border-l-[var(--chart-1)] bg-[var(--chart-1)]/10 transition-all hover:shadow-md p-0 gap-0">
+          <button
+            type="button"
+            onClick={() => {
+              setRiskFilter('all')
+              setMatchStatusFilter('all')
+              setShowMissingOnly(false)
+              gapChartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+            className="w-full cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg"
+          >
+            <CardContent className="flex flex-row items-center gap-3 px-4 py-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--chart-1)]/15 text-[var(--chart-1)]">
+                <Gauge className="size-4" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-medium text-muted-foreground">Avg alignment gap</p>
+                <p className="text-xl font-semibold tabular-nums text-foreground">
+                  {summary.avgGap != null ? summary.avgGap.toFixed(1) : '—'}
+                </p>
+                <p className="text-[11px] text-muted-foreground">comp vs prod %</p>
+              </div>
+            </CardContent>
+          </button>
         </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3" ref={gapChartRef}>
+        {gapHistogramData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Comp-vs-prod gap (modeled)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={gapHistogramData} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                  <Tooltip contentStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="count" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+        {incentiveHistogramData.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Incentive distribution (modeled)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={incentiveHistogramData} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
+                  <Tooltip contentStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                    {incentiveHistogramData.map((entry, index) => (
+                      <Cell key={index} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+        {flaggedByDivision.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Flagged by division</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart
+                  data={flaggedByDivision}
+                  layout="vertical"
+                  margin={{ top: 8, right: 8, left: 40, bottom: 24 }}
+                >
+                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="division"
+                    width={80}
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                  />
+                  <Tooltip contentStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="count" fill="var(--chart-2)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border/60 bg-muted/20 p-4">
@@ -267,60 +427,6 @@ export function BatchResultsDashboard({
             Missing market
           </Button>
         </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {gapHistogramData.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Comp-vs-prod gap (modeled)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={gapHistogramData} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
-                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  />
-                  <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="count" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
-        {flaggedByDivision.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Flagged by division</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart
-                  data={flaggedByDivision}
-                  layout="vertical"
-                  margin={{ top: 8, right: 8, left: 40, bottom: 24 }}
-                >
-                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="division"
-                    width={80}
-                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="count" fill="var(--chart-2)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
       <Card>

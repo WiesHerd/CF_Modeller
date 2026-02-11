@@ -40,15 +40,15 @@ export function BatchScenarioInline({
             <div>
               <h3 className="font-semibold text-foreground">Base scenario</h3>
               <p className="text-muted-foreground text-xs">
-                Global settings for the batch run.
+                Global settings for the entire batch.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Fields below: labels above, distributed across container */}
-        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          <div className="space-y-1.5">
+        {/* Fields: flex row, even spacing, fill horizontal space */}
+        <div className="flex flex-wrap w-full gap-x-6 gap-y-4">
+          <div className="flex-1 min-w-[9rem] space-y-1.5">
             <Label className="text-sm font-medium text-foreground">PSQ current (%)</Label>
             <Input
               type="number"
@@ -65,7 +65,7 @@ export function BatchScenarioInline({
             />
           </div>
 
-          <div className="space-y-1.5">
+          <div className="flex-1 min-w-[9rem] space-y-1.5">
             <Label className="text-sm font-medium text-foreground">PSQ modeled (%)</Label>
             <Input
               type="number"
@@ -82,7 +82,7 @@ export function BatchScenarioInline({
             />
           </div>
 
-          <div className="space-y-1.5 sm:col-span-2">
+          <div className="flex-1 min-w-[9rem] space-y-1.5">
             <Label className="text-sm font-medium text-foreground">CF method</Label>
             <Select
               value={inputs.cfSource}
@@ -95,14 +95,14 @@ export function BatchScenarioInline({
               <SelectContent>
                 <SelectItem value="target_percentile">Target percentile</SelectItem>
                 <SelectItem value="target_haircut">Target percentile + CF adjustment</SelectItem>
-                <SelectItem value="override">Override CF ($)</SelectItem>
+                <SelectItem value="override">Fixed CF ($)</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {showTargetPercentile && (
             <>
-              <div className="space-y-1.5">
+              <div className="flex-1 min-w-[9rem] space-y-1.5">
                 <Label className="text-sm font-medium text-foreground">Target %ile</Label>
                 <Input
                   type="number"
@@ -118,7 +118,7 @@ export function BatchScenarioInline({
                 />
               </div>
               {isTargetHaircut && (
-                <div className="space-y-1.5">
+                <div className="flex-1 min-w-[9rem] space-y-1.5">
                   <Label className="text-sm font-medium text-foreground">CF adjustment (%)</Label>
                   <div className="flex items-center gap-1">
                     <span className="text-muted-foreground text-sm shrink-0">−</span>
@@ -140,9 +140,9 @@ export function BatchScenarioInline({
             </>
           )}
 
-          {!isTargetHaircut && (
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">Override CF ($/wRVU)</Label>
+          {inputs.cfSource === 'override' && (
+            <div className="flex-1 min-w-[9rem] space-y-1.5">
+              <Label className="text-sm font-medium text-foreground">CF ($/wRVU)</Label>
               <Input
                 type="number"
                 min={0}
