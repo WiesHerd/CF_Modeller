@@ -6,7 +6,6 @@ import type { ColumnMapping } from '@/types/upload'
 import type { BatchResults, SynonymMap } from '@/types/batch'
 import * as storage from '@/lib/storage'
 import * as batchStorage from '@/lib/batch-storage'
-import { SAMPLE_PROVIDER_ROWS, SAMPLE_MARKET_ROWS } from '@/utils/fake-test-data'
 
 export interface AppState {
   providerRows: ProviderRow[]
@@ -70,18 +69,17 @@ export function useAppState() {
     const savedScenarios = storage.loadSavedScenarios()
     const batchResults = batchStorage.loadBatchResults()
     const batchSynonymMap = batchStorage.loadSynonymMap()
-    // When no data has been uploaded yet, seed with one example provider + market for testing
     const hasStoredData = providers.length > 0 && market.length > 0
     return {
       ...initialState,
-      providerRows: hasStoredData ? providers : SAMPLE_PROVIDER_ROWS,
-      marketRows: hasStoredData ? market : SAMPLE_MARKET_ROWS,
+      providerRows: hasStoredData ? providers : [],
+      marketRows: hasStoredData ? market : [],
       providerMapping: hasStoredData ? pm : null,
       marketMapping: hasStoredData ? mm : null,
       savedScenarios,
       batchResults,
       batchSynonymMap,
-      usedSampleDataOnLoad: !hasStoredData,
+      usedSampleDataOnLoad: false,
     }
   })
 
