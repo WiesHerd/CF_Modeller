@@ -55,6 +55,9 @@ export default function App() {
     duplicateScenario,
     updateCurrentScenarioProviderSnapshot,
     setBatchResults,
+    saveCurrentBatchRun,
+    loadSavedBatchRun,
+    deleteSavedBatchRun,
     updateBatchSynonymMap,
     removeBatchSynonym,
   } = useAppState()
@@ -539,7 +542,17 @@ export default function App() {
       )}
 
       {step === 'batch-results' && state.batchResults && (
-        <BatchResultsDashboard results={state.batchResults} />
+        <BatchResultsDashboard
+          results={state.batchResults}
+          marketRows={state.marketRows}
+          savedBatchRuns={state.savedBatchRuns}
+          onSaveRun={(name) => saveCurrentBatchRun(name)}
+          onLoadRun={(id) => {
+            loadSavedBatchRun(id)
+            setStep('batch-results')
+          }}
+          onDeleteRun={deleteSavedBatchRun}
+        />
       )}
 
       {step === 'batch-results' && !state.batchResults && (

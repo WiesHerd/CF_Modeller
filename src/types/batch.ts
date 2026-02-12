@@ -42,6 +42,14 @@ export interface BatchResults {
   providerCount: number
 }
 
+/** A saved batch run the user can revisit or delete. */
+export interface SavedBatchRun {
+  id: string
+  name: string
+  createdAt: string
+  results: BatchResults
+}
+
 /** Optional overrides per specialty and/or provider; merged over base scenario inputs (provider overrides beat specialty). */
 export interface BatchOverrides {
   bySpecialty?: Record<string, Partial<ScenarioInputs>>

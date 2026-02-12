@@ -3,7 +3,7 @@ import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, ScenarioResults, SavedScenario } from '@/types/scenario'
 import type { ColumnMapping } from '@/types/upload'
-import type { BatchResults, SynonymMap } from '@/types/batch'
+import type { BatchResults, SavedBatchRun, SynonymMap } from '@/types/batch'
 import * as storage from '@/lib/storage'
 import * as batchStorage from '@/lib/batch-storage'
 
@@ -23,6 +23,8 @@ export interface AppState {
   currentScenarioId: string | null
   /** Last batch run results (persisted to localStorage when not too large). */
   batchResults: BatchResults | null
+  /** Saved batch runs the user can load or delete (persisted). */
+  savedBatchRuns: SavedBatchRun[]
   /** Specialty synonym map for batch market matching (persisted). */
   batchSynonymMap: SynonymMap
   /** True when app started with no stored data and showed sample data (so UI can label it). */
@@ -56,6 +58,7 @@ const initialState: AppState = {
   lastScenarioLoadWarning: null,
   currentScenarioId: null,
   batchResults: null,
+  savedBatchRuns: [],
   batchSynonymMap: {},
   usedSampleDataOnLoad: false,
 }
@@ -68,6 +71,7 @@ export function useAppState() {
     const mm = storage.loadMarketMapping()
     const savedScenarios = storage.loadSavedScenarios()
     const batchResults = batchStorage.loadBatchResults()
+    const savedBatchRuns = batchStorage.loadSavedBatchRuns()
     const batchSynonymMap = batchStorage.loadSynonymMap()
     const hasStoredData = providers.length > 0 && market.length > 0
     return {
@@ -78,6 +82,7 @@ export function useAppState() {
       marketMapping: hasStoredData ? mm : null,
       savedScenarios,
       batchResults,
+      savedBatchRuns,
       batchSynonymMap,
       usedSampleDataOnLoad: false,
     }
@@ -109,6 +114,10 @@ export function useAppState() {
   useEffect(() => {
     if (state.batchResults) batchStorage.saveBatchResults(state.batchResults)
   }, [state.batchResults])
+
+  useEffect(() => {
+    batchStorage.saveSavedBatchRuns(state.savedBatchRuns)
+  }, [state.savedBatchRuns])
 
   useEffect(() => {
     batchStorage.saveSynonymMap(state.batchSynonymMap)
@@ -294,6 +303,43 @@ export function useAppState() {
     setState((s) => ({ ...s, batchResults: results }))
   }, [])
 
+  const saveCurrentBatchRun = useCallback((name?: string) => {
+    setState((s) => {
+      if (!s.batchResults) return s
+      const run = s.batchResults
+      const displayName =
+        name?.trim() ||
+        `${run.providerCount} providers × ${run.scenarioCount} scenario(s) – ${new Date(run.runAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+      const saved: SavedBatchRun = {
+        id: crypto.randomUUID(),
+        name: displayName,
+        createdAt: new Date().toISOString(),
+        results: { ...run, rows: [...run.rows] },
+      }
+      if (batchStorage.getSavedRunSizeBytes(saved) > batchStorage.MAX_BATCH_RESULTS_BYTES) return s
+      const list = [...s.savedBatchRuns, saved].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      )
+      const trimmed = list.length > batchStorage.MAX_SAVED_BATCH_RUNS_LIMIT ? list.slice(-batchStorage.MAX_SAVED_BATCH_RUNS_LIMIT) : list
+      return { ...s, savedBatchRuns: trimmed }
+    })
+  }, [])
+
+  const loadSavedBatchRun = useCallback((id: string) => {
+    setState((s) => {
+      const run = s.savedBatchRuns.find((r) => r.id === id)
+      if (!run) return s
+      return { ...s, batchResults: run.results }
+    })
+  }, [])
+
+  const deleteSavedBatchRun = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      savedBatchRuns: s.savedBatchRuns.filter((r) => r.id !== id),
+    }))
+  }, [])
+
   const setBatchSynonymMap = useCallback((map: SynonymMap) => {
     setState((s) => ({ ...s, batchSynonymMap: map }))
   }, [])
@@ -329,6 +375,9 @@ export function useAppState() {
     duplicateScenario,
     updateCurrentScenarioProviderSnapshot,
     setBatchResults,
+    saveCurrentBatchRun,
+    loadSavedBatchRun,
+    deleteSavedBatchRun,
     setBatchSynonymMap,
     updateBatchSynonymMap,
     removeBatchSynonym,

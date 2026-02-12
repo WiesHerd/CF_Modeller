@@ -2,6 +2,15 @@ import { useMemo, useState, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -9,14 +18,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { AlertTriangle, AlertCircle, MapPinOff, Gauge } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { AlertTriangle, AlertCircle, MapPinOff, Gauge, Save, FolderOpen, Trash2, ChevronDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { BatchResultsTable } from '@/components/batch/batch-results-table'
+import { BatchResultsTable, type CalculationColumnId } from '@/components/batch/batch-results-table'
+import { RowCalculationModal, type CalculationSection } from '@/components/batch/row-calculation-modal'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
-import type { BatchResults, BatchRiskLevel, MarketMatchStatus } from '@/types/batch'
+import type { BatchResults, BatchRowResult, BatchRiskLevel, MarketMatchStatus, SavedBatchRun } from '@/types/batch'
+import type { MarketRow } from '@/types/market'
+
+function formatRunDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  } catch {
+    return iso
+  }
+}
 
 interface BatchResultsDashboardProps {
   results: BatchResults
+  marketRows?: MarketRow[]
+  savedBatchRuns?: SavedBatchRun[]
+  onSaveRun?: (name?: string) => void
+  onLoadRun?: (id: string) => void
+  onDeleteRun?: (id: string) => void
   onExportCSV?: () => void
   onExportXLSX?: () => void
 }
@@ -24,8 +61,19 @@ interface BatchResultsDashboardProps {
 const RISK_LEVELS: BatchRiskLevel[] = ['high', 'medium', 'low']
 const MATCH_STATUSES: MarketMatchStatus[] = ['Exact', 'Normalized', 'Synonym', 'Missing']
 
+function columnToSection(column: CalculationColumnId): CalculationSection {
+  if (column === 'incentive') return 'incentive'
+  if (column === 'wrvuPercentile') return 'wrvu'
+  return 'tcc'
+}
+
 export function BatchResultsDashboard({
   results,
+  marketRows = [],
+  savedBatchRuns = [],
+  onSaveRun,
+  onLoadRun,
+  onDeleteRun,
   onExportCSV,
   onExportXLSX,
 }: BatchResultsDashboardProps) {
@@ -35,9 +83,39 @@ export function BatchResultsDashboard({
   const [matchStatusFilter, setMatchStatusFilter] = useState<string>('all')
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false)
   const [showMissingOnly, setShowMissingOnly] = useState(false)
+  const [calculationRow, setCalculationRow] = useState<BatchRowResult | null>(null)
+  const [calculationSection, setCalculationSection] = useState<CalculationSection | undefined>(undefined)
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [saveRunName, setSaveRunName] = useState('')
   const gapChartRef = useRef<HTMLDivElement>(null)
 
+  const defaultSaveRunName = useMemo(
+    () =>
+      `${results.providerCount} providers × ${results.scenarioCount} scenario(s) – ${new Date(results.runAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`,
+    [results.providerCount, results.scenarioCount, results.runAt]
+  )
+
+  const sortedSavedRuns = useMemo(
+    () => [...savedBatchRuns].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [savedBatchRuns]
+  )
+
   const { rows } = results
+
+  const calculationMarketRow = useMemo(() => {
+    if (!calculationRow?.matchedMarketSpecialty || marketRows.length === 0) return null
+    return (
+      marketRows.find(
+        (m) =>
+          (m.specialty ?? '').toLowerCase() === (calculationRow.matchedMarketSpecialty ?? '').toLowerCase()
+      ) ?? null
+    )
+  }, [calculationRow?.matchedMarketSpecialty, marketRows])
+
+  const handleCalculationClick = (row: BatchRowResult, column: CalculationColumnId) => {
+    setCalculationRow(row)
+    setCalculationSection(columnToSection(column))
+  }
 
   const specialties = useMemo(() => {
     const set = new Set(rows.map((r) => r.specialty).filter(Boolean))
@@ -125,7 +203,6 @@ export function BatchResultsDashboard({
     return Array.from(map.entries())
       .map(([division, count]) => ({ division, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10)
   }, [rows])
 
   const incentiveHistogramData = useMemo(() => {
@@ -156,10 +233,129 @@ export function BatchResultsDashboard({
 
   return (
     <div className="space-y-8">
-      <p className="section-subtitle">
-        Run at {new Date(results.runAt).toLocaleString()} — {results.providerCount} providers ×{' '}
-        {results.scenarioCount} scenario(s) = {results.rows.length} rows.
-      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="section-subtitle mb-0">
+          Run at {new Date(results.runAt).toLocaleString()} — {results.providerCount} providers ×{' '}
+          {results.scenarioCount} scenario(s) = {results.rows.length} rows.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {onSaveRun && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSaveRunName(defaultSaveRunName)
+                setSaveDialogOpen(true)
+              }}
+              className="gap-2"
+            >
+              <Save className="size-4" />
+              Save this run
+            </Button>
+          )}
+          {onLoadRun && onDeleteRun && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 font-normal">
+                  <FolderOpen className="size-4" />
+                  Saved runs{savedBatchRuns.length > 0 ? ` (${savedBatchRuns.length})` : ''}
+                  <ChevronDown className="size-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[320px]">
+                {sortedSavedRuns.length === 0 ? (
+                  <DropdownMenuItem disabled className="text-muted-foreground">
+                    No saved runs yet. Save this run to revisit later.
+                  </DropdownMenuItem>
+                ) : (
+                  <ScrollArea className="max-h-[280px]">
+                    <div className="p-1">
+                      {sortedSavedRuns.map((run) => (
+                        <div
+                          key={run.id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
+                        >
+                          <div className="min-w-0 flex-1 text-sm">
+                            <p className="font-medium truncate" title={run.name}>
+                              {run.name}
+                            </p>
+                            <p className="text-muted-foreground text-xs">{formatRunDate(run.createdAt)}</p>
+                          </div>
+                          <div className="flex shrink-0 gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8"
+                              onClick={() => onLoadRun(run.id)}
+                              title="Load this run"
+                            >
+                              <FolderOpen className="size-4" />
+                              <span className="sr-only">Load</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8 text-destructive hover:text-destructive"
+                              onClick={() => {
+                                if (window.confirm(`Delete "${run.name}"? This cannot be undone.`)) {
+                                  onDeleteRun(run.id)
+                                }
+                              }}
+                              title="Delete"
+                            >
+                              <Trash2 className="size-4" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </div>
+
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent aria-describedby="save-run-desc">
+          <DialogHeader>
+            <DialogTitle>Save this run</DialogTitle>
+            <DialogDescription id="save-run-desc">
+              Give this batch run a name so you can load it later from Saved runs.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 py-2">
+            <Label htmlFor="save-run-name">Name</Label>
+            <Input
+              id="save-run-name"
+              value={saveRunName}
+              onChange={(e) => setSaveRunName(e.target.value)}
+              placeholder={defaultSaveRunName}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onSaveRun?.(saveRunName.trim() || undefined)
+                  setSaveDialogOpen(false)
+                }
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                onSaveRun?.(saveRunName.trim() || undefined)
+                setSaveDialogOpen(false)
+              }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card className="overflow-hidden border-l-4 border-l-destructive/80 bg-destructive/5 dark:bg-destructive/10 transition-all hover:shadow-md p-0 gap-0">
@@ -318,29 +514,38 @@ export function BatchResultsDashboard({
           <Card>
             <CardHeader>
               <CardTitle className="text-sm">Flagged by division</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {flaggedByDivision.length} division{flaggedByDivision.length !== 1 ? 's' : ''} · scroll to see all
+              </p>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart
-                  data={flaggedByDivision}
-                  layout="vertical"
-                  margin={{ top: 8, right: 8, left: 40, bottom: 24 }}
+              <div className="max-h-[min(60vh,480px)] overflow-y-auto overflow-x-hidden rounded-md border border-border/40 bg-muted/20">
+                <ResponsiveContainer
+                  width="100%"
+                  height={Math.max(220, flaggedByDivision.length * 36)}
+                  minHeight={220}
                 >
-                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="division"
-                    width={80}
-                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="count" fill="var(--chart-2)" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+                  <BarChart
+                    data={flaggedByDivision}
+                    layout="vertical"
+                    margin={{ top: 8, right: 8, left: 40, bottom: 24 }}
+                  >
+                    <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="division"
+                      width={80}
+                      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                    />
+                    <Tooltip contentStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="count" fill="var(--chart-2)" radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -450,9 +655,21 @@ export function BatchResultsDashboard({
           </div>
         </CardHeader>
         <CardContent>
-          <BatchResultsTable rows={filteredRows} maxHeight="60vh" />
+          <BatchResultsTable
+            rows={filteredRows}
+            maxHeight="60vh"
+            onCalculationClick={handleCalculationClick}
+          />
         </CardContent>
       </Card>
+
+      <RowCalculationModal
+        open={calculationRow !== null}
+        onOpenChange={(open) => !open && setCalculationRow(null)}
+        row={calculationRow}
+        marketRow={calculationMarketRow}
+        scrollToSection={calculationSection}
+      />
     </div>
   )
 }
