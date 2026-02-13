@@ -6,7 +6,7 @@
 import type { ProviderRow } from '@/types/provider'
 import type { ScenarioInputs } from '@/types/scenario'
 import type { MarketMatchStatus } from '@/types/batch'
-import type { TCCComponentInclusion, AdditionalTCCConfig } from '@/lib/tcc-components'
+import type { TCCComponentInclusion, AdditionalTCCConfig, TCCLayerConfig } from '@/lib/tcc-components'
 
 // ---------------------------------------------------------------------------
 // Benchmark basis (CART-aware normalization)
@@ -191,8 +191,6 @@ export interface OptimizerSettings {
   cfBounds: CFBounds
   budgetConstraint: BudgetConstraint
   cfPolicy: CFPolicySettings
-  /** Include PSQ (value-based % of base) in baseline and modeled TCC. */
-  includePsqInBaselineAndModeled: boolean
   /** Include quality payments in baseline and modeled TCC. */
   includeQualityPaymentsInBaselineAndModeled: boolean
   /** When 'override_pct_of_base', quality = clinical base × this % instead of provider file. */
@@ -201,16 +199,20 @@ export interface OptimizerSettings {
   qualityPaymentsOverridePct?: number
   /** Include work RVU incentive in baseline and modeled TCC. Baseline uses current CF/threshold; modeled uses recommended CF. */
   includeWorkRVUIncentiveInTCC: boolean
-  /** Include other incentives (from provider file) in baseline and modeled TCC. */
-  includeOtherIncentivesInBaselineAndModeled?: boolean
   /**
    * Optional: which TCC components are included and per-component options (e.g. normalize for FTE).
    * When set, overrides the individual include* booleans for baseline/config; allows custom components and options.
    */
   tccComponentInclusion?: TCCComponentInclusion
-  /** Layered additional TCC (percent of base, dollar per FTE, flat) on top of components. */
+  /** Named layers (value-based, retention, etc.): percent of base, per FTE, flat, or from file. Replaces additionalTCC. */
+  additionalTCCLayers?: TCCLayerConfig[]
+  /** Legacy: migrated to additionalTCCLayers on load when present. */
   additionalTCC?: AdditionalTCCConfig
-  /** When PSQ basis is fixed dollars, use this (global). */
+  /** @deprecated Optimizer uses named layers only; kept for backward compat when loading old configs. */
+  includePsqInBaselineAndModeled?: boolean
+  /** @deprecated Optimizer uses named layers only; kept for backward compat when loading old configs. */
+  includeOtherIncentivesInBaselineAndModeled?: boolean
+  /** When PSQ basis is fixed dollars, use this (global). Kept for non-optimizer flows. */
   psqFixedDollars?: number
   manualExcludeProviderIds: string[]
   manualIncludeProviderIds: string[]
@@ -221,6 +223,41 @@ export interface OptimizerSettings {
   maxRecommendedCFPercentile?: number
   /** Governance thresholds for status/explanation logic. */
   governanceConfig: GovernanceConfig
+}
+
+/** Migrate legacy additionalTCC to additionalTCCLayers when loading saved config. */
+export function migrateAdditionalTCCToLayers(settings: OptimizerSettings): OptimizerSettings {
+  const legacy = settings.additionalTCC
+  if (!legacy || (settings.additionalTCCLayers && settings.additionalTCCLayers.length > 0)) {
+    return settings
+  }
+  const layers: TCCLayerConfig[] = []
+  if (legacy.percentOfBase != null && Number.isFinite(legacy.percentOfBase) && legacy.percentOfBase !== 0) {
+    layers.push({
+      id: `legacy-pct-${Date.now()}`,
+      name: 'Percent of base',
+      type: 'percent_of_base',
+      value: legacy.percentOfBase,
+    })
+  }
+  if (legacy.dollarPer1p0FTE != null && Number.isFinite(legacy.dollarPer1p0FTE) && legacy.dollarPer1p0FTE !== 0) {
+    layers.push({
+      id: `legacy-perfte-${Date.now()}`,
+      name: 'Dollar per 1.0 FTE',
+      type: 'dollar_per_1p0_FTE',
+      value: legacy.dollarPer1p0FTE,
+    })
+  }
+  if (legacy.flatDollar != null && Number.isFinite(legacy.flatDollar) && legacy.flatDollar !== 0) {
+    layers.push({
+      id: `legacy-flat-${Date.now()}`,
+      name: 'Flat dollar',
+      type: 'flat_dollar',
+      value: legacy.flatDollar,
+    })
+  }
+  if (layers.length === 0) return settings
+  return { ...settings, additionalTCCLayers: layers }
 }
 
 /** Build default optimizer settings with given base scenario inputs. */
@@ -236,11 +273,10 @@ export function getDefaultOptimizerSettings(baseScenarioInputs: ScenarioInputs):
     cfBounds: DEFAULT_CF_BOUNDS,
     budgetConstraint: DEFAULT_BUDGET_CONSTRAINT,
     cfPolicy: DEFAULT_CF_POLICY,
-    includePsqInBaselineAndModeled: false,
     includeQualityPaymentsInBaselineAndModeled: true,
     includeWorkRVUIncentiveInTCC: true,
-    includeOtherIncentivesInBaselineAndModeled: false,
     tccComponentInclusion: undefined,
+    additionalTCCLayers: [],
     additionalTCC: undefined,
     psqFixedDollars: undefined,
     manualExcludeProviderIds: [],

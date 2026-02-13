@@ -75,34 +75,24 @@ export default function App() {
     deleteSavedOptimizerConfig,
   } = useAppState()
 
-  const [step, setStep] = useState<AppStep>(
-    () =>
-      state.providerRows.length > 0 && state.marketRows.length > 0
-        ? 'modeller'
-        : 'upload'
-  )
-  const [appMode, setAppMode] = useState<AppMode>('single')
+  const [step, setStep] = useState<AppStep>('upload')
+  const [, setAppMode] = useState<AppMode>('single')
   const [modelMode, setModelMode] = useState<ModelMode>('existing')
   const [modellerStep, setModellerStep] = useState<ModellerStep>('provider')
   const [newProviderForm, setNewProviderForm] = useState<NewProviderFormValues>(DEFAULT_NEW_PROVIDER)
   const [batchCard, setBatchCard] = useState<BatchCardId | null>(null)
 
-  const handleAppModeChange = (mode: AppMode) => {
-    setAppMode(mode)
-    if (mode === 'batch') {
-      if (step !== 'batch-scenario' && step !== 'batch-results') {
-        setStep('batch-scenario')
-      }
-      setBatchCard(null)
-    }
-    if (mode === 'single' && (step === 'batch-scenario' || step === 'batch-results')) {
-      setStep('modeller')
-    }
+  const handleStepChange = (newStep: AppStep) => {
+    setStep(newStep)
+    if (newStep === 'modeller') setAppMode('single')
+    else if (newStep === 'batch-scenario' || newStep === 'batch-results') setAppMode('batch')
+    if (newStep !== 'batch-scenario') setBatchCard(null)
   }
 
   const handleBatchRunComplete = (results: BatchResults, scenarioSnapshot?: BatchScenarioSnapshot) => {
     setBatchResults(results, scenarioSnapshot ?? null)
     setStep('batch-results')
+    setAppMode('batch')
     // Auto-save the base scenario to the library so you can refer back (name includes run time)
     const runAt = new Date(results.runAt)
     const scenarioName = `Batch run – ${runAt.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`
@@ -277,14 +267,12 @@ export default function App() {
   return (
     <AppLayout
       step={step}
-      onStepChange={setStep}
-      appMode={appMode}
-      onAppModeChange={handleAppModeChange}
-      canShowModeller={hasData || state.marketRows.length > 0}
+      onStepChange={handleStepChange}
       canShowBatchResults={!!state.batchResults}
-      hideBatchResultsTab={
-        step === 'batch-scenario' && (batchCard === null || batchCard === 'cf-optimizer')
-      }
+      currentBatchCard={batchCard}
+      currentSingleProviderMode={modelMode === 'existing' ? 'existing' : modelMode === 'new' ? 'new' : undefined}
+      onBatchCardSelect={(id) => setBatchCard(id)}
+      onSingleProviderMode={(mode) => setModelMode(mode)}
     >
       {step === 'upload' && (
         <div className="space-y-6">

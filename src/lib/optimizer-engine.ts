@@ -13,13 +13,11 @@ import {
   getBaselineTCCNormalizedForOptimizer,
   getClinicalBase,
   getClinicalFTE,
-  getPSQDollars,
   getModeledTCCWithCF,
   getIncentiveDerived,
   getQualityDollarsForOptimizerConfig,
   getTotalWRVUs,
-  getAdditionalTCCAmount,
-  type PSQConfig,
+  getLayeredTCCAmount,
 } from '@/lib/normalize-compensation'
 import type {
   BenchmarkBasis,
@@ -562,18 +560,6 @@ export function buildExplanation(
 
 const LOW_SAMPLE_THRESHOLD = 3
 
-/** Baseline TCC uses current PSQ % when set; modeled uses psqPercent. */
-function getOptimizerPSQConfig(settings: OptimizerSettings, forBaseline = false): PSQConfig {
-  const base = settings.baseScenarioInputs
-  const pct = forBaseline && base.currentPsqPercent != null ? base.currentPsqPercent : (base.psqPercent ?? 0)
-  return {
-    include: settings.includePsqInBaselineAndModeled,
-    psqPercent: pct,
-    psqBasis: base.psqBasis ?? 'base_salary',
-    psqFixedDollars: settings.psqFixedDollars,
-  }
-}
-
 function getOptimizerBaselineTCCConfig(
   settings: OptimizerSettings,
   _provider: ProviderRow,
@@ -582,7 +568,7 @@ function getOptimizerBaselineTCCConfig(
   const inclusion = settings.tccComponentInclusion
   const useInclusion = inclusion && Object.keys(inclusion).length > 0
   return {
-    psqConfig: getOptimizerPSQConfig(settings, true),
+    psqConfig: undefined,
     includeQualityPayments: useInclusion
       ? !!inclusion.quality?.included
       : settings.includeQualityPaymentsInBaselineAndModeled,
@@ -591,9 +577,6 @@ function getOptimizerBaselineTCCConfig(
     includeWorkRVUIncentive: useInclusion
       ? !!inclusion.workRVUIncentive?.included
       : settings.includeWorkRVUIncentiveInTCC,
-    includeOtherIncentives: useInclusion
-      ? !!inclusion.otherIncentives?.included
-      : !!settings.includeOtherIncentivesInBaselineAndModeled,
     currentCF,
     componentOptions: useInclusion
       ? Object.fromEntries(
@@ -602,6 +585,7 @@ function getOptimizerBaselineTCCConfig(
             .map(([id, v]) => [id, { normalizeForFTE: v?.normalizeForFTE }])
         )
       : undefined,
+    additionalTCCLayers: settings.additionalTCCLayers ?? [],
     additionalTCC: settings.additionalTCC,
   }
 }
@@ -617,7 +601,6 @@ function buildProviderContexts(
   const minWRVU1p0 = settings.defaultExclusionRules.minWRVUPer1p0CFTE
   const manualExclude = new Set(settings.manualExcludeProviderIds)
   const manualInclude = new Set(settings.manualIncludeProviderIds)
-  const psqConfigBaseline = getOptimizerPSQConfig(settings, true)
 
   const contexts: OptimizerProviderContext[] = []
   for (const provider of providerRows) {
@@ -654,20 +637,19 @@ function buildProviderContexts(
 
     const totalWRVUs = getTotalWRVUs(provider)
     const clinicalBase = getClinicalBase(provider)
-    const psqDollars = getPSQDollars(clinicalBase, psqConfigBaseline)
     const qualityPaymentsDollars = getQualityDollarsForOptimizerConfig(provider, baselineConfig)
     const baseModeled =
       market && basisFTE > 0
         ? getModeledTCCWithCF(
             clinicalBase,
-            psqDollars,
+            0,
             totalWRVUs,
             currentCF,
             qualityPaymentsDollars
           )
         : 0
-    const additionalTCC = getAdditionalTCCAmount(baselineConfig, clinicalBase, cFTE)
-    const modeledTCCRaw = baseModeled + additionalTCC
+    const layeredTCC = getLayeredTCCAmount(baselineConfig, provider, clinicalBase, cFTE)
+    const modeledTCCRaw = baseModeled + layeredTCC
     const normalizedWRVU = basisFTE > 0 ? totalWRVUs / basisFTE : 0
     const normalizedTCC = basisFTE > 0 ? modeledTCCRaw / basisFTE : 0
     const effectiveRate = normalizedWRVU > 0 ? normalizedTCC / normalizedWRVU : 0
@@ -889,7 +871,6 @@ export function optimizeCFForSpecialty(
   const numStepsUncapped = Math.max(2, Math.ceil(range / preferredStep))
   const numSteps = Math.min(numStepsUncapped, GRID_STEPS_MAX)
   const step = range / (numSteps - 1)
-  const psqConfig = getOptimizerPSQConfig(settings)
   const errorMetric = settings.errorMetric
   const objective = settings.optimizationObjective
 
@@ -930,19 +911,18 @@ export function optimizeCFForSpecialty(
     const errors: number[] = []
     for (const ctx of included) {
       const clinicalBase = getClinicalBase(ctx.provider)
-      const psqDollars = getPSQDollars(clinicalBase, psqConfig)
       const totalWRVUs = getTotalWRVUs(ctx.provider)
       const baselineConfigCtx = getOptimizerBaselineTCCConfig(settings, ctx.provider, cf)
       const qualityPaymentsDollars = getQualityDollarsForOptimizerConfig(ctx.provider, baselineConfigCtx)
       const cFTECtx = getClinicalFTE(ctx.provider)
       const baseModeled = getModeledTCCWithCF(
         clinicalBase,
-        psqDollars,
+        0,
         totalWRVUs,
         cf,
         qualityPaymentsDollars
       )
-      const modeledTCC = baseModeled + getAdditionalTCCAmount(baselineConfigCtx, clinicalBase, cFTECtx)
+      const modeledTCC = baseModeled + getLayeredTCCAmount(baselineConfigCtx, ctx.provider, clinicalBase, cFTECtx)
       const modeledTCC_1p0 = ctx.basisFTE > 0 ? modeledTCC / ctx.basisFTE : 0
       const tccRes = percentileFromBenchmarks(
         modeledTCC_1p0,
@@ -999,19 +979,18 @@ export function optimizeCFForSpecialty(
   let spendModeled = 0
   for (const ctx of included) {
     const clinicalBase = getClinicalBase(ctx.provider)
-    const psqDollars = getPSQDollars(clinicalBase, psqConfig)
     const totalWRVUs = getTotalWRVUs(ctx.provider)
     const baselineConfigCtx = getOptimizerBaselineTCCConfig(settings, ctx.provider, bestCF)
     const qualityPaymentsDollars = getQualityDollarsForOptimizerConfig(ctx.provider, baselineConfigCtx)
     const cFTECtx = getClinicalFTE(ctx.provider)
     const baseModeled = getModeledTCCWithCF(
       clinicalBase,
-      psqDollars,
+      0,
       totalWRVUs,
       bestCF,
       qualityPaymentsDollars
     )
-    const modeledTCC = baseModeled + getAdditionalTCCAmount(baselineConfigCtx, clinicalBase, cFTECtx)
+    const modeledTCC = baseModeled + getLayeredTCCAmount(baselineConfigCtx, ctx.provider, clinicalBase, cFTECtx)
     spendModeled += modeledTCC
     const modeledTCC_1p0 = ctx.basisFTE > 0 ? modeledTCC / ctx.basisFTE : 0
     const tccRes = percentileFromBenchmarks(
@@ -1331,7 +1310,6 @@ export function runModeledTCCSweepForSpecialty(
   const included = providerContexts.filter(
     (c) => c.included && normalizeSpecialtyKey(c.specialty) === specNorm
   )
-  const psqConfig = getOptimizerPSQConfig(settings)
   const rows: CFSweepRow[] = []
 
   for (const pct of cfPercentiles) {
@@ -1350,19 +1328,18 @@ export function runModeledTCCSweepForSpecialty(
 
     for (const ctx of included) {
       const clinicalBase = getClinicalBase(ctx.provider)
-      const psqDollars = getPSQDollars(clinicalBase, psqConfig)
       const totalWRVUs = getTotalWRVUs(ctx.provider)
       const baselineConfigCtx = getOptimizerBaselineTCCConfig(settings, ctx.provider, cfDollars)
       const qualityPaymentsDollars = getQualityDollarsForOptimizerConfig(ctx.provider, baselineConfigCtx)
       const cFTECtx = getClinicalFTE(ctx.provider)
       const baseModeled = getModeledTCCWithCF(
         clinicalBase,
-        psqDollars,
+        0,
         totalWRVUs,
         cfDollars,
         qualityPaymentsDollars
       )
-      const modeledTCC = baseModeled + getAdditionalTCCAmount(baselineConfigCtx, clinicalBase, cFTECtx)
+      const modeledTCC = baseModeled + getLayeredTCCAmount(baselineConfigCtx, ctx.provider, clinicalBase, cFTECtx)
       const modeledTCC_1p0 = ctx.basisFTE > 0 ? modeledTCC / ctx.basisFTE : 0
       const tccRes = percentileFromBenchmarks(
         modeledTCC_1p0,

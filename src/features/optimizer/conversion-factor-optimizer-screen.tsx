@@ -30,7 +30,7 @@ import type {
   OptimizerSettings,
 } from '@/types/optimizer'
 import type { SavedOptimizerConfig } from '@/types/optimizer'
-import { getDefaultOptimizerSettings } from '@/types/optimizer'
+import { getDefaultOptimizerSettings, migrateAdditionalTCCToLayers } from '@/types/optimizer'
 import type { OptimizerWorkerOutMessage, OptimizerWorkerRunPayload } from '@/workers/optimizer-worker'
 import { OptimizerConfigureStage } from '@/features/optimizer/stages/optimizer-configure-stage'
 import { OptimizerRunStage } from '@/features/optimizer/stages/optimizer-run-stage'
@@ -66,7 +66,7 @@ function normalizeSettings(
   if (!merged.errorMetric || (merged.errorMetric !== 'squared' && merged.errorMetric !== 'absolute')) {
     merged.errorMetric = base.errorMetric
   }
-  return merged
+  return migrateAdditionalTCCToLayers(merged)
 }
 
 function getInitialState(

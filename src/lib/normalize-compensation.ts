@@ -5,7 +5,7 @@
 
 import type { ProviderRow } from '@/types/provider'
 import type { PSQBasis } from '@/types/scenario'
-import type { AdditionalTCCConfig } from '@/lib/tcc-components'
+import type { AdditionalTCCConfig, TCCLayerConfig } from '@/lib/tcc-components'
 
 function num(x: unknown): number {
   if (typeof x === 'number' && !Number.isNaN(x)) return x
@@ -163,9 +163,10 @@ export interface TCCComponentOptions {
 /** How quality payments are determined when included in TCC. */
 export type QualityPaymentsSource = 'from_file' | 'override_pct_of_base'
 
-/** Options for optimizer baseline TCC: what to include (quality, work RVU incentive, other incentives, etc.). */
+/** Options for optimizer baseline TCC: what to include (quality, work RVU incentive, layered TCC). */
 export interface OptimizerBaselineTCCConfig {
-  psqConfig: PSQConfig
+  /** PSQ not used in optimizer baseline; layers replace it. Kept for non-optimizer callers. */
+  psqConfig?: PSQConfig
   /** Include quality payments in baseline (and use same in modeled). */
   includeQualityPayments: boolean
   /** When 'override_pct_of_base', quality = clinicalBase * (qualityOverridePct/100) instead of provider file. */
@@ -174,18 +175,56 @@ export interface OptimizerBaselineTCCConfig {
   qualityPaymentsOverridePct?: number
   /** Include current work RVU incentive in baseline. Target = clinical base / currentCF; incentive = max(0, (wRVUs - target) * currentCF). */
   includeWorkRVUIncentive: boolean
-  /** Include provider.otherIncentives in baseline and modeled TCC. */
+  /** Include provider.otherIncentives in baseline (e.g. imputed-vs-market). Optimizer uses layers instead. */
   includeOtherIncentives?: boolean
   /** Current CF for baseline incentive (when includeWorkRVUIncentive). */
   currentCF: number
-  /** Optional per-component options (e.g. normalizeForFTE for quality or otherIncentives). */
+  /** Optional per-component options (e.g. normalizeForFTE for quality). */
   componentOptions?: Record<string, TCCComponentOptions>
-  /** Layered additional TCC on top of components (percent of base, dollar per FTE, flat). */
+  /** Named layers: percent of base, per FTE, flat, or from file. Replaces additionalTCC and PSQ/other in optimizer. */
+  additionalTCCLayers?: TCCLayerConfig[]
+  /** Legacy: used only when additionalTCCLayers is missing or empty. */
   additionalTCC?: AdditionalTCCConfig
 }
 
 /**
- * Compute layered additional TCC (percent of base, dollar per FTE, flat).
+ * Compute layered additional TCC from named layers (percent of base, dollar per FTE, flat, from file).
+ * When additionalTCCLayers is missing or empty, falls back to legacy additionalTCC.
+ */
+export function getLayeredTCCAmount(
+  config: OptimizerBaselineTCCConfig,
+  provider: ProviderRow,
+  clinicalBase: number,
+  cFTE: number
+): number {
+  const layers = config.additionalTCCLayers
+  if (layers?.length) {
+    let sum = 0
+    const prov = provider as Record<string, unknown>
+    for (const layer of layers) {
+      switch (layer.type) {
+        case 'percent_of_base':
+          sum += (layer.value != null && Number.isFinite(layer.value) ? layer.value : 0) / 100 * clinicalBase
+          break
+        case 'dollar_per_1p0_FTE':
+          sum += (layer.value != null && Number.isFinite(layer.value) ? layer.value : 0) * (cFTE > 0 ? cFTE : 0)
+          break
+        case 'flat_dollar':
+          sum += layer.value != null && Number.isFinite(layer.value) ? layer.value : 0
+          break
+        case 'from_file':
+          const raw = num(prov[layer.sourceColumn ?? ''] as unknown)
+          sum += layer.normalizeForFTE && cFTE > 0 ? raw * cFTE : raw
+          break
+      }
+    }
+    return sum
+  }
+  return getAdditionalTCCAmount(config, clinicalBase, cFTE)
+}
+
+/**
+ * Compute legacy layered additional TCC (percent of base, dollar per FTE, flat).
  * Returns 0 if config.additionalTCC is missing or all values zero/undefined.
  */
 export function getAdditionalTCCAmount(
@@ -235,8 +274,8 @@ function resolveFromFileAmount(
 }
 
 /**
- * Baseline TCC for optimizer with optional quality payments, work RVU incentive, and other incentives.
- * Work RVU incentive: target wRVUs = clinical base / CF; if actual wRVUs > target, incentive = (wRVUs - target) * CF.
+ * Baseline TCC for optimizer: clinical base + quality + work RVU incentive + (optional) other incentives + layered TCC.
+ * Optimizer path does not pass includeOtherIncentives; other consumers (e.g. imputed-vs-market) may.
  */
 export function getBaselineTCCForOptimizer(
   provider: ProviderRow,
@@ -244,7 +283,6 @@ export function getBaselineTCCForOptimizer(
 ): number {
   const clinicalBase = getClinicalBase(provider)
   const cFTE = getClinicalFTE(provider)
-  const psq = getPSQDollars(clinicalBase, config.psqConfig)
   const qualityRaw = config.includeQualityPayments
     ? config.qualityPaymentsSource === 'override_pct_of_base' && config.qualityPaymentsOverridePct != null
       ? clinicalBase * (config.qualityPaymentsOverridePct / 100)
@@ -259,8 +297,8 @@ export function getBaselineTCCForOptimizer(
     : 0
   const otherRaw = config.includeOtherIncentives ? num(provider.otherIncentives) : 0
   const other = resolveFromFileAmount(otherRaw, 'otherIncentives', cFTE, config.componentOptions)
-  const additional = getAdditionalTCCAmount(config, clinicalBase, cFTE)
-  return clinicalBase + psq + quality + incentive + other + additional
+  const layered = getLayeredTCCAmount(config, provider, clinicalBase, cFTE)
+  return clinicalBase + quality + incentive + other + layered
 }
 
 /** Breakdown of baseline TCC components for display (e.g. drawer build-up). */
@@ -270,13 +308,16 @@ export interface BaselineTCCBreakdown {
   quality: number
   workRVUIncentive: number
   otherIncentives: number
-  /** Layered additional TCC (percent of base + dollar per FTE + flat). */
+  /** Legacy single additional TCC block. */
   additionalTCC?: number
+  /** Named layers sum (optimizer path); when set, psq/otherIncentives are 0 in optimizer. */
+  layeredTCC?: number
   total: number
 }
 
 /**
  * Return each component of baseline TCC (same logic as getBaselineTCCForOptimizer).
+ * Optimizer path: psq and otherIncentives are 0; layeredTCC holds the layers sum.
  */
 export function getBaselineTCCBreakdown(
   provider: ProviderRow,
@@ -284,7 +325,7 @@ export function getBaselineTCCBreakdown(
 ): BaselineTCCBreakdown {
   const clinicalBase = getClinicalBase(provider)
   const cFTE = getClinicalFTE(provider)
-  const psq = getPSQDollars(clinicalBase, config.psqConfig)
+  const psq = config.psqConfig ? getPSQDollars(clinicalBase, config.psqConfig) : 0
   const qualityRaw = config.includeQualityPayments
     ? config.qualityPaymentsSource === 'override_pct_of_base' && config.qualityPaymentsOverridePct != null
       ? clinicalBase * (config.qualityPaymentsOverridePct / 100)
@@ -299,9 +340,10 @@ export function getBaselineTCCBreakdown(
     : 0
   const otherRaw = config.includeOtherIncentives ? num(provider.otherIncentives) : 0
   const otherIncentives = resolveFromFileAmount(otherRaw, 'otherIncentives', cFTE, config.componentOptions)
-  const additionalTCC = getAdditionalTCCAmount(config, clinicalBase, cFTE)
-  const total = clinicalBase + psq + qualityBreakdown + workRVUIncentive + otherIncentives + additionalTCC
-  return { clinicalBase, psq, quality: qualityBreakdown, workRVUIncentive, otherIncentives, additionalTCC, total }
+  const layeredTCC = getLayeredTCCAmount(config, provider, clinicalBase, cFTE)
+  const additionalTCC = config.additionalTCCLayers?.length ? undefined : getAdditionalTCCAmount(config, clinicalBase, cFTE)
+  const total = clinicalBase + psq + qualityBreakdown + workRVUIncentive + otherIncentives + (layeredTCC ?? additionalTCC ?? 0)
+  return { clinicalBase, psq, quality: qualityBreakdown, workRVUIncentive, otherIncentives, additionalTCC, layeredTCC, total }
 }
 
 /**

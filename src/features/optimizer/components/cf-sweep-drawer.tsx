@@ -116,14 +116,14 @@ export function CFSweepDrawer({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[680px] md:max-w-[720px]"
+        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[680px] md:max-w-[720px] border-border"
       >
-        <SheetHeader className="space-y-1 border-b border-border/60 pb-4">
-          <SheetTitle className="flex items-center gap-2 text-xl tracking-tight">
-            <LineChart className="size-5 text-primary" />
+        <SheetHeader className="space-y-1.5 border-b border-border pb-4">
+          <SheetTitle className="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
+            <LineChart className="size-5 text-muted-foreground" />
             Model at CF percentiles
           </SheetTitle>
-          <SheetDescription className="text-sm text-muted-foreground">
+          <SheetDescription className="text-sm text-muted-foreground leading-relaxed">
             Run the same population at several conversion factor percentiles (e.g. 20th, 30th, 40th, 50th) and see
             modeled TCC percentile, gap, and incentives. Use this to see if raising CF would make TCC percentile walk
             with wRVU percentile.
@@ -132,12 +132,12 @@ export function CFSweepDrawer({
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto">
           <div className="space-y-3">
-            <Label className="text-sm font-medium">CF percentiles to run</Label>
+            <Label className="text-sm font-medium text-foreground">CF percentiles to run</Label>
             <div className="flex flex-wrap gap-2">
               {percentileOptions.map((p) => (
                 <label
                   key={p}
-                  className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm transition-colors hover:bg-muted/50 has-[:checked]:border-foreground/25 has-[:checked]:bg-muted has-[:checked]:shadow-sm"
                 >
                   <input
                     type="checkbox"
@@ -152,7 +152,7 @@ export function CFSweepDrawer({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Scope</Label>
+            <Label className="text-sm font-medium text-foreground">Scope</Label>
             <Select value={scope} onValueChange={setScope}>
               <SelectTrigger className="w-full max-w-xs">
                 <SelectValue placeholder="All specialties" />
@@ -174,7 +174,7 @@ export function CFSweepDrawer({
           </Button>
 
           {sweepResult ? (
-            <div className="space-y-4">
+            <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
               <h4 className="text-sm font-semibold text-foreground">Results</h4>
               <SweepResultsTable sweepResult={sweepResult} />
             </div>
@@ -203,11 +203,11 @@ function SweepResultsTable({ sweepResult }: { sweepResult: CFSweepAllResult }) {
   return (
     <div className="space-y-6">
       {entries.map(([specialty, rows]) => (
-        <div key={specialty} className="rounded-xl border border-border/60 overflow-hidden">
-          <div className="bg-muted/40 px-3 py-2 text-sm font-medium text-foreground">{specialty}</div>
+        <div key={specialty} className="overflow-hidden rounded-lg border border-border">
+          <div className="border-b border-border bg-muted/50 px-3 py-2 text-sm font-medium text-foreground">{specialty}</div>
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/20 hover:bg-muted/20">
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
                 <TableHead className="text-right font-semibold">CF %ile</TableHead>
                 <TableHead className="text-right font-semibold">CF $</TableHead>
                 <TableHead className="text-right font-semibold">Mean TCC %ile</TableHead>

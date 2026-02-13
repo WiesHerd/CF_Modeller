@@ -60,10 +60,10 @@ function SheetContent({
     bottom: "data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
   }
   const position = {
-    right: "inset-y-0 right-0 h-full w-full sm:max-w-md border-l",
-    left: "inset-y-0 left-0 h-full w-full sm:max-w-md border-r",
-    top: "inset-x-0 top-0 h-auto max-h-[85vh] border-b",
-    bottom: "inset-x-0 bottom-0 h-auto max-h-[85vh] border-t",
+    right: "inset-y-0 right-0 h-full w-full sm:max-w-md border-l border-border",
+    left: "inset-y-0 left-0 h-full w-full sm:max-w-md border-r border-border",
+    top: "inset-x-0 top-0 h-auto max-h-[85vh] border-b border-border",
+    bottom: "inset-x-0 bottom-0 h-auto max-h-[85vh] border-t border-border",
   }
   return (
     <SheetPortal>
@@ -71,7 +71,7 @@ function SheetContent({
       <DialogPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 flex flex-col gap-4 bg-background p-6 shadow-lg duration-200 ease-in-out",
+          "fixed z-50 flex flex-col gap-4 bg-background p-6 shadow-xl duration-200 ease-in-out outline-none",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           slideIn[side],
           position[side],
@@ -82,7 +82,7 @@ function SheetContent({
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
-            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+            className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-border focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
             aria-label="Close"
           >
             <XIcon className="size-4" />

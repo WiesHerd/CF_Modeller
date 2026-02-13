@@ -15,7 +15,7 @@ export interface TCCComponentDefinition {
   supportsNormalizeForFTE?: boolean
 }
 
-/** Built-in TCC components shown in optimizer and batch configure. */
+/** Built-in TCC components shown in optimizer and batch configure. Value-based and other incentives are now named layers. */
 export const TCC_BUILTIN_COMPONENTS: TCCComponentDefinition[] = [
   {
     id: 'quality',
@@ -29,19 +29,6 @@ export const TCC_BUILTIN_COMPONENTS: TCCComponentDefinition[] = [
     label: 'Work RVU incentive',
     description: 'Target = clinical $ ÷ CF; incentive if wRVUs exceed target.',
     type: 'computed',
-  },
-  {
-    id: 'valueBased',
-    label: 'Value-based payment',
-    description: 'Percent of base (or guaranteed / total pay).',
-    type: 'percent_of_base',
-  },
-  {
-    id: 'otherIncentives',
-    label: 'Other incentives',
-    description: 'From provider file (e.g. retention, sign-on).',
-    type: 'from_file',
-    supportsNormalizeForFTE: true,
   },
 ]
 
@@ -61,8 +48,6 @@ export type TCCComponentInclusion = Record<string, { included: boolean; normaliz
 export const DEFAULT_TCC_COMPONENT_INCLUSION: TCCComponentInclusion = {
   quality: { included: true },
   workRVUIncentive: { included: true },
-  valueBased: { included: false },
-  otherIncentives: { included: false },
 }
 
 /** Custom TCC column from upload: user maps a file column to a TCC component. */
@@ -81,4 +66,20 @@ export interface AdditionalTCCConfig {
   dollarPer1p0FTE?: number
   /** Flat dollar add per provider. */
   flatDollar?: number
+}
+
+/** Type of a single named TCC layer. */
+export type TCCLayerType = 'percent_of_base' | 'dollar_per_1p0_FTE' | 'flat_dollar' | 'from_file'
+
+/** One named layer in the additional TCC list (optimizer). */
+export interface TCCLayerConfig {
+  id: string
+  name: string
+  type: TCCLayerType
+  /** For percent_of_base, dollar_per_1p0_FTE, flat_dollar. */
+  value?: number
+  /** For from_file: provider field key (e.g. 'otherIncentives'). */
+  sourceColumn?: string
+  /** For from_file: when true, treat file value as per 1.0 FTE (multiply by cFTE). */
+  normalizeForFTE?: boolean
 }

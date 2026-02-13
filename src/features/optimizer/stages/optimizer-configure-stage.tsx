@@ -34,7 +34,8 @@ import {
   TCC_BUILTIN_COMPONENTS,
   DEFAULT_TCC_COMPONENT_INCLUSION,
   type TCCComponentInclusion,
-  type AdditionalTCCConfig,
+  type TCCLayerConfig,
+  type TCCLayerType,
 } from '@/lib/tcc-components'
 import { cn } from '@/lib/utils'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
@@ -535,8 +536,6 @@ export function OptimizerConfigureStage({
               const inclusion = settings.tccComponentInclusion ?? {
                 quality: { included: settings.includeQualityPaymentsInBaselineAndModeled },
                 workRVUIncentive: { included: settings.includeWorkRVUIncentiveInTCC },
-                valueBased: { included: settings.includePsqInBaselineAndModeled },
-                otherIncentives: { included: !!settings.includeOtherIncentivesInBaselineAndModeled },
               }
               const entry = inclusion[def.id] ?? DEFAULT_TCC_COMPONENT_INCLUSION[def.id] ?? { included: false }
               const checked = entry.included
@@ -546,8 +545,6 @@ export function OptimizerConfigureStage({
                     ...(prev.tccComponentInclusion ?? {
                       quality: { included: prev.includeQualityPaymentsInBaselineAndModeled },
                       workRVUIncentive: { included: prev.includeWorkRVUIncentiveInTCC },
-                      valueBased: { included: prev.includePsqInBaselineAndModeled },
-                      otherIncentives: { included: !!prev.includeOtherIncentivesInBaselineAndModeled },
                     }),
                     [def.id]: { ...entry, included },
                   }
@@ -556,8 +553,6 @@ export function OptimizerConfigureStage({
                     tccComponentInclusion: nextInclusion,
                     includeQualityPaymentsInBaselineAndModeled: nextInclusion.quality?.included ?? prev.includeQualityPaymentsInBaselineAndModeled,
                     includeWorkRVUIncentiveInTCC: nextInclusion.workRVUIncentive?.included ?? prev.includeWorkRVUIncentiveInTCC,
-                    includePsqInBaselineAndModeled: nextInclusion.valueBased?.included ?? prev.includePsqInBaselineAndModeled,
-                    includeOtherIncentivesInBaselineAndModeled: nextInclusion.otherIncentives?.included ?? !!prev.includeOtherIncentivesInBaselineAndModeled,
                   }
                 })
               }
@@ -566,8 +561,6 @@ export function OptimizerConfigureStage({
                   const current = prev.tccComponentInclusion ?? {
                     quality: { included: prev.includeQualityPaymentsInBaselineAndModeled },
                     workRVUIncentive: { included: prev.includeWorkRVUIncentiveInTCC },
-                    valueBased: { included: prev.includePsqInBaselineAndModeled },
-                    otherIncentives: { included: !!prev.includeOtherIncentivesInBaselineAndModeled },
                   }
                   const nextInclusion: TCCComponentInclusion = {
                     ...current,
@@ -642,91 +635,6 @@ export function OptimizerConfigureStage({
                       )}
                     </div>
                   )}
-                  {def.id === 'valueBased' && checked && (
-                    <>
-                      <Select
-                        value={settings.baseScenarioInputs.psqBasis ?? 'base_salary'}
-                      onValueChange={(value) =>
-                        onSetSettings((prev) => ({
-                          ...prev,
-                          baseScenarioInputs: {
-                            ...prev.baseScenarioInputs,
-                            psqBasis: value as 'base_salary' | 'total_guaranteed' | 'total_pay',
-                          },
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="w-full max-w-[200px]">
-                        <SelectValue placeholder="Basis" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="base_salary">% of base salary</SelectItem>
-                        <SelectItem value="total_guaranteed">% of total guaranteed</SelectItem>
-                        <SelectItem value="total_pay">% of total pay</SelectItem>
-                      </SelectContent>
-                    </Select>
-                      <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-border/40 pt-3">
-                        <div className="flex items-center gap-2">
-                          <Label htmlFor="psq-current-pct" className="text-xs font-medium whitespace-nowrap">
-                            PSQ % (current)
-                          </Label>
-                          <Input
-                            id="psq-current-pct"
-                            type="number"
-                            min={0}
-                            max={50}
-                            step={0.5}
-                            value={settings.baseScenarioInputs.currentPsqPercent ?? ''}
-                            onChange={(e) => {
-                              const raw = e.target.value
-                              const num = raw === '' ? undefined : Number(raw)
-                              const val =
-                                num == null || Number.isNaN(num) ? undefined : Math.max(0, Math.min(50, num))
-                              onSetSettings((prev) => ({
-                                ...prev,
-                                baseScenarioInputs: {
-                                  ...prev.baseScenarioInputs,
-                                  currentPsqPercent: val,
-                                },
-                              }))
-                            }}
-                            placeholder="0"
-                            className="h-9 w-20"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Label htmlFor="psq-modeled-pct" className="text-xs font-medium whitespace-nowrap">
-                            PSQ % (modeled)
-                          </Label>
-                          <Input
-                            id="psq-modeled-pct"
-                            type="number"
-                            min={0}
-                            max={50}
-                            step={0.5}
-                            value={settings.baseScenarioInputs.psqPercent ?? ''}
-                            onChange={(e) => {
-                              const raw = e.target.value
-                              const num = raw === '' ? 0 : Number(raw)
-                              const val = Number.isNaN(num) ? 0 : Math.max(0, Math.min(50, num))
-                              onSetSettings((prev) => ({
-                                ...prev,
-                                baseScenarioInputs: {
-                                  ...prev.baseScenarioInputs,
-                                  psqPercent: val,
-                                },
-                              }))
-                            }}
-                            placeholder="0"
-                            className="h-9 w-20"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Value-based payment % of base (or chosen basis). Current = baseline; modeled = scenario.
-                      </p>
-                    </>
-                  )}
                   {def.supportsNormalizeForFTE && checked && (
                     <label className="flex items-center gap-2 text-xs text-muted-foreground">
                       <input
@@ -746,108 +654,157 @@ export function OptimizerConfigureStage({
           <div className="mt-4 space-y-3 rounded-lg border border-border/60 bg-background/50 p-3">
             <h4 className="text-sm font-medium">Additional TCC (layered)</h4>
             <p className="text-xs text-muted-foreground">
-              Add these amounts on top of the selected components for both baseline and modeled (e.g.
-              market adjustment, stipend, or one-time add).
+              Add named layers on top of the selected components for both baseline and modeled (e.g.
+              value-based payment, retention bonus, stipend). Each layer can be percent of base, dollar per 1.0 FTE,
+              flat dollar, or from a provider file column.
             </p>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="tcc-add-pct" className="text-xs font-medium">
-                  Percent of base
-                </Label>
-                <Input
-                  id="tcc-add-pct"
-                  type="number"
-                  min={0}
-                  max={30}
-                  step={0.5}
-                  placeholder="0"
-                  value={settings.additionalTCC?.percentOfBase ?? ''}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    const num = raw === '' ? 0 : Number(raw)
-                    const val = Number.isNaN(num) ? 0 : Math.max(0, Math.min(30, num))
-                    onSetSettings((prev) => {
-                      const next: AdditionalTCCConfig = {
-                        ...(prev.additionalTCC ?? {}),
-                        percentOfBase: val,
+            <div className="space-y-3">
+              {(settings.additionalTCCLayers ?? []).map((layer) => (
+                <div
+                  key={layer.id}
+                  className="flex flex-wrap items-end gap-3 rounded border border-border/50 bg-background p-3"
+                >
+                  <div className="min-w-[140px] space-y-1">
+                    <Label className="text-xs font-medium">Name</Label>
+                    <Input
+                      value={layer.name}
+                      onChange={(e) =>
+                        onSetSettings((prev) => ({
+                          ...prev,
+                          additionalTCCLayers: (prev.additionalTCCLayers ?? []).map((l) =>
+                            l.id === layer.id ? { ...l, name: e.target.value } : l
+                          ),
+                        }))
                       }
-                      const allZero =
-                        (next.percentOfBase ?? 0) === 0 &&
-                        (next.dollarPer1p0FTE ?? 0) === 0 &&
-                        (next.flatDollar ?? 0) === 0
-                      return { ...prev, additionalTCC: allZero ? undefined : next }
-                    })
-                  }}
-                  className="h-9 w-full max-w-[120px]"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Percent of clinical base (at current FTE).
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="tcc-add-perfte" className="text-xs font-medium">
-                  Dollar per 1.0 FTE
-                </Label>
-                <Input
-                  id="tcc-add-perfte"
-                  type="number"
-                  min={0}
-                  step={1000}
-                  placeholder="0"
-                  value={settings.additionalTCC?.dollarPer1p0FTE ?? ''}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    const num = raw === '' ? 0 : Number(raw)
-                    const val = Number.isNaN(num) ? 0 : Math.max(0, num)
-                    onSetSettings((prev) => {
-                      const next: AdditionalTCCConfig = {
-                        ...(prev.additionalTCC ?? {}),
-                        dollarPer1p0FTE: val,
+                      placeholder="e.g. Value-based payment"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="min-w-[160px] space-y-1">
+                    <Label className="text-xs font-medium">Type</Label>
+                    <Select
+                      value={layer.type}
+                      onValueChange={(value: TCCLayerType) =>
+                        onSetSettings((prev) => ({
+                          ...prev,
+                          additionalTCCLayers: (prev.additionalTCCLayers ?? []).map((l) =>
+                            l.id === layer.id
+                              ? { ...l, type: value, value: value === 'from_file' ? undefined : l.value ?? 0, sourceColumn: value === 'from_file' ? 'otherIncentives' : undefined }
+                              : l
+                          ),
+                        }))
                       }
-                      const allZero =
-                        (next.percentOfBase ?? 0) === 0 &&
-                        (next.dollarPer1p0FTE ?? 0) === 0 &&
-                        (next.flatDollar ?? 0) === 0
-                      return { ...prev, additionalTCC: allZero ? undefined : next }
-                    })
-                  }}
-                  className="h-9 w-full max-w-[140px]"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Amount per 1.0 clinical FTE (scales with FTE).
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="tcc-add-flat" className="text-xs font-medium">
-                  Flat dollar
-                </Label>
-                <Input
-                  id="tcc-add-flat"
-                  type="number"
-                  min={0}
-                  step={1000}
-                  placeholder="0"
-                  value={settings.additionalTCC?.flatDollar ?? ''}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    const num = raw === '' ? 0 : Number(raw)
-                    const val = Number.isNaN(num) ? 0 : Math.max(0, num)
-                    onSetSettings((prev) => {
-                      const next: AdditionalTCCConfig = {
-                        ...(prev.additionalTCC ?? {}),
-                        flatDollar: val,
-                      }
-                      const allZero =
-                        (next.percentOfBase ?? 0) === 0 &&
-                        (next.dollarPer1p0FTE ?? 0) === 0 &&
-                        (next.flatDollar ?? 0) === 0
-                      return { ...prev, additionalTCC: allZero ? undefined : next }
-                    })
-                  }}
-                  className="h-9 w-full max-w-[140px]"
-                />
-                <p className="text-xs text-muted-foreground">Same dollar amount per provider.</p>
-              </div>
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percent_of_base">Percent of base</SelectItem>
+                        <SelectItem value="dollar_per_1p0_FTE">Dollar per 1.0 FTE</SelectItem>
+                        <SelectItem value="flat_dollar">Flat dollar</SelectItem>
+                        <SelectItem value="from_file">From provider file</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {layer.type !== 'from_file' ? (
+                    <div className="min-w-[100px] space-y-1">
+                      <Label className="text-xs font-medium">Value</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={layer.type === 'percent_of_base' ? 0.5 : 1000}
+                        value={layer.value ?? ''}
+                        onChange={(e) => {
+                          const raw = e.target.value
+                          const num = raw === '' ? 0 : Number(raw)
+                          const val = Number.isNaN(num) ? 0 : Math.max(0, num)
+                          onSetSettings((prev) => ({
+                            ...prev,
+                            additionalTCCLayers: (prev.additionalTCCLayers ?? []).map((l) =>
+                              l.id === layer.id ? { ...l, value: val } : l
+                            ),
+                          }))
+                        }}
+                        placeholder="0"
+                        className="h-9 w-24"
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      <div className="min-w-[140px] space-y-1">
+                        <Label className="text-xs font-medium">Source column</Label>
+                        <Select
+                          value={layer.sourceColumn ?? 'otherIncentives'}
+                          onValueChange={(value) =>
+                            onSetSettings((prev) => ({
+                              ...prev,
+                              additionalTCCLayers: (prev.additionalTCCLayers ?? []).map((l) =>
+                                l.id === layer.id ? { ...l, sourceColumn: value } : l
+                              ),
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="otherIncentives">otherIncentives</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={!!layer.normalizeForFTE}
+                          onChange={(e) =>
+                            onSetSettings((prev) => ({
+                              ...prev,
+                              additionalTCCLayers: (prev.additionalTCCLayers ?? []).map((l) =>
+                                l.id === layer.id ? { ...l, normalizeForFTE: e.target.checked } : l
+                              ),
+                            }))
+                          }
+                          className="size-3.5 rounded border-input"
+                        />
+                        <span>Per 1.0 FTE</span>
+                      </label>
+                    </>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() =>
+                      onSetSettings((prev) => ({
+                        ...prev,
+                        additionalTCCLayers: (prev.additionalTCCLayers ?? []).filter((l) => l.id !== layer.id),
+                      }))
+                    }
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const newLayer: TCCLayerConfig = {
+                    id: `layer-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                    name: 'New layer',
+                    type: 'percent_of_base',
+                    value: 0,
+                  }
+                  onSetSettings((prev) => ({
+                    ...prev,
+                    additionalTCCLayers: [...(prev.additionalTCCLayers ?? []), newLayer],
+                  }))
+                }}
+              >
+                Add layer
+              </Button>
             </div>
           </div>
                 </div>
