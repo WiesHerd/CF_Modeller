@@ -28,7 +28,7 @@ export function LegalPage({ type, onBack }: LegalPageProps) {
               }}
               className="text-sm font-medium text-primary hover:underline underline-offset-4"
             >
-              ← Back to CF Modeler
+              ← Back to TCC Modeler
             </a>
           </div>
         </div>
@@ -47,7 +47,7 @@ function PrivacyContent() {
       <p className={lastUpdatedClass}>Last updated: February 2025</p>
 
       <p className={pClass}>
-        CF Modeler (“we”, “our”, or “the service”) is a provider compensation modeling tool. This policy describes how we handle information in connection with your use of the application.
+        TCC Modeler (“we”, “our”, or “the service”) is a total cash compensation modeling tool. This policy describes how we handle information in connection with your use of the application.
       </p>
 
       <h2 className={h2Class}>1. Information we collect</h2>
@@ -60,7 +60,7 @@ function PrivacyContent() {
 
       <h2 className={h2Class}>2. How we use information</h2>
       <p className={pClass}>
-        We use information only to provide, maintain, and improve the CF Modeler service and to comply with applicable law.
+        We use information only to provide, maintain, and improve the TCC Modeler service and to comply with applicable law.
       </p>
 
       <h2 className={h2Class}>3. Data storage and retention</h2>
@@ -93,7 +93,7 @@ function TermsContent() {
       <p className={lastUpdatedClass}>Last updated: February 2025</p>
 
       <p className={pClass}>
-        These Terms of Use (“Terms”) apply to your access to and use of CF Modeler (“the Service”). By using the Service, you agree to these Terms. If you do not agree, do not use the Service.
+        These Terms of Use (“Terms”) apply to your access to and use of TCC Modeler (“the Service”). By using the Service, you agree to these Terms. If you do not agree, do not use the Service.
       </p>
 
       <h2 className={h2Class}>1. License and use</h2>
@@ -105,7 +105,7 @@ function TermsContent() {
       <p className={pClass}>You agree not to:</p>
       <ul className={listClass}>
         <li>Copy, clone, reverse engineer, or attempt to derive the source code, structure, or logic of the Service or any part of it.</li>
-        <li>Build a product or service that competes with or substantially replicates CF Modeler, including its features, workflow, or design.</li>
+        <li>Build a product or service that competes with or substantially replicates TCC Modeler, including its features, workflow, or design.</li>
         <li>Scrape, harvest, or automate access to the Service beyond normal use through the provided interface.</li>
         <li>Resell, sublicense, or commercially redistribute the Service or access to it without our prior written consent.</li>
         <li>Remove or alter any copyright, trademark, or other proprietary notices.</li>

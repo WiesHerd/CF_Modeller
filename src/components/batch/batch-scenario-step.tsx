@@ -1,15 +1,26 @@
-import { useRef, useState, useCallback, useMemo } from 'react'
+import { useRef, useState, useCallback, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Label } from '@/components/ui/label'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
+  DropdownMenuItem,
   DropdownMenuCheckboxItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Table,
   TableBody,
@@ -18,14 +29,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Play, Loader2, AlertCircle, Users, Target, Plus, Trash2, Sliders, ChevronDown, ChevronRight, Link2, Layers, Check, Search } from 'lucide-react'
+import { Play, Loader2, AlertCircle, Users, Target, Plus, Trash2, Sliders, ChevronDown, ChevronRight, Link2, Layers, Check, Search, Save, ArrowLeft, FolderOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BatchScenarioInline } from '@/components/batch/batch-scenario-inline'
 import { ScenarioControls } from '@/components/scenario-controls'
 import { Input } from '@/components/ui/input'
 import type { ProviderRow } from '@/types/provider'
 import type { ScenarioInputs, SavedScenario } from '@/types/scenario'
-import type { BatchOverrides, SynonymMap } from '@/types/batch'
+import type { BatchOverrides, SavedBatchScenarioConfig, SynonymMap } from '@/types/batch'
 import type { BatchWorkerRunPayload, BatchWorkerOutMessage } from '@/workers/batch-worker'
 
 interface BatchScenarioStepProps {
@@ -35,9 +46,24 @@ interface BatchScenarioStepProps {
   setScenarioInputs: (inputs: Partial<ScenarioInputs>) => void
   savedScenarios: SavedScenario[]
   batchSynonymMap: SynonymMap
-  onRunComplete: (results: import('@/types/batch').BatchResults) => void
+  onRunComplete: (results: import('@/types/batch').BatchResults, scenarioSnapshot?: import('@/types/batch').BatchScenarioSnapshot) => void
   /** When provided, show a link to edit synonyms on the Upload step. */
   onNavigateToUpload?: () => void
+  /** When provided, Save scenario button is shown and this is called with current config. */
+  onSaveScenario?: (config: Omit<SavedBatchScenarioConfig, 'id' | 'createdAt'>) => void
+  /** When provided, Start fresh is shown to clear all saved scenarios from the library. */
+  onClearSavedScenarios?: () => void
+  /** When 'bulk', show only base scenario + run. When 'detailed', show only overrides + run. Default 'full' shows all. */
+  mode?: 'full' | 'bulk' | 'detailed'
+  /** When provided and mode is bulk/detailed, show a Back button that calls this. */
+  onBack?: () => void
+  /** Saved batch scenario configs (for load/delete UI). */
+  savedBatchScenarioConfigs?: SavedBatchScenarioConfig[]
+  /** When set, apply this config to local state then clear (trigger from parent). */
+  appliedBatchScenarioConfig?: SavedBatchScenarioConfig | null
+  onLoadBatchScenarioConfig?: (config: SavedBatchScenarioConfig) => void
+  onBatchScenarioConfigApplied?: () => void
+  onDeleteBatchScenarioConfig?: (id: string) => void
 }
 
 export function BatchScenarioStep({
@@ -49,8 +75,51 @@ export function BatchScenarioStep({
   batchSynonymMap,
   onRunComplete,
   onNavigateToUpload,
+  onSaveScenario,
+  onClearSavedScenarios,
+  mode = 'full',
+  onBack,
+  savedBatchScenarioConfigs = [],
+  appliedBatchScenarioConfig = null,
+  onLoadBatchScenarioConfig,
+  onBatchScenarioConfigApplied,
+  onDeleteBatchScenarioConfig,
 }: BatchScenarioStepProps) {
+  const isBulk = mode === 'bulk'
+  const isDetailed = mode === 'detailed'
+  const isCardView = isBulk || isDetailed
   const [isRunning, setIsRunning] = useState(false)
+
+  useEffect(() => {
+    if (!appliedBatchScenarioConfig || !onBatchScenarioConfigApplied) return
+    const c = appliedBatchScenarioConfig
+    const bySpec = c.overrides?.bySpecialty ?? {}
+    const byProv = c.overrides?.byProviderId ?? {}
+    setSpecialtyOverrides(
+      Object.entries(bySpec).map(([spec, inputs]) => ({
+        specialties: [spec],
+        proposedCFPercentile: inputs.proposedCFPercentile != null ? String(inputs.proposedCFPercentile) : '',
+        overrideCF: inputs.overrideCF != null ? String(inputs.overrideCF) : '',
+        psqPercent: inputs.psqPercent != null ? String(inputs.psqPercent) : '',
+      }))
+    )
+    setProviderOverrides(
+      Object.entries(byProv).map(([id, inputs]) => ({
+        providerIds: [id],
+        proposedCFPercentile: inputs.proposedCFPercentile != null ? String(inputs.proposedCFPercentile) : '',
+        overrideCF: inputs.overrideCF != null ? String(inputs.overrideCF) : '',
+        psqPercent: inputs.psqPercent != null ? String(inputs.psqPercent) : '',
+      }))
+    )
+    setSelectedSpecialties(c.selectedSpecialties ?? [])
+    setSelectedProviderIds(c.selectedProviderIds ?? [])
+    setRunBaseScenarioOnly(c.runBaseScenarioOnly ?? true)
+    onBatchScenarioConfigApplied()
+  }, [appliedBatchScenarioConfig, onBatchScenarioConfigApplied])
+  const [saveScenarioDialogOpen, setSaveScenarioDialogOpen] = useState(false)
+  const [saveScenarioName, setSaveScenarioName] = useState('')
+  /** When true, run only the base scenario (controls at top). When false, run base + all from scenario library. */
+  const [runBaseScenarioOnly, setRunBaseScenarioOnly] = useState(true)
   const [progress, setProgress] = useState({ processed: 0, total: 1, elapsedMs: 0 })
   const [error, setError] = useState<string | null>(null)
   const workerRef = useRef<Worker | null>(null)
@@ -186,14 +255,16 @@ export function BatchScenarioStep({
     setIsRunning(true)
     setProgress({ processed: 0, total: providersToRun.length, elapsedMs: 0 })
 
-    const scenarios = [
-      { id: 'current', name: 'Current', scenarioInputs: { ...scenarioInputs } },
-      ...savedScenarios.map((s) => ({
-        id: s.id,
-        name: s.name,
-        scenarioInputs: s.scenarioInputs,
-      })),
-    ]
+    const scenarios = runBaseScenarioOnly
+      ? [{ id: 'current', name: 'Current', scenarioInputs: { ...scenarioInputs } }]
+      : [
+          { id: 'current', name: 'Current', scenarioInputs: { ...scenarioInputs } },
+          ...savedScenarios.map((s) => ({
+            id: s.id,
+            name: s.name,
+            scenarioInputs: s.scenarioInputs,
+          })),
+        ]
     const payload: BatchWorkerRunPayload = {
       type: 'run',
       providers: providersToRun,
@@ -222,7 +293,8 @@ export function BatchScenarioStep({
         worker.terminate()
         workerRef.current = null
         setIsRunning(false)
-        onRunComplete(msg.results)
+        const snapshot = { scenarios }
+        onRunComplete(msg.results, snapshot)
       }
     }
     worker.onerror = () => {
@@ -237,6 +309,7 @@ export function BatchScenarioStep({
     marketRows,
     scenarioInputs,
     savedScenarios,
+    runBaseScenarioOnly,
     batchSynonymMap,
     batchOverrides,
     onRunComplete,
@@ -252,7 +325,7 @@ export function BatchScenarioStep({
 
   const [activeStep, setActiveStep] = useState<'scenario' | 'overrides' | 'run'>('scenario')
 
-  const scrollToSection = (id: 'batch-scenario' | 'batch-run-for' | 'batch-overrides' | 'batch-run') => {
+  const scrollToSection = (id: 'batch-scenario' | 'batch-overrides' | 'batch-run') => {
     const el = document.getElementById(id)
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     if (id === 'batch-scenario') setActiveStep('scenario')
@@ -281,7 +354,117 @@ export function BatchScenarioStep({
 
   return (
     <div className="space-y-6">
-      {/* Progress summary – stepper style (clickable) */}
+      {isCardView && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {onBack && (
+              <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2">
+                <ArrowLeft className="size-4" />
+                Back
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <TooltipProvider delayDuration={300}>
+              {onSaveScenario && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSaveScenarioName('')
+                        setSaveScenarioDialogOpen(true)
+                      }}
+                      disabled={isRunning}
+                      aria-label="Save scenario"
+                    >
+                      <Save className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Save scenario</TooltipContent>
+                </Tooltip>
+              )}
+              {onLoadBatchScenarioConfig && onDeleteBatchScenarioConfig && (
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`Saved batch scenarios (${savedBatchScenarioConfigs.length})`}
+                        >
+                          <FolderOpen className="size-4" />
+                          <ChevronDown className="size-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Saved batch scenarios{savedBatchScenarioConfigs.length > 0 ? ` (${savedBatchScenarioConfigs.length})` : ''}
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="end" className="w-[320px]">
+                    {savedBatchScenarioConfigs.length === 0 ? (
+                      <DropdownMenuItem disabled className="text-muted-foreground">
+                        No saved batch scenarios yet. Use &quot;Save scenario&quot; to save base inputs, overrides, and run-for selection.
+                      </DropdownMenuItem>
+                    ) : (
+                      <ScrollArea className="max-h-[280px]">
+                        <div className="p-1">
+                          {[...savedBatchScenarioConfigs].reverse().map((config) => (
+                            <div
+                              key={config.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
+                            >
+                              <div className="min-w-0 flex-1 text-sm">
+                                <p className="font-medium truncate" title={config.name}>
+                                  {config.name}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                  {new Date(config.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </p>
+                              </div>
+                              <div className="flex shrink-0 gap-0.5">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-8"
+                                  onClick={() => onLoadBatchScenarioConfig(config)}
+                                  title="Load this scenario"
+                                >
+                                  <FolderOpen className="size-4" />
+                                  <span className="sr-only">Load</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-8 text-destructive hover:text-destructive"
+                                  onClick={() => {
+                                    if (window.confirm(`Delete "${config.name}"?`)) {
+                                      onDeleteBatchScenarioConfig(config.id)
+                                    }
+                                  }}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="size-4" />
+                                  <span className="sr-only">Delete</span>
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </TooltipProvider>
+          </div>
+        </div>
+      )}
+      {!isCardView && (
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <nav
           className="flex items-center gap-1 rounded-xl border border-border/60 bg-muted/20 p-1"
@@ -325,6 +508,102 @@ export function BatchScenarioStep({
           })}
         </nav>
         <div className="flex items-center gap-2 shrink-0">
+          <TooltipProvider delayDuration={300}>
+            {onSaveScenario && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSaveScenarioName('')
+                      setSaveScenarioDialogOpen(true)
+                    }}
+                    disabled={isRunning}
+                    aria-label="Save scenario"
+                  >
+                    <Save className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Save scenario</TooltipContent>
+              </Tooltip>
+            )}
+            {onLoadBatchScenarioConfig && onDeleteBatchScenarioConfig && (
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Saved batch scenarios (${savedBatchScenarioConfigs.length})`}
+                      >
+                        <FolderOpen className="size-4" />
+                        <ChevronDown className="size-4 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    Saved batch scenarios{savedBatchScenarioConfigs.length > 0 ? ` (${savedBatchScenarioConfigs.length})` : ''}
+                  </TooltipContent>
+                </Tooltip>
+                <DropdownMenuContent align="end" className="w-[320px]">
+                  {savedBatchScenarioConfigs.length === 0 ? (
+                    <DropdownMenuItem disabled className="text-muted-foreground">
+                      No saved batch scenarios yet. Use &quot;Save scenario&quot; to save base inputs, overrides, and run-for selection.
+                    </DropdownMenuItem>
+                  ) : (
+                    <ScrollArea className="max-h-[280px]">
+                      <div className="p-1">
+                        {[...savedBatchScenarioConfigs].reverse().map((config) => (
+                          <div
+                            key={config.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
+                          >
+                            <div className="min-w-0 flex-1 text-sm">
+                              <p className="font-medium truncate" title={config.name}>
+                                {config.name}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {new Date(config.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 gap-0.5">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8"
+                                onClick={() => onLoadBatchScenarioConfig(config)}
+                                title="Load this scenario"
+                              >
+                                <FolderOpen className="size-4" />
+                                <span className="sr-only">Load</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-8 text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  if (window.confirm(`Delete "${config.name}"?`)) {
+                                    onDeleteBatchScenarioConfig(config.id)
+                                  }
+                                }}
+                                title="Delete"
+                              >
+                                <Trash2 className="size-4" />
+                                <span className="sr-only">Delete</span>
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </TooltipProvider>
           {onNavigateToUpload && synonymCount > 0 && (
             <button
               type="button"
@@ -350,208 +629,49 @@ export function BatchScenarioStep({
           )}
         </div>
       </div>
+      )}
 
+      {!isDetailed && (
       <div id="batch-scenario" className="scroll-mt-6 space-y-6">
         <details open className="group rounded-lg border border-border/60 bg-card">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
             <ChevronRight className="size-4 shrink-0 transition-transform group-open:rotate-90" />
             Base scenario
           </summary>
-          <div className="border-t border-border/60 px-0 pt-0">
-            <BatchScenarioInline
-              inputs={scenarioInputs}
-              onChange={setScenarioInputs}
-              disabled={isRunning}
-            />
-          </div>
-        </details>
-        <details open className="group rounded-lg border border-border/60 bg-card">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
-            <ChevronRight className="size-4 shrink-0 transition-transform group-open:rotate-90" />
-            Shared (both current and modeled)
-          </summary>
-          <div className="border-t border-border/60 px-4 pb-4 pt-2">
-            <ScenarioControls
-              inputs={scenarioInputs}
-              onChange={setScenarioInputs}
-              selectedProvider={null}
-              disabled={isRunning}
-              variant="sharedOnly"
-            />
+          <div className="border-t border-border/60 px-4 pt-4 pb-4">
+            <div className="space-y-4">
+              <BatchScenarioInline
+                inputs={scenarioInputs}
+                onChange={setScenarioInputs}
+                disabled={isRunning}
+              />
+              <div className="border-t border-border/60 pt-4">
+                <ScenarioControls
+                inputs={scenarioInputs}
+                onChange={setScenarioInputs}
+                selectedProvider={null}
+                disabled={isRunning}
+                variant="sharedOnly"
+              />
+              </div>
+            </div>
           </div>
         </details>
       </div>
+      )}
 
-      <Card id="batch-run-for" className="scroll-mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">Run for</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Optionally limit the run to one or more specialties and/or providers. Leave all selected to run for everyone.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-sm">
-                <Target className="size-4" />
-                Specialty (from provider file)
-              </Label>
-              <DropdownMenu
-                onOpenChange={(open) => {
-                  if (open) setTimeout(() => specialtySearchInputRef.current?.focus(), 0)
-                  else setSpecialtySearch('')
-                }}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="min-h-9 w-full justify-between font-normal"
-                    disabled={isRunning || providerSpecialties.length === 0}
-                  >
-                    <span className="truncate">
-                      {selectedSpecialties.length === 0
-                        ? 'All specialties'
-                        : `${selectedSpecialties.length} specialty${selectedSpecialties.length !== 1 ? 'ies' : ''} selected`}
-                    </span>
-                    <ChevronDown className="size-4 shrink-0 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden flex flex-col p-0" align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
-                  <div className="flex items-center gap-2 border-b px-2 py-1.5">
-                    <Search className="size-4 shrink-0 text-muted-foreground" />
-                    <Input
-                      ref={specialtySearchInputRef}
-                      placeholder="Search specialties…"
-                      value={specialtySearch}
-                      onChange={(e) => setSpecialtySearch(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
-                    />
-                  </div>
-                  <div className="max-h-[260px] overflow-y-auto p-1">
-                    <DropdownMenuCheckboxItem
-                      checked={selectedSpecialties.length === 0}
-                      onCheckedChange={(checked) => {
-                        if (checked) setSelectedSpecialties([])
-                      }}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      All specialties
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuSeparator />
-                    {filteredSpecialtiesForRun.length === 0 ? (
-                      <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching specialties</p>
-                    ) : (
-                      filteredSpecialtiesForRun.map((s) => (
-                        <DropdownMenuCheckboxItem
-                          key={s}
-                          checked={selectedSpecialties.length > 0 && selectedSpecialties.includes(s)}
-                          onCheckedChange={(checked) => {
-                            setSelectedSpecialties((prev) =>
-                              checked ? [...prev, s] : prev.filter((x) => x !== s)
-                            )
-                          }}
-                          onSelect={(e) => e.preventDefault()}
-                        >
-                          {s}
-                        </DropdownMenuCheckboxItem>
-                      ))
-                    )}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2 text-sm">
-                <Users className="size-4" />
-                Provider
-              </Label>
-              <DropdownMenu
-                onOpenChange={(open) => {
-                  if (open) setTimeout(() => providerSearchInputRef.current?.focus(), 0)
-                  else setProviderSearch('')
-                }}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="min-h-9 w-full justify-between font-normal"
-                    disabled={isRunning || providersAfterSpecialtyFilter.length === 0}
-                  >
-                    <span className="truncate">
-                      {selectedProviderIds.length === 0
-                        ? 'All providers'
-                        : `${selectedProviderIds.length} provider${selectedProviderIds.length !== 1 ? 's' : ''} selected`}
-                    </span>
-                    <ChevronDown className="size-4 shrink-0 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden flex flex-col p-0" align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
-                  <div className="flex items-center gap-2 border-b px-2 py-1.5">
-                    <Search className="size-4 shrink-0 text-muted-foreground" />
-                    <Input
-                      ref={providerSearchInputRef}
-                      placeholder="Search by name or specialty…"
-                      value={providerSearch}
-                      onChange={(e) => setProviderSearch(e.target.value)}
-                      onKeyDown={(e) => e.stopPropagation()}
-                      className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
-                    />
-                  </div>
-                  <div className="max-h-[260px] overflow-y-auto p-1">
-                    <DropdownMenuCheckboxItem
-                      checked={selectedProviderIds.length === 0}
-                      onCheckedChange={(checked) => {
-                        if (checked) setSelectedProviderIds([])
-                      }}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      All providers
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuSeparator />
-                    {filteredProvidersForRun.length === 0 ? (
-                      <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching providers</p>
-                    ) : (
-                      filteredProvidersForRun.map((p) => {
-                        const id = (p.providerId ?? p.providerName ?? '').toString()
-                        const name = (p.providerName ?? id) || id
-                        const sub = (p.specialty ?? '').trim()
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={id}
-                            checked={selectedProviderIds.includes(id)}
-                            onCheckedChange={(checked) => {
-                              setSelectedProviderIds((prev) =>
-                                checked ? [...prev, id] : prev.filter((x) => x !== id)
-                              )
-                            }}
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            {name}
-                            {sub ? ` · ${sub}` : ''}
-                          </DropdownMenuCheckboxItem>
-                        )
-                      })
-                    )}
-                  </div>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+      {!isBulk && (
       <Card id="batch-overrides" className="scroll-mt-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sliders className="size-4" />
-            Overrides (optional)
+            Overrides by specialty or provider (optional)
           </CardTitle>
           <p className="text-muted-foreground text-sm">
-            Override scenario inputs by specialty and/or by provider. Base scenario is from the controls above. Provider overrides beat specialty overrides.
+            Set different inputs (PSQ, percentiles, CF) by specialty and/or by provider. Base scenario is from the controls above. Provider overrides beat specialty overrides.
           </p>
           <p className="text-muted-foreground text-xs mt-1">
-            The CF column shown matches the base scenario’s <strong>CF method</strong> above (Fixed CF ($) vs Target percentile).
+            The CF column matches the base scenario’s <strong>CF method</strong> above (Fixed CF ($) vs Target percentile).
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -582,7 +702,7 @@ export function BatchScenarioStep({
                   <TableRow>
                     <TableHead className="min-w-[160px]">Specialties</TableHead>
                     {baseUsesOverrideCF ? (
-                      <TableHead className="w-[100px]">Override CF ($)</TableHead>
+                      <TableHead className="w-[100px]">Target CF ($)</TableHead>
                     ) : (
                       <TableHead className="w-[90px]">CF %ile</TableHead>
                     )}
@@ -767,7 +887,7 @@ export function BatchScenarioStep({
                   <TableRow>
                     <TableHead className="min-w-[160px]">Providers</TableHead>
                     {baseUsesOverrideCF ? (
-                      <TableHead className="w-[100px]">Override CF ($)</TableHead>
+                      <TableHead className="w-[100px]">Target CF ($)</TableHead>
                     ) : (
                       <TableHead className="w-[90px]">CF %ile</TableHead>
                     )}
@@ -932,49 +1052,217 @@ export function BatchScenarioStep({
           </div>
         </CardContent>
       </Card>
+      )}
 
       <Card id="batch-run" className="scroll-mt-6">
         <CardHeader>
-          <CardTitle>Run model</CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Matching uses exact specialty, then normalized name, then synonym map.
-          </p>
+          <CardTitle>Run</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Ready to run summary – grid layout */}
-          <div className="rounded-lg border border-border/60 bg-muted/20 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/60 bg-muted/40">
-              <Check className="size-4 text-primary shrink-0" />
-              <span className="font-medium text-foreground text-sm">Ready to run</span>
+          {/* Scenarios: base only vs base + library */}
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Scenarios to run">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="batch-run-mode"
+                  checked={runBaseScenarioOnly}
+                  onChange={() => setRunBaseScenarioOnly(true)}
+                  disabled={isRunning}
+                  className="size-4"
+                />
+                <span className="text-sm">Base scenario only</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="batch-run-mode"
+                  checked={!runBaseScenarioOnly}
+                  onChange={() => setRunBaseScenarioOnly(false)}
+                  disabled={isRunning}
+                  className="size-4"
+                />
+                <span className="text-sm">
+                  Base + scenario library{savedScenarios.length > 0 ? ` (${savedScenarios.length} saved)` : ''}
+                </span>
+              </label>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/60">
-              <div className="px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-0.5">Scope</p>
-                <p className="text-sm text-foreground">
-                  {providersToRun.length} provider{providersToRun.length !== 1 ? 's' : ''} × {1 + savedScenarios.length} scenario{savedScenarios.length !== 0 ? 's' : ''}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {savedScenarios.length > 0 ? `Current + ${savedScenarios.length} saved` : 'Current only'}
-                </p>
+            {!runBaseScenarioOnly && savedScenarios.length > 0 && onClearSavedScenarios && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 text-muted-foreground hover:text-destructive -ml-1"
+                onClick={onClearSavedScenarios}
+                disabled={isRunning}
+              >
+                Clear library
+              </Button>
+            )}
+          </div>
+          {/* Who to run: scope (all vs selected specialties/providers) */}
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Target className="size-4" />
+                  Specialty
+                </Label>
+                <DropdownMenu
+                  onOpenChange={(open) => {
+                    if (open) setTimeout(() => specialtySearchInputRef.current?.focus(), 0)
+                    else setSpecialtySearch('')
+                  }}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="min-h-9 w-full justify-between font-normal"
+                      disabled={isRunning || providerSpecialties.length === 0}
+                    >
+                      <span className="truncate">
+                        {selectedSpecialties.length === 0
+                          ? 'All specialties'
+                          : `${selectedSpecialties.length} specialty${selectedSpecialties.length !== 1 ? 'ies' : ''} selected`}
+                      </span>
+                      <ChevronDown className="size-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden flex flex-col p-0" align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
+                    <div className="flex items-center gap-2 border-b px-2 py-1.5">
+                      <Search className="size-4 shrink-0 text-muted-foreground" />
+                      <Input
+                        ref={specialtySearchInputRef}
+                        placeholder="Search specialties…"
+                        value={specialtySearch}
+                        onChange={(e) => setSpecialtySearch(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                      />
+                    </div>
+                    <div className="max-h-[260px] overflow-y-auto p-1">
+                      <DropdownMenuCheckboxItem
+                        checked={selectedSpecialties.length === 0}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedSpecialties([])
+                        }}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        All specialties
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuSeparator />
+                      {filteredSpecialtiesForRun.length === 0 ? (
+                        <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching specialties</p>
+                      ) : (
+                        filteredSpecialtiesForRun.map((s) => (
+                          <DropdownMenuCheckboxItem
+                            key={s}
+                            checked={selectedSpecialties.length > 0 && selectedSpecialties.includes(s)}
+                            onCheckedChange={(checked) => {
+                              setSelectedSpecialties((prev) =>
+                                checked ? [...prev, s] : prev.filter((x) => x !== s)
+                              )
+                            }}
+                            onSelect={(e) => e.preventDefault()}
+                          >
+                            {s}
+                          </DropdownMenuCheckboxItem>
+                        ))
+                      )}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <div className="px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-0.5">Overrides</p>
-                <p className="text-sm text-foreground">
-                  {overrideCount > 0 ? `${overrideCount} applied` : 'None'}
-                </p>
-                {overrideCount > 0 && (
-                  <p className="text-xs text-muted-foreground">Specialty + provider</p>
-                )}
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-0.5">Base</p>
-                <p className="text-sm text-foreground space-y-0.5">
-                  <span>CF: {scenarioInputs.cfSource === 'override' ? `Fixed $${scenarioInputs.overrideCF ?? '—'}` : 'Target %ile + adjustment'}</span>
-                  <span className="block">PSQ {scenarioInputs.psqPercent ?? 0}%</span>
-                  <span className="block">Threshold: {scenarioInputs.thresholdMethod === 'derived' ? 'Derived' : scenarioInputs.thresholdMethod === 'annual' ? 'Annual' : 'wRVU %ile'}</span>
-                </p>
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="size-4" />
+                  Provider
+                </Label>
+                <DropdownMenu
+                  onOpenChange={(open) => {
+                    if (open) setTimeout(() => providerSearchInputRef.current?.focus(), 0)
+                    else setProviderSearch('')
+                  }}
+                >
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="min-h-9 w-full justify-between font-normal"
+                      disabled={isRunning || providersAfterSpecialtyFilter.length === 0}
+                    >
+                      <span className="truncate">
+                        {selectedProviderIds.length === 0
+                          ? 'All providers'
+                          : `${selectedProviderIds.length} provider${selectedProviderIds.length !== 1 ? 's' : ''} selected`}
+                      </span>
+                      <ChevronDown className="size-4 shrink-0 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden flex flex-col p-0" align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
+                    <div className="flex items-center gap-2 border-b px-2 py-1.5">
+                      <Search className="size-4 shrink-0 text-muted-foreground" />
+                      <Input
+                        ref={providerSearchInputRef}
+                        placeholder="Search by name or specialty…"
+                        value={providerSearch}
+                        onChange={(e) => setProviderSearch(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                      />
+                    </div>
+                    <div className="max-h-[260px] overflow-y-auto p-1">
+                      <DropdownMenuCheckboxItem
+                        checked={selectedProviderIds.length === 0}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedProviderIds([])
+                        }}
+                        onSelect={(e) => e.preventDefault()}
+                      >
+                        All providers
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuSeparator />
+                      {filteredProvidersForRun.length === 0 ? (
+                        <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching providers</p>
+                      ) : (
+                        filteredProvidersForRun.map((p) => {
+                          const id = (p.providerId ?? p.providerName ?? '').toString()
+                          const name = (p.providerName ?? id) || id
+                          const sub = (p.specialty ?? '').trim()
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={id}
+                              checked={selectedProviderIds.includes(id)}
+                              onCheckedChange={(checked) => {
+                                setSelectedProviderIds((prev) =>
+                                  checked ? [...prev, id] : prev.filter((x) => x !== id)
+                                )
+                              }}
+                              onSelect={(e) => e.preventDefault()}
+                            >
+                              {name}
+                              {sub ? ` · ${sub}` : ''}
+                            </DropdownMenuCheckboxItem>
+                          )
+                        })
+                      )}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              {selectedSpecialties.length === 0 && selectedProviderIds.length === 0
+                ? 'All providers'
+                : `${providersToRun.length} provider${providersToRun.length !== 1 ? 's' : ''} selected`}
+            </p>
+          </div>
+          {/* One-line summary */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Check className="size-4 shrink-0 text-primary" strokeWidth={2.5} />
+            <span className="tabular-nums">
+              {providersToRun.length} provider{providersToRun.length !== 1 ? 's' : ''} × {runBaseScenarioOnly ? '1' : 1 + savedScenarios.length} scenario{runBaseScenarioOnly || savedScenarios.length === 0 ? '' : 's'}
+              {overrideCount > 0 && ` · ${overrideCount} override${overrideCount !== 1 ? 's' : ''}`}
+            </span>
           </div>
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -991,30 +1279,76 @@ export function BatchScenarioStep({
                 <span>{Math.round(progress.elapsedMs / 1000)}s</span>
               </div>
               <Progress value={pct} className="h-2" />
-              <p className="text-muted-foreground text-xs">Opening Results when done.</p>
+              <p className="text-muted-foreground text-xs">Results open when done.</p>
             </div>
           )}
-          <div className="space-y-2">
-            <Button
-              onClick={runBatch}
-              disabled={isRunning || providersToRun.length === 0 || marketRows.length === 0}
-            >
-              {isRunning ? (
-                <>
-                  <Loader2 className="size-4 mr-2 animate-spin" />
-                  Running…
-                </>
-              ) : (
-                <>
-                  <Play className="size-4 mr-2" />
-                  Run model
-                </>
-              )}
-            </Button>
-            {!isRunning && (
-              <p className="text-muted-foreground text-xs">When complete, results will open in the Results tab.</p>
-            )}
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="space-y-2">
+              <Button
+                onClick={runBatch}
+                disabled={isRunning || providersToRun.length === 0 || marketRows.length === 0}
+              >
+                {isRunning ? (
+                  <>
+                    <Loader2 className="size-4 mr-2 animate-spin" />
+                    Running…
+                  </>
+                ) : (
+                  <>
+                    <Play className="size-4 mr-2" />
+                    Run
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
+          {onSaveScenario && (
+            <Dialog open={saveScenarioDialogOpen} onOpenChange={setSaveScenarioDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Save scenario</DialogTitle>
+                  <DialogDescription>
+                    Save this batch scenario (base inputs, overrides, run-for selection) in this browser. Load it later from the Saved batch scenarios menu.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-2 py-2">
+                  <Label htmlFor="batch-scenario-name">Scenario name</Label>
+                  <Input
+                    id="batch-scenario-name"
+                    value={saveScenarioName}
+                    onChange={(e) => setSaveScenarioName(e.target.value)}
+                    placeholder="e.g. Pediatrics CF 50th"
+                    onKeyDown={(e) => e.key === 'Enter' && (document.getElementById('batch-scenario-save-btn') as HTMLButtonElement)?.click()}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setSaveScenarioDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    id="batch-scenario-save-btn"
+                    onClick={() => {
+                      const name = saveScenarioName.trim()
+                      if (!name) return
+                      onSaveScenario({
+                        name,
+                        scenarioInputs: { ...scenarioInputs },
+                        overrides: batchOverrides,
+                        selectedSpecialties: [...selectedSpecialties],
+                        selectedProviderIds: [...selectedProviderIds],
+                        runBaseScenarioOnly,
+                      })
+                      setSaveScenarioName('')
+                      setSaveScenarioDialogOpen(false)
+                    }}
+                    disabled={!saveScenarioName.trim()}
+                  >
+                    Save
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </CardContent>
       </Card>
     </div>

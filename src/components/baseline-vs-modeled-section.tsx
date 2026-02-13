@@ -214,7 +214,7 @@ function TCCBreakdownDialog({
   const rows: { label: string; current: number; modeled: number }[] = [
     { label: 'Base salary (total)', current: baseSalary, modeled: modeledBase },
     { label: 'Incentive (wRVU)', current: currentIncentiveForTCC, modeled: annualIncentiveForTCC },
-    { label: 'PSQ (Quality / VBP)', current: currentPsq, modeled: modeledPsq },
+    { label: 'Quality payments (VBP)', current: currentPsq, modeled: modeledPsq },
     ...(qualityPayments > 0 ? [{ label: 'Quality payments', current: qualityPayments, modeled: 0 as number }] : []),
     ...(otherIncentives > 0 ? [{ label: 'Other incentives', current: otherIncentives, modeled: 0 as number }] : []),
     { label: 'Total (TCC)', current: currentTCC, modeled: modeledTCC },
@@ -229,7 +229,7 @@ function TCCBreakdownDialog({
             How TCC is calculated
           </DialogTitle>
           <DialogDescription id="tcc-breakdown-desc">
-            TCC = base salary (total) + incentive (wRVU) + PSQ + quality payments + other incentives. Base salary is total salary (non-clinical is part of it, not added separately). Click the TCC row anytime to see this breakdown.
+            TCC = base salary (total) + incentive (wRVU) + quality payments (VBP) + quality payments (from file) + other incentives. Base salary is total salary (non-clinical is part of it, not added separately). Click the TCC row anytime to see this breakdown.
           </DialogDescription>
         </DialogHeader>
         <div className="rounded-md border border-border max-sm:min-w-0 max-sm:overflow-x-auto">
@@ -291,10 +291,20 @@ export function BaselineVsModeledSection({
   const currentPsqDollars = results?.currentPsqDollars ?? results?.psqDollars ?? 0
   const changeInTCC = results?.changeInTCC ?? 0
 
+  // Current column: show quality payments from provider (Upload/edit) when set, else computed VBP amount
+  const qualityPaymentsFromProvider =
+    typeof provider?.qualityPayments === 'number' && Number.isFinite(provider.qualityPayments)
+      ? provider.qualityPayments
+      : typeof provider?.currentTCC === 'number' && Number.isFinite(provider.currentTCC)
+        ? provider.currentTCC
+        : 0
+  const currentQualityPaymentsDisplay =
+    qualityPaymentsFromProvider > 0 ? qualityPaymentsFromProvider : currentPsqDollars
+
   const deltaCF = modeledCF - currentCF
   const deltaIncentiveDollars = annualIncentive - currentIncentive
   const deltaImputed = imputedModeled - imputedCurrent
-  const deltaPsq = psqDollars - currentPsqDollars
+  const deltaPsq = psqDollars - currentQualityPaymentsDisplay
 
   const pct = scenarioInputs.proposedCFPercentile ?? 50
   const vbpPercent = scenarioInputs.psqPercent ?? 0
@@ -555,7 +565,7 @@ export function BaselineVsModeledSection({
             isChanged={deltaBase !== 0}
             delta={deltaBase}
             deltaFormat="currency"
-            title="Total guaranteed base (clinical + non-clinical). Override to model a base pay change; TCC = base + incentive + PSQ."
+            title="Total guaranteed base (clinical + non-clinical). Override to model a base pay change; TCC = base + incentive + quality payments."
           />
           <ComparisonRow
             labelLeft="Non-clinical"
@@ -648,9 +658,9 @@ export function BaselineVsModeledSection({
             deltaFormat="currency"
           />
           <ComparisonRow
-            labelLeft="PSQ $"
-            valueLeft={currentPsqDollars > 0 ? fmtMoney(currentPsqDollars) : '—'}
-            labelRight="PSQ $ (VBP %)"
+            labelLeft="Quality payments $"
+            valueLeft={currentQualityPaymentsDisplay > 0 ? fmtMoney(currentQualityPaymentsDisplay) : '—'}
+            labelRight="Quality payments $ (VBP %)"
             valueRight={{
               controls: (
                 <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -662,7 +672,7 @@ export function BaselineVsModeledSection({
                     onValueChange={handleVBPPercentChange}
                     disabled={disabled}
                     className="min-w-0 flex-1 py-1"
-                    aria-label="Value-based payment percentage (VBP / Quality payment), 0–50%. PSQ $ = this % of base or total pay depending on scenario PSQ basis."
+                    aria-label="Value-based payment percentage (VBP / Quality payment), 0–50%. Quality payments $ = this % of base or total pay depending on scenario quality payments basis."
                   />
                   <span className="shrink-0 text-muted-foreground tabular-nums text-xs" aria-hidden="true">
                     {vbpPercent}%
@@ -674,6 +684,7 @@ export function BaselineVsModeledSection({
             isChanged={deltaPsq !== 0}
             delta={deltaPsq}
             deltaFormat="currency"
+            title={qualityPaymentsFromProvider > 0 ? 'Current value from provider file (Upload/edit). Modeled value is from VBP % slider.' : undefined}
           />
           <ComparisonRow
             labelLeft={

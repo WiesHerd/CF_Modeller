@@ -1,5 +1,6 @@
 import { Upload, Calculator, Layers, User, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 export type AppStep = 'upload' | 'modeller' | 'batch-scenario' | 'batch-results'
 export type AppMode = 'single' | 'batch'
@@ -22,6 +23,8 @@ interface AppLayoutProps {
   onAppModeChange: (mode: AppMode) => void
   canShowModeller: boolean
   canShowBatchResults: boolean
+  /** When true (e.g. inside CF Optimizer), hide the Results tab to avoid confusion—optimizer shows its own results. */
+  hideBatchResultsTab?: boolean
   children: React.ReactNode
 }
 
@@ -32,9 +35,12 @@ export function AppLayout({
   onAppModeChange,
   canShowModeller,
   canShowBatchResults,
+  hideBatchResultsTab = false,
   children,
 }: AppLayoutProps) {
-  const steps = appMode === 'batch' ? BATCH_STEPS : SINGLE_STEPS
+  const steps = appMode === 'batch'
+    ? (hideBatchResultsTab ? BATCH_STEPS.filter((s) => s.id !== 'batch-results') : BATCH_STEPS)
+    : SINGLE_STEPS
 
   const isStepDisabled = (s: AppStep) => {
     if (s === 'upload') return false
@@ -55,12 +61,12 @@ export function AppLayout({
           <div className="flex flex-col items-center gap-2 sm:items-start">
             <div className="flex items-center gap-2">
               <img
-                src="/cf-modeler-icon.png"
-                alt="CF Modeler"
+                src="/NewIMage.png"
+                alt="TCC Modeler"
                 className="size-8 rounded-lg object-contain sm:size-9"
               />
               <h1 className="text-xl font-bold tracking-tight sm:text-2xl">
-                <span className="text-foreground">CF</span>
+                <span className="text-foreground">TCC</span>
                 <span className="text-primary"> Modeler</span>
               </h1>
             </div>
@@ -104,29 +110,48 @@ export function AppLayout({
             className="flex items-center gap-1 rounded-xl border border-border/60 bg-muted/20 p-1"
             aria-label="App steps"
           >
-            {steps.map((s) => {
-              const isActive = s.id === step
-              const isDisabled = isStepDisabled(s.id)
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => !isDisabled && onStepChange(s.id)}
-                  disabled={isDisabled}
-                  className={cn(
-                    stepButtonClass,
-                    isActive && 'border-border bg-background text-foreground shadow-sm ring-1 ring-primary/20',
-                    !isActive && !isDisabled &&
-                      'bg-background/60 text-muted-foreground hover:bg-background/80 hover:text-foreground',
-                    !isActive && isDisabled && 'cursor-not-allowed opacity-50'
-                  )}
-                  aria-current={isActive ? 'step' : undefined}
-                >
-                  {s.icon}
-                  <span className="hidden truncate sm:inline">{s.label}</span>
-                </button>
-              )
-            })}
+            <TooltipProvider delayDuration={300}>
+              {steps.map((s) => {
+                const isActive = s.id === step
+                const isDisabled = isStepDisabled(s.id)
+                const resultStepTooltip =
+                  s.id === 'batch-results'
+                    ? 'View batch run results (Bulk or Detailed scenario output)'
+                    : undefined
+                const batchScenarioTooltip =
+                  s.id === 'batch-scenario'
+                    ? 'Configure and run: CF Optimizer, Imputed vs market, Bulk or Detailed scenario'
+                    : undefined
+                const tooltip = resultStepTooltip ?? batchScenarioTooltip
+                const button = (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => !isDisabled && onStepChange(s.id)}
+                    disabled={isDisabled}
+                    className={cn(
+                      stepButtonClass,
+                      isActive && 'border-border bg-background text-foreground shadow-sm ring-1 ring-primary/20',
+                      !isActive && !isDisabled &&
+                        'bg-background/60 text-muted-foreground hover:bg-background/80 hover:text-foreground',
+                      !isActive && isDisabled && 'cursor-not-allowed opacity-50'
+                    )}
+                    aria-current={isActive ? 'step' : undefined}
+                  >
+                    {s.icon}
+                    <span className="hidden truncate sm:inline">{s.label}</span>
+                  </button>
+                )
+                return tooltip ? (
+                  <Tooltip key={s.id}>
+                    <TooltipTrigger asChild>{button}</TooltipTrigger>
+                    <TooltipContent side="bottom">{tooltip}</TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <span key={s.id}>{button}</span>
+                )
+              })}
+            </TooltipProvider>
           </nav>
         </div>
       </header>
@@ -140,7 +165,7 @@ export function AppLayout({
       <footer className="mt-auto border-t border-border/60 bg-muted/20 py-4">
         <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-2 px-4 sm:flex-row sm:gap-4">
           <p className="text-center text-sm text-muted-foreground sm:text-left">
-            © {new Date().getFullYear()} CF Modeler. Provider compensation modeling.
+            © {new Date().getFullYear()} TCC Modeler. Total cash compensation modeling.
           </p>
           <nav className="flex items-center gap-4 text-sm text-muted-foreground" aria-label="Footer links">
             <a href="#privacy" className="hover:text-foreground underline-offset-4 hover:underline">

@@ -35,6 +35,58 @@ function parseCurrencyInput(s: string): number {
   return Number.isFinite(n) ? n : NaN
 }
 
+/**
+ * Currency input that doesn't reformat on every keystroke, so typing "5000" or "5,000" works.
+ * Shows formatted value when blurred; while focused keeps raw string so digits aren't lost.
+ */
+function CurrencyField({
+  value,
+  onChange,
+  placeholder = '$0.00',
+  className,
+  id,
+}: {
+  value: number
+  onChange: (n: number) => void
+  placeholder?: string
+  className?: string
+  id?: string
+}) {
+  const [focused, setFocused] = useState(false)
+  const [localStr, setLocalStr] = useState('')
+
+  const displayValue = focused
+    ? localStr
+    : value != null && value > 0
+      ? fmtMoney(value)
+      : ''
+
+  return (
+    <Input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      placeholder={placeholder}
+      className={className}
+      value={displayValue}
+      onFocus={() => {
+        setFocused(true)
+        setLocalStr(value > 0 ? String(value) : '')
+      }}
+      onChange={(e) => {
+        if (!focused) return
+        setLocalStr(e.target.value)
+      }}
+      onBlur={() => {
+        const parsed = parseCurrencyInput(localStr)
+        onChange(Number.isFinite(parsed) ? parsed : 0)
+        setFocused(false)
+        setLocalStr('')
+      }}
+    />
+  )
+}
+
 function round2(x: number): number {
   return Math.round(x * 100) / 100
 }
@@ -125,7 +177,7 @@ export function MarketDataCard({
             </p>
           ) : (
             <div className="flex flex-col gap-4">
-              <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
                 <h4 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wide">
                   TCC (Total Compensation Cost)
                 </h4>
@@ -148,7 +200,7 @@ export function MarketDataCard({
                   </div>
                 </div>
               </div>
-              <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
                 <h4 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wide">
                   wRVUs (Work Relative Value Units)
                 </h4>
@@ -171,7 +223,7 @@ export function MarketDataCard({
                   </div>
                 </div>
               </div>
-              <div className="rounded-lg border border-border bg-muted/30 p-4">
+              <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
                 <h4 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wide">
                   CFs (Conversion Factors)
                 </h4>
@@ -236,7 +288,7 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-border bg-muted/20 p-4">
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <h3 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wider">
         {title}
       </h3>
@@ -318,7 +370,7 @@ function CompensationFTESection({
   const [showSaved, setShowSaved] = useState(false)
 
   const inputClass =
-    'h-8 w-full touch-manipulation rounded-md border border-border/80 bg-background px-2 tabular-nums text-right text-sm shadow-sm'
+    'h-8 w-full touch-manipulation rounded-md border border-border bg-muted/40 px-2 tabular-nums text-right text-sm shadow-sm focus-visible:bg-card'
 
   const totalFTEValid = (totalFTE ?? 0) >= 1.0
   const calculatedNonClinical = totalFTEValid ? (adminFTE ?? 0) * (baseSalary ?? 0) : null
@@ -410,7 +462,7 @@ function CompensationFTESection({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-muted/20 p-5">
+    <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-end gap-2">
         {canEdit && onUpdateProvider && (
           <Button
@@ -426,7 +478,7 @@ function CompensationFTESection({
       </div>
       <div className="flex flex-col gap-4">
         {/* Panel 1: Compensation */}
-        <div className="rounded-lg border border-border bg-muted/30 p-4">
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <h4 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wide">
             Compensation
           </h4>
@@ -553,20 +605,13 @@ function CompensationFTESection({
           <>
             <InlineField label="Base salary">
               {canEdit ? (
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={
-                    baseSalary != null && baseSalary > 0
-                      ? fmtMoney(baseSalary)
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const v = parseCurrencyInput(e.target.value)
+                <CurrencyField
+                  value={baseSalary ?? 0}
+                  onChange={(v) =>
                     onUpdateProvider?.({
                       baseSalary: Number.isFinite(v) ? v : 0,
                     })
-                  }}
+                  }
                   placeholder="$0.00"
                   className={`${inputClass} text-right`}
                 />
@@ -579,20 +624,13 @@ function CompensationFTESection({
             <InlineField label="Non-Clinical">
               {canEdit ? (
                 <div className="flex items-center gap-1.5">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={
-                      nonClinicalPay != null && nonClinicalPay > 0
-                        ? fmtMoney(nonClinicalPay)
-                        : ''
-                    }
-                    onChange={(e) => {
-                      const v = parseCurrencyInput(e.target.value)
+                  <CurrencyField
+                    value={nonClinicalPay ?? 0}
+                    onChange={(v) =>
                       onUpdateProvider?.({
                         nonClinicalPay: Number.isFinite(v) ? v : 0,
                       })
-                    }}
+                    }
                     placeholder="$0.00"
                     className={`${inputClass} text-right flex-1 min-w-0`}
                   />
@@ -623,18 +661,9 @@ function CompensationFTESection({
             </InlineField>
             <InlineField label="Quality payments">
               {canEdit ? (
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={
-                    qualityPayments != null && qualityPayments > 0
-                      ? fmtMoney(qualityPayments)
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const v = parseCurrencyInput(e.target.value)
-                    onUpdateProvider?.({ qualityPayments: Number.isFinite(v) ? v : 0 })
-                  }}
+                <CurrencyField
+                  value={qualityPayments ?? 0}
+                  onChange={(v) => onUpdateProvider?.({ qualityPayments: Number.isFinite(v) ? v : 0 })}
                   placeholder="$0.00"
                   className={`${inputClass} text-right`}
                 />
@@ -646,18 +675,11 @@ function CompensationFTESection({
             </InlineField>
             <InlineField label="Other incentives">
               {canEdit ? (
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={
-                    otherIncentives != null && otherIncentives > 0
-                      ? fmtMoney(otherIncentives)
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const v = parseCurrencyInput(e.target.value)
+                <CurrencyField
+                  value={otherIncentives ?? 0}
+                  onChange={(v) =>
                     onUpdateProvider?.({ otherIncentives: Number.isFinite(v) ? v : 0 })
-                  }}
+                  }
                   placeholder="$0.00"
                   className={`${inputClass} text-right`}
                 />
@@ -705,7 +727,7 @@ function CompensationFTESection({
         </div>
 
         {/* Panel 2: wRVUs */}
-        <div className="rounded-lg border border-border bg-muted/30 p-4">
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <h4 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wide">
             wRVUs
           </h4>
@@ -764,13 +786,13 @@ function CompensationFTESection({
           </div>
         </div>
 
-        {/* Panel 3: FTE (CART) */}
-        <div className="rounded-lg border border-border bg-muted/30 p-4">
+        {/* Panel 3: FTE (CART) — CART order then Total last */}
+        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
           <h4 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wide">
             FTE (CART)
           </h4>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4">
-        <InlineField label="Total FTE">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-x-8 gap-y-4">
+        <InlineField label="Clinical FTE">
           {canEdit ? (
             <Input
               type="number"
@@ -778,21 +800,21 @@ function CompensationFTESection({
               max={2}
               step={0.01}
               value={
-                totalFTE != null && totalFTE > 0
-                  ? Number(totalFTE).toFixed(2)
+                clinicalFTE != null && clinicalFTE > 0
+                  ? Number(clinicalFTE).toFixed(2)
                   : ''
               }
               onChange={(e) => {
                 const v = parseFloat(e.target.value)
                 onUpdateProvider?.({
-                  totalFTE: Number.isFinite(v) ? v : 0,
+                  clinicalFTE: Number.isFinite(v) ? v : 0,
                 })
               }}
               className={inputClass}
             />
           ) : (
             <span className="tabular-nums text-sm text-right">
-              {totalFTE != null ? fmtNum(totalFTE, 2) : '—'}
+              {clinicalFTE != null ? fmtNum(clinicalFTE, 2) : '—'}
             </span>
           )}
         </InlineField>
@@ -820,32 +842,6 @@ function CompensationFTESection({
               {adminFTE != null && adminFTE > 0
                 ? fmtNum(adminFTE, 2)
                 : '—'}
-            </span>
-          )}
-        </InlineField>
-        <InlineField label="Clinical FTE">
-          {canEdit ? (
-            <Input
-              type="number"
-              min={0}
-              max={2}
-              step={0.01}
-              value={
-                clinicalFTE != null && clinicalFTE > 0
-                  ? Number(clinicalFTE).toFixed(2)
-                  : ''
-              }
-              onChange={(e) => {
-                const v = parseFloat(e.target.value)
-                onUpdateProvider?.({
-                  clinicalFTE: Number.isFinite(v) ? v : 0,
-                })
-              }}
-              className={inputClass}
-            />
-          ) : (
-            <span className="tabular-nums text-sm text-right">
-              {clinicalFTE != null ? fmtNum(clinicalFTE, 2) : '—'}
             </span>
           )}
         </InlineField>
@@ -896,6 +892,32 @@ function CompensationFTESection({
           ) : (
             <span className="tabular-nums text-sm text-right">
               {teachingFTE != null && teachingFTE > 0 ? fmtNum(teachingFTE, 2) : '—'}
+            </span>
+          )}
+        </InlineField>
+        <InlineField label="Total FTE">
+          {canEdit ? (
+            <Input
+              type="number"
+              min={0}
+              max={2}
+              step={0.01}
+              value={
+                totalFTE != null && totalFTE > 0
+                  ? Number(totalFTE).toFixed(2)
+                  : ''
+              }
+              onChange={(e) => {
+                const v = parseFloat(e.target.value)
+                onUpdateProvider?.({
+                  totalFTE: Number.isFinite(v) ? v : 0,
+                })
+              }}
+              className={inputClass}
+            />
+          ) : (
+            <span className="tabular-nums text-sm text-right">
+              {totalFTE != null ? fmtNum(totalFTE, 2) : '—'}
             </span>
           )}
         </InlineField>

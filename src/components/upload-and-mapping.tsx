@@ -75,7 +75,7 @@ function fmtComma(n: number, decimals = 2): string {
 }
 
 interface UploadAndMappingProps {
-  onProviderData: (rows: ProviderRow[], mapping: ColumnMapping | null) => void
+  onProviderData: (rows: ProviderRow[], mapping: ColumnMapping | null, fileName?: string) => void
   onMarketData: (rows: MarketRow[], mapping: ColumnMapping | null) => void
   existingProviderRows: ProviderRow[]
   existingMarketRows: MarketRow[]
@@ -231,7 +231,7 @@ export function UploadAndMapping({
     } else {
       setError(null)
     }
-    onProviderData(rows, { ...providerMapping })
+    onProviderData(rows, { ...providerMapping }, providerRaw?.fileName)
     setProviderRaw(null)
     setAppliedProviderRows(rows)
   }, [providerRaw, providerMapping, onProviderData])

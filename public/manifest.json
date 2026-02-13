@@ -1,14 +1,14 @@
 {
-  "name": "CF Modeler",
-  "short_name": "CF Modeler",
-  "description": "Provider compensation modeling: upload data, run scenarios, view current vs modeled TCC and percentiles.",
+  "name": "TCC Modeler",
+  "short_name": "TCC Modeler",
+  "description": "Total cash compensation modeling: upload data, run scenarios, view current vs modeled TCC and percentiles.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0a0a0a",
   "orientation": "portrait-primary",
   "icons": [
-    { "src": "/cf-modeler-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/cf-modeler-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/NewIMage.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/NewIMage.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

@@ -283,6 +283,8 @@ export function ScenarioControls({
             />
             <p className="text-muted-foreground text-xs leading-relaxed">
               Value-based payment % for the modeled scenario. Can differ from current (e.g. 0% modeled vs 5% current).
+              In Batch mode, set this in CF Optimizer → step 4 (Total cash compensation) when Value-based payment is
+              included.
             </p>
           </div>
         </div>

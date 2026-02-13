@@ -45,7 +45,7 @@ export const DEFAULT_SCENARIO_INPUTS: ScenarioInputs = {
   cfAdjustmentFactor: 0.95,
   haircutPct: 5,
   overrideCF: undefined,
-  cfSource: 'target_haircut',
+  cfSource: 'target_percentile',
   psqPercent: 0,
   currentPsqPercent: 0,
   psqBasis: 'base_salary',

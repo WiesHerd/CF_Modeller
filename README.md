@@ -1,4 +1,4 @@
-# CF Modeler
+# TCC Modeler
 
 A React web app for **provider compensation modeling**. Upload provider and market survey data (CSV or XLSX), select specialty and provider or division, adjust scenario inputs (CF percentile, adjustment factor, threshold method), and view current vs modeled TCC, wRVU percentiles, and risk flags.
 

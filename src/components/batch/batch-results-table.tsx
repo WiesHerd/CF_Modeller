@@ -8,8 +8,10 @@ import {
   createColumnHelper,
   type ColumnDef,
   type SortingState,
+  type ColumnOrderState,
+  type ColumnSizingState,
 } from '@tanstack/react-table'
-import { useState, useMemo, type ReactNode, type ReactElement } from 'react'
+import { useState, useMemo, useRef, useCallback, type ReactNode, type ReactElement } from 'react'
 import {
   TableCell,
   TableHead,
@@ -28,7 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, GripVertical } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/utils/format'
 import type { BatchRowResult } from '@/types/batch'
 
@@ -100,6 +102,11 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
   ])
   const [globalFilter, setGlobalFilter] = useState('')
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
+  const [draggedColId, setDraggedColId] = useState<string | null>(null)
+  const [dropTargetColId, setDropTargetColId] = useState<string | null>(null)
+  const dragColIdRef = useRef<string | null>(null)
 
   const columns = useMemo<ColumnDef<BatchRowResult, any>[]>(
     () => [
@@ -301,16 +308,68 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting, globalFilter, pagination },
+    state: { sorting, globalFilter, pagination, columnOrder, columnSizing },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
+    onColumnOrderChange: setColumnOrder,
+    onColumnSizingChange: setColumnSizing,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     globalFilterFn: 'includesString',
+    enableColumnResizing: true,
+    columnResizeMode: 'onEnd',
+    defaultColumn: { size: 140, minSize: 60, maxSize: 800 },
   })
+
+  const getOrderedColumnIds = useCallback(() => {
+    const order = table.getState().columnOrder
+    if (order?.length) return order
+    return table.getAllLeafColumns().map((c) => c.id)
+  }, [table])
+
+  const handleHeaderDragStart = useCallback((columnId: string) => {
+    dragColIdRef.current = columnId
+    setDraggedColId(columnId)
+  }, [])
+
+  const handleHeaderDragOver = useCallback(
+    (e: React.DragEvent, columnId: string) => {
+      e.preventDefault()
+      if (dragColIdRef.current === columnId) return
+      setDropTargetColId(columnId)
+    },
+    []
+  )
+
+  const handleHeaderDrop = useCallback(() => {
+    const dragged = dragColIdRef.current
+    if (!dragged) return
+    const ordered = getOrderedColumnIds()
+    const fromIdx = ordered.indexOf(dragged)
+    const toIdx = dropTargetColId ? ordered.indexOf(dropTargetColId) : fromIdx
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) {
+      setDraggedColId(null)
+      setDropTargetColId(null)
+      dragColIdRef.current = null
+      return
+    }
+    const next = [...ordered]
+    next.splice(fromIdx, 1)
+    next.splice(toIdx, 0, dragged)
+    setColumnOrder(next)
+    setDraggedColId(null)
+    setDropTargetColId(null)
+    dragColIdRef.current = null
+  }, [dropTargetColId, getOrderedColumnIds])
+
+  const handleHeaderDragEnd = useCallback(() => {
+    setDraggedColId(null)
+    setDropTargetColId(null)
+    dragColIdRef.current = null
+  }, [])
 
   const filteredRowCount = table.getFilteredRowModel().rows.length
   const { pageIndex, pageSize } = table.getState().pagination
@@ -321,6 +380,9 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-3">
+        <p className="text-xs text-muted-foreground hidden sm:block">
+          Drag column headers to reorder; drag the right edge to resize.
+        </p>
         <Input
           placeholder="Search table..."
           value={globalFilter ?? ''}
@@ -363,22 +425,63 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
                   const meta = h.column.columnDef.meta as { sticky?: boolean; minWidth?: string; wrap?: boolean } | undefined
                   const stickyClass = meta?.sticky ? 'sticky left-0 z-20 bg-muted/95 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]' : ''
                   const wrapClass = meta?.wrap ? 'whitespace-normal' : 'whitespace-nowrap'
+                  const colId = h.column.id
+                  const isDragging = draggedColId === colId
+                  const isDropTarget = dropTargetColId === colId
+                  const canResize = h.column.getCanResize()
                   return (
                     <TableHead
                       key={h.id}
-                      className={`${wrapClass} ${stickyClass} px-3 py-2.5`}
-                      style={{ minWidth: meta?.minWidth }}
+                      className={cn(
+                        wrapClass,
+                        stickyClass,
+                        'px-3 py-2.5 relative group',
+                        isDragging && 'opacity-60',
+                        isDropTarget && 'ring-1 ring-primary'
+                      )}
+                      style={{
+                        width: h.getSize(),
+                        minWidth: h.getSize(),
+                        maxWidth: h.getSize(),
+                      }}
                     >
-                      {h.column.getCanSort() ? (
-                        <button
-                          type="button"
-                          onClick={() => h.column.toggleSorting()}
-                          className="hover:underline text-left"
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span
+                          draggable
+                          onDragStart={() => handleHeaderDragStart(colId)}
+                          onDragOver={(e) => handleHeaderDragOver(e, colId)}
+                          onDrop={handleHeaderDrop}
+                          onDragEnd={handleHeaderDragEnd}
+                          onDragLeave={() => setDropTargetColId(null)}
+                          className="cursor-grab active:cursor-grabbing touch-none p-0.5 rounded hover:bg-muted-foreground/20"
+                          title="Drag to reorder column"
                         >
-                          {flexRender(h.column.columnDef.header, h.getContext())}
-                        </button>
-                      ) : (
-                        flexRender(h.column.columnDef.header, h.getContext())
+                          <GripVertical className="size-4 text-muted-foreground" />
+                        </span>
+                        {h.column.getCanSort() ? (
+                          <button
+                            type="button"
+                            onClick={() => h.column.toggleSorting()}
+                            className="hover:underline text-left flex-1 min-w-0"
+                          >
+                            {flexRender(h.column.columnDef.header, h.getContext())}
+                          </button>
+                        ) : (
+                          <span className="flex-1 min-w-0">
+                            {flexRender(h.column.columnDef.header, h.getContext())}
+                          </span>
+                        )}
+                      </div>
+                      {canResize && (
+                        <div
+                          onMouseDown={h.getResizeHandler()}
+                          onTouchStart={h.getResizeHandler()}
+                          className={cn(
+                            'absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none select-none resize-handle',
+                            h.column.getIsResizing() && 'bg-primary'
+                          )}
+                          title="Drag to resize column"
+                        />
                       )}
                     </TableHead>
                   )
@@ -395,11 +498,12 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
                   const wrapClass = meta?.wrap ? 'whitespace-normal break-words align-top' : 'whitespace-nowrap'
                   const value = cell.getValue()
                   const titleAttr = meta?.wrap && typeof value === 'string' && value ? value : undefined
+                  const size = cell.column.getSize()
                   return (
                     <TableCell
                       key={cell.id}
                       className={cn(wrapClass, stickyClass, 'px-3 py-2.5')}
-                      style={{ minWidth: meta?.minWidth }}
+                      style={{ width: size, minWidth: size, maxWidth: size }}
                       title={titleAttr}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -1,4 +1,4 @@
-# Batch CF Modeler
+# Batch TCC Modeler
 
 The Batch mode runs the same scenario logic across all uploaded providers at once and produces a consolidated results table and export.
 

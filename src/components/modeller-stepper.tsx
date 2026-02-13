@@ -1,14 +1,14 @@
-import { ChevronLeft, ChevronRight, User, Sliders, Database, BarChart3 } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export type ModellerStep = 'provider' | 'scenario' | 'market' | 'results'
 
-const STEPS: { id: ModellerStep; label: string; icon: React.ReactNode }[] = [
-  { id: 'provider', label: 'Provider', icon: <User className="size-4" /> },
-  { id: 'scenario', label: 'Scenario', icon: <Sliders className="size-4" /> },
-  { id: 'market', label: 'Market data', icon: <Database className="size-4" /> },
-  { id: 'results', label: 'Results', icon: <BarChart3 className="size-4" /> },
+const STEPS: { id: ModellerStep; num: number; label: string }[] = [
+  { id: 'provider', num: 1, label: 'Provider' },
+  { id: 'scenario', num: 2, label: 'Scenario' },
+  { id: 'market', num: 3, label: 'Market data' },
+  { id: 'results', num: 4, label: 'Results' },
 ]
 
 interface ModellerStepperProps {
@@ -48,44 +48,31 @@ export function ModellerStepper({
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Step-through: same style as batch/optimizer (numbered labels, chevrons, purple active) */}
       <nav
-        className="flex items-center gap-1 rounded-xl border border-border/60 bg-muted/20 p-1"
+        className="flex flex-wrap items-center gap-2"
         aria-label="Modeller steps"
       >
-        {STEPS.map((s, i) => {
-          const isActive = s.id === currentStep
-          const isPast = STEPS.findIndex((x) => x.id === currentStep) > i
-          return (
+        {STEPS.map((step, idx) => (
+          <div key={step.id} className="flex items-center gap-1.5">
+            {idx > 0 ? (
+              <ChevronRight className="size-4 text-muted-foreground/60" aria-hidden />
+            ) : null}
             <button
-              key={s.id}
               type="button"
-              onClick={() => onStepChange(s.id)}
+              onClick={() => onStepChange(step.id)}
               className={cn(
-                'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all',
-                'border-transparent',
-                isActive &&
-                  'border-border bg-background text-foreground shadow-sm ring-1 ring-primary/20',
-                !isActive &&
-                  'bg-background/60 text-muted-foreground hover:bg-background/80 hover:text-foreground',
-                isPast && !isActive && 'text-muted-foreground'
+                'rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                currentStep === step.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
-              aria-current={isActive ? 'step' : undefined}
+              aria-current={currentStep === step.id ? 'step' : undefined}
             >
-              <span
-                className={cn(
-                  'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-colors',
-                  isActive && 'border-2 border-primary bg-primary text-primary-foreground',
-                  isPast && !isActive && 'border border-border bg-muted/50 text-muted-foreground',
-                  !isActive && !isPast && 'border border-border bg-background/80'
-                )}
-              >
-                {isPast ? '✓' : i + 1}
-              </span>
-              <span className="hidden truncate sm:inline">{s.label}</span>
-              {s.icon}
+              {step.num}. {step.label}
             </button>
-          )
-        })}
+          </div>
+        ))}
       </nav>
       <div className="flex items-center gap-2">
         <Button

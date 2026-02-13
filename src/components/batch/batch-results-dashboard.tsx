@@ -25,11 +25,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { AlertTriangle, AlertCircle, MapPinOff, Gauge, Save, FolderOpen, Trash2, ChevronDown } from 'lucide-react'
+import { AlertTriangle, AlertCircle, MapPinOff, Gauge, Save, FolderOpen, Trash2, ChevronDown, Wallet, Coins, Target, BarChart2, Expand } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { BatchResultsTable, type CalculationColumnId } from '@/components/batch/batch-results-table'
 import { RowCalculationModal, type CalculationSection } from '@/components/batch/row-calculation-modal'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
+import { formatCurrency, formatCurrencyCompact } from '@/utils/format'
 import type { BatchResults, BatchRowResult, BatchRiskLevel, MarketMatchStatus, SavedBatchRun } from '@/types/batch'
 import type { MarketRow } from '@/types/market'
 
@@ -87,6 +88,9 @@ export function BatchResultsDashboard({
   const [calculationSection, setCalculationSection] = useState<CalculationSection | undefined>(undefined)
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [saveRunName, setSaveRunName] = useState('')
+  type ExpandedChartId = 'gap' | 'incentive' | 'tccWrvu' | 'flagged' | null
+  const [expandedChartId, setExpandedChartId] = useState<ExpandedChartId>(null)
+  const [showVisualsSection, setShowVisualsSection] = useState(false)
   const gapChartRef = useRef<HTMLDivElement>(null)
 
   const defaultSaveRunName = useMemo(
@@ -157,6 +161,12 @@ export function BatchResultsDashboard({
     let missingMarket = 0
     let gapSum = 0
     let gapCount = 0
+    let incentiveTotal = 0
+    let psqTotal = 0
+    let tccPctSum = 0
+    let tccPctCount = 0
+    let wrvuPctSum = 0
+    let wrvuPctCount = 0
     for (const r of rows) {
       byRisk[r.riskLevel]++
       if (r.matchStatus === 'Missing') missingMarket++
@@ -164,33 +174,50 @@ export function BatchResultsDashboard({
         gapSum += r.results.alignmentGapModeled
         gapCount++
       }
+      if (r.results?.annualIncentive != null && Number.isFinite(r.results.annualIncentive)) {
+        incentiveTotal += r.results.annualIncentive
+      }
+      if (r.results?.psqDollars != null && Number.isFinite(r.results.psqDollars)) {
+        psqTotal += r.results.psqDollars
+      }
+      if (r.results?.modeledTCCPercentile != null && Number.isFinite(r.results.modeledTCCPercentile)) {
+        tccPctSum += r.results.modeledTCCPercentile
+        tccPctCount++
+      }
+      if (r.results?.wrvuPercentile != null && Number.isFinite(r.results.wrvuPercentile)) {
+        wrvuPctSum += r.results.wrvuPercentile
+        wrvuPctCount++
+      }
     }
     return {
       byRisk,
       missingMarket,
       avgGap: gapCount > 0 ? gapSum / gapCount : null,
+      incentiveTotal,
+      psqTotal,
+      avgTccPercentile: tccPctCount > 0 ? tccPctSum / tccPctCount : null,
+      avgWrvuPercentile: wrvuPctCount > 0 ? wrvuPctSum / wrvuPctCount : null,
     }
   }, [rows])
 
-  const gapHistogramData = useMemo(() => {
-    const bins: Record<string, number> = {}
-    const bucket = (g: number) => {
-      if (g < -20) return '< -20'
-      if (g < -10) return '-20 to -10'
-      if (g < 0) return '-10 to 0'
-      if (g < 10) return '0 to 10'
-      if (g < 20) return '10 to 20'
-      return '> 20'
-    }
+  const gapBySpecialty = useMemo(() => {
+    const sumBySpec = new Map<string, number>()
+    const countBySpec = new Map<string, number>()
     for (const r of rows) {
       const g = r.results?.alignmentGapModeled
-      if (g != null && Number.isFinite(g)) {
-        const b = bucket(g)
-        bins[b] = (bins[b] || 0) + 1
-      }
+      if (g == null || !Number.isFinite(g)) continue
+      const spec = r.specialty?.trim() || '—'
+      sumBySpec.set(spec, (sumBySpec.get(spec) ?? 0) + g)
+      countBySpec.set(spec, (countBySpec.get(spec) ?? 0) + 1)
     }
-    const order = ['< -20', '-20 to -10', '-10 to 0', '0 to 10', '10 to 20', '> 20']
-    return order.filter((k) => bins[k]).map((name) => ({ name, count: bins[name] }))
+    return Array.from(countBySpec.entries())
+      .map(([specialty]) => {
+        const n = countBySpec.get(specialty) ?? 0
+        const avgGap = n > 0 ? (sumBySpec.get(specialty) ?? 0) / n : 0
+        return { specialty, avgGap }
+      })
+      .filter((d) => Number.isFinite(d.avgGap))
+      .sort((a, b) => b.avgGap - a.avgGap)
   }, [rows])
 
   const flaggedByDivision = useMemo(() => {
@@ -205,30 +232,39 @@ export function BatchResultsDashboard({
       .sort((a, b) => b.count - a.count)
   }, [rows])
 
-  const incentiveHistogramData = useMemo(() => {
-    const buckets: { name: string; count: number; fill: string }[] = [
-      { name: '< -100k', count: 0, fill: 'hsl(var(--destructive))' },
-      { name: '-100k to 0', count: 0, fill: 'hsl(var(--destructive))' },
-      { name: '0 to 50k', count: 0, fill: 'hsl(142 76% 36%)' },
-      { name: '50k to 100k', count: 0, fill: 'hsl(142 76% 36%)' },
-      { name: '> 100k', count: 0, fill: 'hsl(142 76% 36%)' },
-    ]
-    const getBucket = (v: number) => {
-      if (v < -100_000) return 0
-      if (v < 0) return 1
-      if (v < 50_000) return 2
-      if (v < 100_000) return 3
-      return 4
-    }
-    let hasAny = false
+  const incentiveByDivision = useMemo(() => {
+    const map = new Map<string, number>()
     for (const r of rows) {
       const inc = r.results?.annualIncentive
-      if (inc != null && Number.isFinite(inc)) {
-        buckets[getBucket(inc)].count++
-        hasAny = true
-      }
+      if (inc == null || !Number.isFinite(inc)) continue
+      const div = r.division || '—'
+      map.set(div, (map.get(div) ?? 0) + inc)
     }
-    return hasAny ? buckets : []
+    return Array.from(map.entries())
+      .map(([division, incentiveTotal]) => ({ division, incentiveTotal }))
+      .sort((a, b) => b.incentiveTotal - a.incentiveTotal)
+  }, [rows])
+
+  const tccWrvuGapBySpecialty = useMemo(() => {
+    const sumBySpec = new Map<string, number>()
+    const countBySpec = new Map<string, number>()
+    for (const r of rows) {
+      const tcc = r.results?.modeledTCCPercentile
+      const wrvu = r.results?.wrvuPercentile
+      if (tcc == null || !Number.isFinite(tcc) || wrvu == null || !Number.isFinite(wrvu)) continue
+      const gap = tcc - wrvu
+      const spec = r.specialty?.trim() || '—'
+      sumBySpec.set(spec, (sumBySpec.get(spec) ?? 0) + gap)
+      countBySpec.set(spec, (countBySpec.get(spec) ?? 0) + 1)
+    }
+    return Array.from(countBySpec.entries())
+      .map(([specialty]) => {
+        const n = countBySpec.get(specialty) ?? 0
+        const avgGap = n > 0 ? (sumBySpec.get(specialty) ?? 0) / n : 0
+        return { specialty, avgGap }
+      })
+      .filter((d) => Number.isFinite(d.avgGap))
+      .sort((a, b) => b.avgGap - a.avgGap)
   }, [rows])
 
   return (
@@ -280,6 +316,11 @@ export function BatchResultsDashboard({
                               {run.name}
                             </p>
                             <p className="text-muted-foreground text-xs">{formatRunDate(run.createdAt)}</p>
+                            {run.scenarioSnapshot?.scenarios?.length ? (
+                              <p className="text-muted-foreground text-[11px] mt-0.5" title={run.scenarioSnapshot.scenarios.map((s) => s.name).join(', ')}>
+                                Scenarios: {run.scenarioSnapshot.scenarios.map((s) => s.name).join(', ')}
+                              </p>
+                            ) : null}
                           </div>
                           <div className="flex shrink-0 gap-0.5">
                             <Button
@@ -443,7 +484,8 @@ export function BatchResultsDashboard({
               setRiskFilter('all')
               setMatchStatusFilter('all')
               setShowMissingOnly(false)
-              gapChartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              setShowVisualsSection(true)
+              setTimeout(() => gapChartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
             }}
             className="w-full cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset rounded-lg"
           >
@@ -461,62 +503,346 @@ export function BatchResultsDashboard({
             </CardContent>
           </button>
         </Card>
+        <Card className="overflow-hidden border-l-4 border-l-emerald-600/70 bg-emerald-500/5 dark:bg-emerald-500/10 transition-all hover:shadow-md p-0 gap-0">
+          <CardContent className="flex flex-row items-center gap-3 px-4 py-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+              <Wallet className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Incentive total</p>
+              <p className="text-xl font-semibold tabular-nums text-foreground">
+                {formatCurrency(summary.incentiveTotal, { decimals: 0 })}
+              </p>
+              <p className="text-[11px] text-muted-foreground">modeled annual incentive</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="overflow-hidden border-l-4 border-l-teal-600/70 bg-teal-500/5 dark:bg-teal-500/10 transition-all hover:shadow-md p-0 gap-0">
+          <CardContent className="flex flex-row items-center gap-3 px-4 py-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400">
+              <Coins className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">PSQ total</p>
+              <p className="text-xl font-semibold tabular-nums text-foreground">
+                {formatCurrency(summary.psqTotal, { decimals: 0 })}
+              </p>
+              <p className="text-[11px] text-muted-foreground">modeled PSQ dollars</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="overflow-hidden border-l-4 border-l-blue-600/70 bg-blue-500/5 dark:bg-blue-500/10 transition-all hover:shadow-md p-0 gap-0">
+          <CardContent className="flex flex-row items-center gap-3 px-4 py-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400">
+              <Target className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Avg TCC percentile</p>
+              <p className="text-xl font-semibold tabular-nums text-foreground">
+                {summary.avgTccPercentile != null ? summary.avgTccPercentile.toFixed(1) : '—'}
+              </p>
+              <p className="text-[11px] text-muted-foreground">modeled TCC %tile</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="overflow-hidden border-l-4 border-l-violet-600/70 bg-violet-500/5 dark:bg-violet-500/10 transition-all hover:shadow-md p-0 gap-0">
+          <CardContent className="flex flex-row items-center gap-3 px-4 py-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-500/15 text-violet-600 dark:text-violet-400">
+              <BarChart2 className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium text-muted-foreground">Avg wRVU percentile</p>
+              <p className="text-xl font-semibold tabular-nums text-foreground">
+                {summary.avgWrvuPercentile != null ? summary.avgWrvuPercentile.toFixed(1) : '—'}
+              </p>
+              <p className="text-[11px] text-muted-foreground">wRVU %tile vs market</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3" ref={gapChartRef}>
-        {gapHistogramData.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Comp-vs-prod gap (modeled)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={gapHistogramData} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
+      {(() => {
+        const hasAnyChart =
+          gapBySpecialty.length > 0 ||
+          incentiveByDivision.length > 0 ||
+          tccWrvuGapBySpecialty.length > 0 ||
+          flaggedByDivision.length > 0
+        const chartCount = [gapBySpecialty, incentiveByDivision, tccWrvuGapBySpecialty, flaggedByDivision].filter(
+          (d) => d.length > 0
+        ).length
+        return (
+          <div className="flex flex-wrap items-center gap-3">
+            {hasAnyChart && (
+              <Button
+                variant={showVisualsSection ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setShowVisualsSection((v) => !v)}
+                className="shrink-0"
+              >
+                <BarChart2 className="size-4 mr-2" aria-hidden />
+                {showVisualsSection ? 'Hide visuals' : 'View visuals'}
+                {!showVisualsSection && chartCount > 0 && (
+                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {chartCount} chart{chartCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </Button>
+            )}
+          </div>
+        )
+      })()}
+
+      <Dialog open={expandedChartId != null} onOpenChange={(open) => !open && setExpandedChartId(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-auto" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle className="text-sm">
+              {expandedChartId === 'gap' && 'Comp-vs-prod gap (modeled)'}
+              {expandedChartId === 'incentive' && 'Incentive distribution (modeled)'}
+              {expandedChartId === 'tccWrvu' && 'TCC %tile vs wRVU %tile by specialty'}
+              {expandedChartId === 'flagged' && 'Flagged by division'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="min-h-[60vh] w-full">
+            {expandedChartId === 'gap' && gapBySpecialty.length > 0 && (
+              <ResponsiveContainer width="100%" height={Math.max(400, Math.min(600, gapBySpecialty.length * 36))}>
+                <BarChart data={gapBySpecialty} layout="vertical" margin={{ top: 8, right: 8, left: 50, bottom: 24 }}>
                   <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  />
-                  <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="count" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
-        {incentiveHistogramData.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Incentive distribution (modeled)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={incentiveHistogramData} margin={{ top: 8, right: 8, left: 8, bottom: 24 }}>
-                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
-                  />
-                  <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {incentiveHistogramData.map((entry, index) => (
-                      <Cell key={index} fill={entry.fill} />
+                  <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}`} />
+                  <YAxis type="category" dataKey="specialty" width={120} tick={{ fontSize: 12 }} />
+                  <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Comp-vs-prod gap']} labelFormatter={(l) => `Specialty: ${l}`} />
+                  <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Comp-vs-prod gap">
+                    {gapBySpecialty.map((e) => (
+                      <Cell key={e.specialty} fill={e.avgGap < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
+            )}
+            {expandedChartId === 'incentive' && incentiveByDivision.length > 0 && (
+              <ResponsiveContainer width="100%" height={Math.max(400, Math.min(600, incentiveByDivision.length * 36))}>
+                <BarChart data={incentiveByDivision} layout="vertical" margin={{ top: 8, right: 8, left: 50, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                  <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => formatCurrencyCompact(Number(v))} />
+                  <YAxis type="category" dataKey="division" width={120} tick={{ fontSize: 12 }} />
+                  <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? formatCurrency(value, { decimals: 0 }) : '—', 'Incentive total']} labelFormatter={(l) => `Division: ${l}`} />
+                  <Bar dataKey="incentiveTotal" radius={[0, 4, 4, 0]}>
+                    {incentiveByDivision.map((e) => (
+                      <Cell key={e.division} fill={e.incentiveTotal < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+            {expandedChartId === 'tccWrvu' && tccWrvuGapBySpecialty.length > 0 && (
+              <ResponsiveContainer width="100%" height={Math.max(400, Math.min(600, tccWrvuGapBySpecialty.length * 36))}>
+                <BarChart data={tccWrvuGapBySpecialty} layout="vertical" margin={{ top: 8, right: 8, left: 50, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                  <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}`} />
+                  <YAxis type="category" dataKey="specialty" width={120} tick={{ fontSize: 12 }} />
+                  <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Gap (TCC %tile − wRVU %tile)']} labelFormatter={(l) => `Specialty: ${l}`} />
+                  <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Gap (TCC %tile − wRVU %tile)">
+                    {tccWrvuGapBySpecialty.map((e) => (
+                      <Cell key={e.specialty} fill={e.avgGap < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+            {expandedChartId === 'flagged' && flaggedByDivision.length > 0 && (
+              <ResponsiveContainer width="100%" height={Math.max(400, Math.min(600, flaggedByDivision.length * 36))}>
+                <BarChart data={flaggedByDivision} layout="vertical" margin={{ top: 8, right: 8, left: 50, bottom: 24 }}>
+                  <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                  <XAxis type="number" tick={{ fontSize: 12 }} />
+                  <YAxis type="category" dataKey="division" width={120} tick={{ fontSize: 12 }} />
+                  <Tooltip contentStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="count" fill="var(--chart-2)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" size="sm" onClick={() => setExpandedChartId(null)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {showVisualsSection && (
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3" ref={gapChartRef}>
+        {gapBySpecialty.length > 0 && (
+          <Card
+            className="cursor-pointer transition-shadow hover:shadow-md"
+            role="button"
+            tabIndex={0}
+            onClick={() => setExpandedChartId('gap')}
+            onKeyDown={(e) => e.key === 'Enter' && setExpandedChartId('gap')}
+            aria-label="Expand Comp-vs-prod gap chart"
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-sm">Comp-vs-prod gap (modeled)</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {gapBySpecialty.length} specialty{gapBySpecialty.length !== 1 ? 'ies' : ''} · scroll to see all
+                </p>
+              </div>
+              <Expand className="size-4 text-muted-foreground shrink-0" aria-hidden />
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-[min(60vh,480px)] overflow-y-auto overflow-x-hidden rounded-md border border-border/40 bg-muted/20">
+                <ResponsiveContainer width="100%" height={Math.max(220, gapBySpecialty.length * 36)} minHeight={220}>
+                  <BarChart data={gapBySpecialty} layout="vertical" margin={{ top: 8, right: 8, left: 40, bottom: 24 }}>
+                    <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}`} />
+                    <YAxis type="category" dataKey="specialty" width={80} tick={{ fontSize: 11 }} />
+                    <Tooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Comp-vs-prod gap']} labelFormatter={(l) => `Specialty: ${l}`} />
+                    <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Comp-vs-prod gap">
+                      {gapBySpecialty.map((e) => (
+                        <Cell key={e.specialty} fill={e.avgGap < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {incentiveByDivision.length > 0 && (
+          <Card
+            className="cursor-pointer transition-shadow hover:shadow-md"
+            role="button"
+            tabIndex={0}
+            onClick={() => setExpandedChartId('incentive')}
+            onKeyDown={(e) => e.key === 'Enter' && setExpandedChartId('incentive')}
+            aria-label="Expand Incentive distribution chart"
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-sm">Incentive distribution (modeled)</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {incentiveByDivision.length} division{incentiveByDivision.length !== 1 ? 's' : ''} · scroll to see all
+                </p>
+              </div>
+              <Expand className="size-4 text-muted-foreground shrink-0" aria-hidden />
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-[min(60vh,480px)] overflow-y-auto overflow-x-hidden rounded-md border border-border/40 bg-muted/20">
+                <ResponsiveContainer
+                  width="100%"
+                  height={Math.max(220, incentiveByDivision.length * 36)}
+                  minHeight={220}
+                >
+                  <BarChart
+                    data={incentiveByDivision}
+                    layout="vertical"
+                    margin={{ top: 8, right: 8, left: 40, bottom: 24 }}
+                  >
+                    <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                      tickFormatter={(v) => formatCurrencyCompact(Number(v))}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="division"
+                      width={80}
+                      tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
+                    />
+                    <Tooltip
+                      contentStyle={{ fontSize: 12 }}
+                      formatter={(value: number | undefined) => [value != null ? formatCurrency(value, { decimals: 0 }) : '—', 'Incentive total']}
+                      labelFormatter={(label) => `Division: ${label}`}
+                    />
+                    <Bar dataKey="incentiveTotal" radius={[0, 4, 4, 0]} name="Incentive total">
+                      {incentiveByDivision.map((entry) => (
+                        <Cell
+                          key={entry.division}
+                          fill={entry.incentiveTotal < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        {tccWrvuGapBySpecialty.length > 0 && (
+          <Card
+            className="cursor-pointer transition-shadow hover:shadow-md"
+            role="button"
+            tabIndex={0}
+            onClick={() => setExpandedChartId('tccWrvu')}
+            onKeyDown={(e) => e.key === 'Enter' && setExpandedChartId('tccWrvu')}
+            aria-label="Expand TCC vs wRVU percentile gap by specialty chart"
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-sm">TCC %tile vs wRVU %tile by specialty</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {tccWrvuGapBySpecialty.length} specialty{tccWrvuGapBySpecialty.length !== 1 ? 'ies' : ''} · scroll to see all
+                </p>
+              </div>
+              <Expand className="size-4 text-muted-foreground shrink-0" aria-hidden />
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-[min(60vh,480px)] overflow-y-auto overflow-x-hidden rounded-md border border-border/40 bg-muted/20">
+                <ResponsiveContainer
+                  width="100%"
+                  height={Math.max(220, tccWrvuGapBySpecialty.length * 36)}
+                  minHeight={220}
+                >
+                  <BarChart
+                    data={tccWrvuGapBySpecialty}
+                    layout="vertical"
+                    margin={{ top: 8, right: 8, left: 40, bottom: 24 }}
+                  >
+                    <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
+                    <XAxis
+                      type="number"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}`}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="specialty"
+                      width={80}
+                      tick={{ fontSize: 11 }}
+                    />
+                    <Tooltip
+                      contentStyle={{ fontSize: 12 }}
+                      formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Gap (TCC %tile − wRVU %tile)']}
+                      labelFormatter={(label) => `Specialty: ${label}`}
+                    />
+                    <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Gap (TCC %tile − wRVU %tile)">
+                      {tccWrvuGapBySpecialty.map((e) => (
+                        <Cell key={e.specialty} fill={e.avgGap < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
         )}
         {flaggedByDivision.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Flagged by division</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {flaggedByDivision.length} division{flaggedByDivision.length !== 1 ? 's' : ''} · scroll to see all
-              </p>
+          <Card
+            className="cursor-pointer transition-shadow hover:shadow-md"
+            role="button"
+            tabIndex={0}
+            onClick={() => setExpandedChartId('flagged')}
+            onKeyDown={(e) => e.key === 'Enter' && setExpandedChartId('flagged')}
+            aria-label="Expand Flagged by division chart"
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <div>
+                <CardTitle className="text-sm">Flagged by division</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {flaggedByDivision.length} division{flaggedByDivision.length !== 1 ? 's' : ''} · scroll to see all
+                </p>
+              </div>
+              <Expand className="size-4 text-muted-foreground shrink-0" aria-hidden />
             </CardHeader>
             <CardContent>
               <div className="max-h-[min(60vh,480px)] overflow-y-auto overflow-x-hidden rounded-md border border-border/40 bg-muted/20">
@@ -550,6 +876,7 @@ export function BatchResultsDashboard({
           </Card>
         )}
       </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border/60 bg-muted/20 p-4">
         <div className="flex items-center gap-2">

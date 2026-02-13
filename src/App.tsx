@@ -16,10 +16,13 @@ import { SavedScenariosSection } from '@/components/saved-scenarios-section'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BatchScenarioStep } from '@/components/batch/batch-scenario-step'
+import { BatchCardPicker, type BatchCardId } from '@/components/batch/batch-card-picker'
+import { ConversionFactorOptimizerScreen } from '@/features/optimizer/conversion-factor-optimizer-screen'
+import { ImputedVsMarketScreen } from '@/features/optimizer/imputed-vs-market-screen'
 import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
 import { LegalPage } from '@/components/legal-page'
 import type { ProviderRow } from '@/types/provider'
-import type { BatchResults } from '@/types/batch'
+import type { BatchResults, BatchScenarioSnapshot } from '@/types/batch'
 
 type ModelMode = 'existing' | 'new'
 
@@ -52,14 +55,24 @@ export default function App() {
     saveCurrentScenario,
     loadScenario,
     deleteScenario,
+    clearAllScenarios,
     duplicateScenario,
     updateCurrentScenarioProviderSnapshot,
     setBatchResults,
     saveCurrentBatchRun,
     loadSavedBatchRun,
     deleteSavedBatchRun,
+    saveBatchScenarioConfig,
+    loadBatchScenarioConfig,
+    clearAppliedBatchScenarioConfig,
+    deleteSavedBatchScenarioConfig,
     updateBatchSynonymMap,
     removeBatchSynonym,
+    setOptimizerConfig,
+    clearOptimizerConfig,
+    saveOptimizerConfig,
+    loadOptimizerConfig,
+    deleteSavedOptimizerConfig,
   } = useAppState()
 
   const [step, setStep] = useState<AppStep>(
@@ -72,23 +85,28 @@ export default function App() {
   const [modelMode, setModelMode] = useState<ModelMode>('existing')
   const [modellerStep, setModellerStep] = useState<ModellerStep>('provider')
   const [newProviderForm, setNewProviderForm] = useState<NewProviderFormValues>(DEFAULT_NEW_PROVIDER)
+  const [batchCard, setBatchCard] = useState<BatchCardId | null>(null)
 
   const handleAppModeChange = (mode: AppMode) => {
     setAppMode(mode)
     if (mode === 'batch') {
-      // When switching to Batch, show batch content: go to Batch scenario (or keep Results if already there)
       if (step !== 'batch-scenario' && step !== 'batch-results') {
         setStep('batch-scenario')
       }
+      setBatchCard(null)
     }
     if (mode === 'single' && (step === 'batch-scenario' || step === 'batch-results')) {
       setStep('modeller')
     }
   }
 
-  const handleBatchRunComplete = (results: BatchResults) => {
-    setBatchResults(results)
+  const handleBatchRunComplete = (results: BatchResults, scenarioSnapshot?: BatchScenarioSnapshot) => {
+    setBatchResults(results, scenarioSnapshot ?? null)
     setStep('batch-results')
+    // Auto-save the base scenario to the library so you can refer back (name includes run time)
+    const runAt = new Date(results.runAt)
+    const scenarioName = `Batch run – ${runAt.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+    saveCurrentScenario(scenarioName)
   }
 
   const marketRow = useMemo(() => {
@@ -264,6 +282,9 @@ export default function App() {
       onAppModeChange={handleAppModeChange}
       canShowModeller={hasData || state.marketRows.length > 0}
       canShowBatchResults={!!state.batchResults}
+      hideBatchResultsTab={
+        step === 'batch-scenario' && (batchCard === null || batchCard === 'cf-optimizer')
+      }
     >
       {step === 'upload' && (
         <div className="space-y-6">
@@ -528,16 +549,77 @@ export default function App() {
         </div>
       )}
 
-      {step === 'batch-scenario' && (
+      {step === 'batch-scenario' && batchCard === null && (
+        <div className="space-y-6">
+          <h2 className="section-title">Batch</h2>
+          <BatchCardPicker onSelect={setBatchCard} />
+        </div>
+      )}
+      {step === 'batch-scenario' && batchCard === 'cf-optimizer' && (
+        <ConversionFactorOptimizerScreen
+          providerRows={state.providerRows}
+          marketRows={state.marketRows}
+          scenarioInputs={state.scenarioInputs}
+          synonymMap={state.batchSynonymMap}
+          onBack={() => setBatchCard(null)}
+          onSaveScenario={(name) => saveCurrentScenario(name)}
+          optimizerConfig={state.optimizerConfig}
+          onOptimizerConfigChange={setOptimizerConfig}
+          onClearOptimizerConfig={clearOptimizerConfig}
+          savedOptimizerConfigs={state.savedOptimizerConfigs}
+          onSaveOptimizerConfig={saveOptimizerConfig}
+          onLoadOptimizerConfig={loadOptimizerConfig}
+          onDeleteSavedOptimizerConfig={deleteSavedOptimizerConfig}
+        />
+      )}
+      {step === 'batch-scenario' && batchCard === 'imputed-vs-market' && (
+        <ImputedVsMarketScreen
+          providerRows={state.providerRows}
+          marketRows={state.marketRows}
+          synonymMap={state.batchSynonymMap}
+          onBack={() => setBatchCard(null)}
+        />
+      )}
+      {step === 'batch-scenario' && batchCard === 'bulk-scenario' && (
         <BatchScenarioStep
           providerRows={state.providerRows}
           marketRows={state.marketRows}
           scenarioInputs={state.scenarioInputs}
           setScenarioInputs={setScenarioInputs}
           savedScenarios={state.savedScenarios}
+          savedBatchScenarioConfigs={state.savedBatchScenarioConfigs}
+          appliedBatchScenarioConfig={state.appliedBatchScenarioConfig}
+          onLoadBatchScenarioConfig={loadBatchScenarioConfig}
+          onBatchScenarioConfigApplied={clearAppliedBatchScenarioConfig}
+          onDeleteBatchScenarioConfig={deleteSavedBatchScenarioConfig}
           batchSynonymMap={state.batchSynonymMap}
           onRunComplete={handleBatchRunComplete}
           onNavigateToUpload={() => setStep('upload')}
+          onSaveScenario={saveBatchScenarioConfig}
+          onClearSavedScenarios={clearAllScenarios}
+          mode="bulk"
+          onBack={() => setBatchCard(null)}
+        />
+      )}
+      {step === 'batch-scenario' && batchCard === 'detailed-scenario' && (
+        <BatchScenarioStep
+          providerRows={state.providerRows}
+          marketRows={state.marketRows}
+          scenarioInputs={state.scenarioInputs}
+          setScenarioInputs={setScenarioInputs}
+          savedScenarios={state.savedScenarios}
+          savedBatchScenarioConfigs={state.savedBatchScenarioConfigs}
+          appliedBatchScenarioConfig={state.appliedBatchScenarioConfig}
+          onLoadBatchScenarioConfig={loadBatchScenarioConfig}
+          onBatchScenarioConfigApplied={clearAppliedBatchScenarioConfig}
+          onDeleteBatchScenarioConfig={deleteSavedBatchScenarioConfig}
+          batchSynonymMap={state.batchSynonymMap}
+          onRunComplete={handleBatchRunComplete}
+          onNavigateToUpload={() => setStep('upload')}
+          onSaveScenario={saveBatchScenarioConfig}
+          onClearSavedScenarios={clearAllScenarios}
+          mode="detailed"
+          onBack={() => setBatchCard(null)}
         />
       )}
 
@@ -559,8 +641,13 @@ export default function App() {
         <div className="space-y-6">
           <h2 className="section-title">Batch results</h2>
           <Card>
-            <CardContent className="py-8 text-center text-muted-foreground text-sm">
-              Run the model on the Batch scenario step first to see results.
+            <CardContent className="py-8 text-center text-muted-foreground text-sm space-y-2">
+              <p>
+                <strong>Results</strong> shows the output of a <strong>Bulk</strong> or <strong>Detailed</strong> scenario run (provider-level TCC). Run one of those from Batch scenario to see results here.
+              </p>
+              <p>
+                The Conversion Factor Optimizer shows its own results on the optimizer screen after you click Run.
+              </p>
             </CardContent>
           </Card>
         </div>

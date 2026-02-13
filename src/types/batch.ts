@@ -42,18 +42,39 @@ export interface BatchResults {
   providerCount: number
 }
 
+/** Snapshot of scenario(s) used for a batch run (for reference when loading saved runs). */
+export interface BatchScenarioSnapshot {
+  /** Scenarios that were run: base "Current" + any from scenario library. */
+  scenarios: { id: string; name: string; scenarioInputs: ScenarioInputs }[]
+}
+
 /** A saved batch run the user can revisit or delete. */
 export interface SavedBatchRun {
   id: string
   name: string
   createdAt: string
   results: BatchResults
+  /** Scenario(s) used for this run so you can refer back or re-use. */
+  scenarioSnapshot?: BatchScenarioSnapshot
 }
 
 /** Optional overrides per specialty and/or provider; merged over base scenario inputs (provider overrides beat specialty). */
 export interface BatchOverrides {
   bySpecialty?: Record<string, Partial<ScenarioInputs>>
   byProviderId?: Record<string, Partial<ScenarioInputs>>
+}
+
+/** Saved batch scenario configuration (base inputs, overrides, run-for selection) for reload and retweak. */
+export interface SavedBatchScenarioConfig {
+  id: string
+  name: string
+  createdAt: string
+  scenarioInputs: ScenarioInputs
+  overrides?: BatchOverrides
+  selectedSpecialties: string[]
+  selectedProviderIds: string[]
+  /** When true, run only the base scenario; when false, run base + scenario library. */
+  runBaseScenarioOnly?: boolean
 }
 
 /** Options for runBatch. */
