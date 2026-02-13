@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Users, BarChart2, FileSpreadsheet, AlertCircle, ChevronRight, ChevronLeft, Search, Eye, Download, Pencil, Trash2, Link2 } from 'lucide-react'
+import { Users, BarChart2, FileSpreadsheet, AlertCircle, Eye, Download, Pencil, Trash2, Link2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -87,6 +87,8 @@ interface UploadAndMappingProps {
   batchSynonymMap: SynonymMap
   onAddSynonym: (key: string, value: string) => void
   onRemoveSynonym: (key: string) => void
+  /** When provided, navigating to Data screen after Apply and Eye when data is loaded. */
+  onNavigateToData?: () => void
 }
 
 export function UploadAndMapping({
@@ -99,6 +101,7 @@ export function UploadAndMapping({
   batchSynonymMap,
   onAddSynonym,
   onRemoveSynonym,
+  onNavigateToData,
 }: UploadAndMappingProps) {
   const [providerRaw, setProviderRaw] = useState<RawFileState | null>(null)
   const [marketRaw, setMarketRaw] = useState<RawFileState | null>(null)
@@ -109,12 +112,6 @@ export function UploadAndMapping({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState<FileType | null>(null)
   const [expandedCard, setExpandedCard] = useState<ExpandedCard>(null)
-  const [providerSearch, setProviderSearch] = useState('')
-  const [providerPage, setProviderPage] = useState(0)
-  const [providerPageSize, setProviderPageSize] = useState(50)
-  const [marketSearch, setMarketSearch] = useState('')
-  const [marketPage, setMarketPage] = useState(0)
-  const [marketPageSize, setMarketPageSize] = useState(50)
   const [editingProvider, setEditingProvider] = useState<ProviderRow | null>(null)
   type EditFormState = {
     providerName: string
@@ -234,7 +231,9 @@ export function UploadAndMapping({
     onProviderData(rows, { ...providerMapping }, providerRaw?.fileName)
     setProviderRaw(null)
     setAppliedProviderRows(rows)
-  }, [providerRaw, providerMapping, onProviderData])
+    setExpandedCard(null)
+    onNavigateToData?.()
+  }, [providerRaw, providerMapping, onProviderData, onNavigateToData])
 
   const applyMarket = useCallback(() => {
     if (!marketRaw) return
@@ -251,7 +250,9 @@ export function UploadAndMapping({
     onMarketData(rows, { ...marketMapping })
     setMarketRaw(null)
     setAppliedMarketRows(rows)
-  }, [marketRaw, marketMapping, onMarketData])
+    setExpandedCard(null)
+    onNavigateToData?.()
+  }, [marketRaw, marketMapping, onMarketData, onNavigateToData])
 
   const providerHeaders = providerRaw ? providerRaw.headers : []
   const marketHeaders = marketRaw ? marketRaw.headers : []
@@ -260,10 +261,22 @@ export function UploadAndMapping({
     { key: 'providerName', label: 'Name', defaultWidth: 160, minWidth: 100 },
     { key: 'specialty', label: 'Specialty', defaultWidth: 120, minWidth: 80 },
     { key: 'division', label: 'Division', defaultWidth: 100, minWidth: 70 },
+    // FTE (CART)
+    { key: 'totalFTE', label: 'Total FTE', align: 'right', defaultWidth: 90, minWidth: 70, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
+    { key: 'clinicalFTE', label: 'Clinical FTE', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
+    { key: 'adminFTE', label: 'Admin FTE', align: 'right', defaultWidth: 90, minWidth: 70, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
+    { key: 'researchFTE', label: 'Research FTE', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
+    { key: 'teachingFTE', label: 'Teaching FTE', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
+    // Compensation & wRVUs
     { key: 'baseSalary', label: 'Base salary', align: 'right', defaultWidth: 120, minWidth: 90, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
     { key: 'nonClinicalPay', label: 'Non-clinical', align: 'right', defaultWidth: 110, minWidth: 80, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
+    { key: 'workRVUs', label: 'Work wRVUs', align: 'right', defaultWidth: 110, minWidth: 80, render: (v, row) => { const n = row?.workRVUs ?? row?.pchWRVUs ?? v; return n != null ? fmtComma(Number(n), 0) : '—' } },
+    { key: 'outsideWRVUs', label: 'Outside wRVUs', align: 'right', defaultWidth: 110, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 0) : '—') },
     { key: 'totalWRVUs', label: 'Total wRVUs', align: 'right', defaultWidth: 110, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 0) : '—') },
     { key: 'currentCF', label: 'Current CF', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtCurrency(Number(v), 2) : '—') },
+    { key: 'qualityPayments', label: 'Quality', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
+    { key: 'otherIncentives', label: 'Other incentives', align: 'right', defaultWidth: 120, minWidth: 90, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
+    { key: 'currentTCC', label: 'Current TCC', align: 'right', defaultWidth: 120, minWidth: 90, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
     { key: 'productivityModel', label: 'Model', defaultWidth: 100, minWidth: 70 },
   ]
 
@@ -328,46 +341,6 @@ export function UploadAndMapping({
   const marketHasData = !!marketRaw || existingMarketRows.length > 0
   const providerDisplayRows = appliedProviderRows ?? existingProviderRows
   const marketDisplayRows = appliedMarketRows ?? existingMarketRows
-
-  const providerFiltered = useMemo(() => {
-    if (!providerSearch.trim()) return providerDisplayRows
-    const q = providerSearch.trim().toLowerCase()
-    return providerDisplayRows.filter((row) => {
-      const name = String(row.providerName ?? '').toLowerCase()
-      const specialty = String(row.specialty ?? '').toLowerCase()
-      const division = String(row.division ?? '').toLowerCase()
-      return name.includes(q) || specialty.includes(q) || division.includes(q)
-    })
-  }, [providerDisplayRows, providerSearch])
-
-  const providerPaginated = useMemo(() => {
-    const start = providerPage * providerPageSize
-    return providerFiltered.slice(start, start + providerPageSize)
-  }, [providerFiltered, providerPage, providerPageSize])
-
-  const providerTotalPages = Math.max(1, Math.ceil(providerFiltered.length / providerPageSize))
-  const providerStart = providerFiltered.length === 0 ? 0 : providerPage * providerPageSize + 1
-  const providerEnd = Math.min((providerPage + 1) * providerPageSize, providerFiltered.length)
-
-  const marketFiltered = useMemo(() => {
-    if (!marketSearch.trim()) return marketDisplayRows
-    const q = marketSearch.trim().toLowerCase()
-    return marketDisplayRows.filter((row) => {
-      const specialty = String(row.specialty ?? '').toLowerCase()
-      const type = String(row.providerType ?? '').toLowerCase()
-      const region = String(row.region ?? '').toLowerCase()
-      return specialty.includes(q) || type.includes(q) || region.includes(q)
-    })
-  }, [marketDisplayRows, marketSearch])
-
-  const marketPaginated = useMemo(() => {
-    const start = marketPage * marketPageSize
-    return marketFiltered.slice(start, start + marketPageSize)
-  }, [marketFiltered, marketPage, marketPageSize])
-
-  const marketTotalPages = Math.max(1, Math.ceil(marketFiltered.length / marketPageSize))
-  const marketStart = marketFiltered.length === 0 ? 0 : marketPage * marketPageSize + 1
-  const marketEnd = Math.min((marketPage + 1) * marketPageSize, marketFiltered.length)
 
   const providerSpecialties = useMemo(() => {
     const set = new Set(existingProviderRows.map((r) => r.specialty).filter(Boolean))
@@ -808,10 +781,16 @@ export function UploadAndMapping({
                     className="size-9 shrink-0 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
-                      setExpandedCard((c) => (c === 'provider' ? null : 'provider'))
+                      if (providerRaw) {
+                        setExpandedCard((c) => (c === 'provider' ? null : 'provider'))
+                      } else if (onNavigateToData) {
+                        onNavigateToData()
+                      } else {
+                        setExpandedCard((c) => (c === 'provider' ? null : 'provider'))
+                      }
                     }}
-                    title={providerRaw ? 'Map columns' : `View ${existingProviderRows.length} rows`}
-                    aria-label={providerRaw ? 'Map columns' : 'View data'}
+                    title={providerRaw ? 'Map columns' : onNavigateToData ? 'View data' : `View ${existingProviderRows.length} rows`}
+                    aria-label={providerRaw ? 'Map columns' : onNavigateToData ? 'View data' : 'View data'}
                   >
                     <Eye className="size-4" />
                   </Button>
@@ -910,10 +889,16 @@ export function UploadAndMapping({
                     className="size-9 shrink-0 cursor-pointer"
                     onClick={(e) => {
                       e.stopPropagation()
-                      setExpandedCard((c) => (c === 'market' ? null : 'market'))
+                      if (marketRaw) {
+                        setExpandedCard((c) => (c === 'market' ? null : 'market'))
+                      } else if (onNavigateToData) {
+                        onNavigateToData()
+                      } else {
+                        setExpandedCard((c) => (c === 'market' ? null : 'market'))
+                      }
                     }}
-                    title={marketRaw ? 'Map columns' : `View ${existingMarketRows.length} rows`}
-                    aria-label={marketRaw ? 'Map columns' : 'View data'}
+                    title={marketRaw ? 'Map columns' : onNavigateToData ? 'View data' : `View ${existingMarketRows.length} rows`}
+                    aria-label={marketRaw ? 'Map columns' : onNavigateToData ? 'View data' : 'View data'}
                   >
                     <Eye className="size-4" />
                   </Button>
@@ -1034,92 +1019,6 @@ export function UploadAndMapping({
         </Card>
       )}
 
-      {expandedCard === 'provider' && providerDisplayRows.length > 0 && (
-        <Card className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-foreground">
-              Provider data loaded
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {providerDisplayRows.length} row{providerDisplayRows.length !== 1 ? 's' : ''} loaded. Go to Modeller to run scenarios.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-[200px] max-w-sm">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  type="search"
-                  placeholder="Search by name, specialty, division…"
-                  value={providerSearch}
-                  onChange={(e) => {
-                    setProviderSearch(e.target.value)
-                    setProviderPage(0)
-                  }}
-                  className="pl-8 h-9"
-                />
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Label htmlFor="provider-page-size" className="text-xs whitespace-nowrap">Rows per page</Label>
-                <Select
-                  value={String(providerPageSize)}
-                  onValueChange={(v) => {
-                    setProviderPageSize(Number(v))
-                    setProviderPage(0)
-                  }}
-                >
-                  <SelectTrigger id="provider-page-size" className="h-9 w-[90px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="200">200</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <ResizableDataTable<ProviderRow>
-              keyField="providerName"
-              maxHeight="min(880px, 65vh)"
-              rows={providerPaginated}
-              columns={providerTableColumns}
-            />
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-              <p className="text-xs text-muted-foreground">
-                {providerFiltered.length === providerDisplayRows.length
-                  ? `Showing ${providerStart}–${providerEnd} of ${providerFiltered.length} rows.`
-                  : `Showing ${providerStart}–${providerEnd} of ${providerFiltered.length} (filtered from ${providerDisplayRows.length}).`}
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1"
-                  disabled={providerPage === 0}
-                  onClick={() => setProviderPage((p) => Math.max(0, p - 1))}
-                >
-                  <ChevronLeft className="size-4" /> Previous
-                </Button>
-                <span className="px-2 text-xs text-muted-foreground tabular-nums">
-                  Page {providerPage + 1} of {providerTotalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1"
-                  disabled={providerPage >= providerTotalPages - 1}
-                  onClick={() => setProviderPage((p) => Math.min(providerTotalPages - 1, p + 1))}
-                >
-                  Next <ChevronRight className="size-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {expandedCard === 'market' && marketRaw && (
         <Card className="overflow-hidden rounded-2xl border border-primary/30 bg-card shadow-sm ring-1 ring-primary/10">
           <CardHeader className="space-y-1 pb-4">
@@ -1181,91 +1080,6 @@ export function UploadAndMapping({
         </Card>
       )}
 
-      {expandedCard === 'market' && marketDisplayRows.length > 0 && (
-        <Card className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold text-foreground">
-              Market data loaded
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {marketDisplayRows.length} row{marketDisplayRows.length !== 1 ? 's' : ''} loaded. TCC and CF as currency; wRVUs with commas.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1 min-w-[200px] max-w-sm">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  type="search"
-                  placeholder="Search by specialty, type, region…"
-                  value={marketSearch}
-                  onChange={(e) => {
-                    setMarketSearch(e.target.value)
-                    setMarketPage(0)
-                  }}
-                  className="pl-8 h-9"
-                />
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Label htmlFor="market-page-size" className="text-xs whitespace-nowrap">Rows per page</Label>
-                <Select
-                  value={String(marketPageSize)}
-                  onValueChange={(v) => {
-                    setMarketPageSize(Number(v))
-                    setMarketPage(0)
-                  }}
-                >
-                  <SelectTrigger id="market-page-size" className="h-9 w-[90px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="200">200</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <ResizableDataTable<MarketRow>
-              keyField="specialty"
-              maxHeight="min(880px, 65vh)"
-              rows={marketPaginated}
-              columns={marketTableColumns}
-            />
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-              <p className="text-xs text-muted-foreground">
-                {marketFiltered.length === marketDisplayRows.length
-                  ? `Showing ${marketStart}–${marketEnd} of ${marketFiltered.length} rows.`
-                  : `Showing ${marketStart}–${marketEnd} of ${marketFiltered.length} (filtered from ${marketDisplayRows.length}).`}
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1"
-                  disabled={marketPage === 0}
-                  onClick={() => setMarketPage((p) => Math.max(0, p - 1))}
-                >
-                  <ChevronLeft className="size-4" /> Previous
-                </Button>
-                <span className="px-2 text-xs text-muted-foreground tabular-nums">
-                  Page {marketPage + 1} of {marketTotalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1"
-                  disabled={marketPage >= marketTotalPages - 1}
-                  onClick={() => setMarketPage((p) => Math.min(marketTotalPages - 1, p + 1))}
-                >
-                  Next <ChevronRight className="size-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

@@ -5,7 +5,7 @@ import type { BatchCardId } from '@/components/batch/batch-card-picker'
 
 const UPLOAD_CARD = {
   id: 'upload' as const,
-  title: 'Upload & data',
+  title: 'Upload',
   description: 'Load provider and market data from CSV files. Required for single model from upload and batch workflows.',
   icon: <FileUp className="size-6" />,
 }
@@ -88,7 +88,7 @@ export function HomeScreen({
         </p>
         {!hasData && (
           <p className="text-muted-foreground/80 text-xs mt-2">
-            No data loaded yet — go to Upload & data to load provider and market files.
+            No data loaded yet — go to Upload to load provider and market files.
           </p>
         )}
       </div>

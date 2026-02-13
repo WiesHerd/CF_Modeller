@@ -97,7 +97,7 @@ export function OptimizerRunStage({
               <div className="flex flex-col gap-4">
                 {result.summary.specialtiesAnalyzed === 0 ? (
                   <WarningBanner
-                    message="No specialties had matching market data. Check specialty names and synonym mappings on the Upload step."
+                    message="No specialties had matching market data. Check specialty names and synonym mappings on the Upload screen."
                   />
                 ) : null}
 

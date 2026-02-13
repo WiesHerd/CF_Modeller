@@ -332,7 +332,7 @@ export function ImputedVsMarketScreen({
         </CardHeader>
         <CardContent className="space-y-6">
           {!hasData && (
-            <WarningBanner message="Upload provider and market data on the Upload step first." />
+            <WarningBanner message="Upload provider and market data on the Upload screen first." />
           )}
 
           {hasData && (
@@ -363,7 +363,7 @@ export function ImputedVsMarketScreen({
 
               {!hasResults && (
                 <WarningBanner
-                  message="No specialties had matching market data. Check that provider specialties match your market file, or set up synonym mapping on the Upload step."
+                  message="No specialties had matching market data. Check that provider specialties match your market file, or set up synonym mapping on the Upload screen."
                 />
               )}
 

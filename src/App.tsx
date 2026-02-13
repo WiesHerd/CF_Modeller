@@ -19,6 +19,7 @@ import { BatchScenarioStep } from '@/components/batch/batch-scenario-step'
 import { BatchCardPicker, type BatchCardId } from '@/components/batch/batch-card-picker'
 import { ConversionFactorOptimizerScreen } from '@/features/optimizer/conversion-factor-optimizer-screen'
 import { ImputedVsMarketScreen } from '@/features/optimizer/imputed-vs-market-screen'
+import { DataTablesScreen } from '@/features/data/data-tables-screen'
 import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
 import { LegalPage } from '@/components/legal-page'
 import type { ProviderRow } from '@/types/provider'
@@ -276,7 +277,7 @@ export default function App() {
     >
       {step === 'upload' && (
         <div className="space-y-6">
-          <h2 className="section-title">Upload & data</h2>
+          <h2 className="section-title">Upload</h2>
           <UploadAndMapping
             onProviderData={setProviderData}
             onMarketData={setMarketData}
@@ -287,8 +288,17 @@ export default function App() {
             batchSynonymMap={state.batchSynonymMap}
             onAddSynonym={updateBatchSynonymMap}
             onRemoveSynonym={removeBatchSynonym}
+            onNavigateToData={() => handleStepChange('data')}
           />
         </div>
+      )}
+
+      {step === 'data' && (
+        <DataTablesScreen
+          providerRows={state.providerRows}
+          marketRows={state.marketRows}
+          onNavigateToUpload={() => handleStepChange('upload')}
+        />
       )}
 
       {step === 'modeller' && (

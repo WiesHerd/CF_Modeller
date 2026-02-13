@@ -154,7 +154,7 @@ export function OptimizerConfigureStage({
         <TooltipProvider delayDuration={200}>
           {!hasData ? (
             <WarningBanner
-              message="Upload provider and market data on the Upload step before running optimization."
+              message="Upload provider and market data on the Upload screen before running optimization."
             />
           ) : null}
 

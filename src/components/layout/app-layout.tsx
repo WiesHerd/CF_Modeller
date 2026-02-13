@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Upload, Layers, Menu, Plus, PanelLeftClose, PanelLeft, FileUp, PenLine, TrendingUp, BarChart2, LayoutGrid, Sliders } from 'lucide-react'
+import { Upload, Layers, Menu, Plus, PanelLeftClose, PanelLeft, FileUp, PenLine, TrendingUp, BarChart2, LayoutGrid, Sliders, Table2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import type { BatchCardId } from '@/components/batch/batch-card-picker'
 
-export type AppStep = 'upload' | 'modeller' | 'batch-scenario' | 'batch-results'
+export type AppStep = 'upload' | 'data' | 'modeller' | 'batch-scenario' | 'batch-results'
 export type AppMode = 'single' | 'batch'
 
 /** When collapsed, only this rail width is reserved — content keeps max width. */
@@ -116,6 +116,7 @@ export function AppLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
 
   const isUploadActive = step === 'upload'
+  const isDataActive = step === 'data'
   const isModellerActive = step === 'modeller'
   const isBatchScenarioActive = step === 'batch-scenario'
 
@@ -151,7 +152,7 @@ export function AppLayout({
               <img src="/NewIMage.png" alt="" className="size-7 rounded-md object-contain" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right">TCC Modeler — Upload & data</TooltipContent>
+          <TooltipContent side="right">TCC Modeler — Upload</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -168,17 +169,26 @@ export function AppLayout({
               <Plus className="size-4 shrink-0" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right">Start — Upload & data</TooltipContent>
+          <TooltipContent side="right">Start — Upload</TooltipContent>
         </Tooltip>
 
         <div className="flex-1 overflow-auto py-1 space-y-0.5 px-1 min-h-0">
           <NavButton
             icon={<FileUp className="size-4 shrink-0" />}
-            label="Upload & data"
-            tooltip="Upload & data"
-            active={step === 'upload'}
+            label="Upload"
+            tooltip="Upload"
+            active={isUploadActive}
             disabled={false}
             onClick={() => handleNav('upload')}
+            collapsed={true}
+          />
+          <NavButton
+            icon={<Table2 className="size-4 shrink-0" />}
+            label="Data"
+            tooltip="Browse and filter provider and market data"
+            active={isDataActive}
+            disabled={false}
+            onClick={() => handleNav('data')}
             collapsed={true}
           />
           <NavButton
@@ -274,11 +284,20 @@ export function AppLayout({
           <div className="space-y-0.5">
             <NavButton
               icon={<FileUp className="size-4 shrink-0" />}
-              label="Upload & data"
-              tooltip="Load provider and market data from CSV"
-              active={step === 'upload'}
+            label="Upload"
+            tooltip="Load provider and market data from CSV"
+              active={isUploadActive}
               disabled={false}
               onClick={() => handleNav('upload')}
+              collapsed={false}
+            />
+            <NavButton
+              icon={<Table2 className="size-4 shrink-0" />}
+              label="Data"
+              tooltip="Browse and filter provider and market data"
+              active={isDataActive}
+              disabled={false}
+              onClick={() => handleNav('data')}
               collapsed={false}
             />
           </div>
@@ -402,11 +421,20 @@ export function AppLayout({
                   <div className="space-y-0.5">
                     <NavButton
                       icon={<FileUp className="size-4 shrink-0" />}
-                      label="Upload & data"
+                      label="Upload"
                       tooltip="Load provider and market data"
-                      active={step === 'upload'}
+                      active={isUploadActive}
                       disabled={false}
                       onClick={() => handleNav('upload')}
+                      collapsed={false}
+                    />
+                    <NavButton
+                      icon={<Table2 className="size-4 shrink-0" />}
+                      label="Data"
+                      tooltip="Browse and filter provider and market data"
+                      active={isDataActive}
+                      disabled={false}
+                      onClick={() => handleNav('data')}
                       collapsed={false}
                     />
                   </div>

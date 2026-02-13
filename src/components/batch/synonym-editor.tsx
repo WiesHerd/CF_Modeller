@@ -208,7 +208,7 @@ export function SynonymEditor({
       <CardContent className="space-y-4">
         {(!hasProviderOptions || !hasMarketOptions) && (
           <p className="text-muted-foreground text-xs">
-            Upload provider and market files on the Upload step to select specialties from your data.
+            Upload provider and market files on the Upload screen to select specialties from your data.
           </p>
         )}
         {hasProviderOptions && hasMarketOptions && providerSpecialties.length > 0 && (

@@ -47,7 +47,7 @@ interface BatchScenarioStepProps {
   savedScenarios: SavedScenario[]
   batchSynonymMap: SynonymMap
   onRunComplete: (results: import('@/types/batch').BatchResults, scenarioSnapshot?: import('@/types/batch').BatchScenarioSnapshot) => void
-  /** When provided, show a link to edit synonyms on the Upload step. */
+  /** When provided, show a link to edit synonyms on the Upload screen. */
   onNavigateToUpload?: () => void
   /** When provided, Save scenario button is shown and this is called with current config. */
   onSaveScenario?: (config: Omit<SavedBatchScenarioConfig, 'id' | 'createdAt'>) => void
@@ -611,7 +611,7 @@ export function BatchScenarioStep({
               className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
             >
               <Link2 className="size-4" />
-              <span className="hidden sm:inline">{synonymCount} specialty synonym{synonymCount !== 1 ? 's' : ''} mapped — Edit in Upload step</span>
+              <span className="hidden sm:inline">{synonymCount} specialty synonym{synonymCount !== 1 ? 's' : ''} mapped — Edit in Upload</span>
             </button>
           )}
           {onNavigateToUpload && synonymCount === 0 && (
@@ -621,8 +621,8 @@ export function BatchScenarioStep({
               size="icon"
               className="size-9 shrink-0"
               onClick={onNavigateToUpload}
-              title="Edit synonyms (Upload step)"
-              aria-label="Edit synonyms (Upload step)"
+              title="Edit synonyms (Upload)"
+              aria-label="Edit synonyms (Upload)"
             >
               <Link2 className="size-4" />
             </Button>
