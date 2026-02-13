@@ -95,7 +95,7 @@ function getMarketCellDisplayString(columnId: string, row: MarketRow): string {
   if (columnId === 'specialty') return String(row.specialty ?? EMPTY)
   if (columnId === 'providerType') return String(row.providerType ?? EMPTY)
   if (columnId === 'region') return String(row.region ?? EMPTY)
-  const numVal = (row as Record<string, unknown>)[columnId]
+  const numVal = (row as unknown as Record<string, unknown>)[columnId]
   if (columnId.startsWith('TCC_') || columnId.startsWith('CF_')) return fmtCur(numVal as number | undefined, columnId.startsWith('CF_') ? 2 : 0)
   if (columnId.startsWith('WRVU_')) return fmtNum(numVal as number | undefined, 0)
   return String(numVal ?? EMPTY)
@@ -265,7 +265,7 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
     return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)))
   }, [rows])
 
-  const columns = useMemo<ColumnDef<ProviderRow, unknown>[]>(
+  const columns = useMemo<ColumnDef<ProviderRow, any>[]>(
     () => [
       providerHelper.accessor('providerName', { header: 'Name', cell: (c) => c.getValue() ?? EMPTY, meta: { wrap: true }, size: 180, minSize: 100 }),
       providerHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, size: 220, minSize: 120 }),
@@ -665,7 +665,7 @@ function MarketDataTable({ rows }: { rows: MarketRow[] }) {
     return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)))
   }, [rows])
 
-  const columns = useMemo<ColumnDef<MarketRow, unknown>[]>(
+  const columns = useMemo<ColumnDef<MarketRow, any>[]>(
     () => [
       marketHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, size: 200, minSize: 120 }),
       marketHelper.accessor('providerType', { header: 'Type', cell: (c) => c.getValue() ?? EMPTY, size: 100, minSize: 70 }),

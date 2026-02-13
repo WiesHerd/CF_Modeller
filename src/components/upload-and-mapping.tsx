@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Users, BarChart2, FileSpreadsheet, AlertCircle, Eye, Download, Pencil, Trash2, Link2 } from 'lucide-react'
+import { Users, BarChart2, FileSpreadsheet, AlertCircle, Eye, Download, Trash2, Link2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -35,7 +35,6 @@ import {
   PROVIDER_SAMPLE_FILENAME,
   MARKET_SAMPLE_FILENAME,
 } from '@/utils/sample-upload'
-import { ResizableDataTable, type ResizableColumn } from '@/components/resizable-data-table'
 import {
   Tooltip,
   TooltipContent,
@@ -66,13 +65,6 @@ const MARKET_COLUMN_GROUPS: { label: string; keys: readonly string[] }[] = [
   { label: 'Work RVUs', keys: ['WRVU_25', 'WRVU_50', 'WRVU_75', 'WRVU_90'] },
   { label: 'Conversion factors', keys: ['CF_25', 'CF_50', 'CF_75', 'CF_90'] },
 ]
-
-function fmtCurrency(n: number, decimals = 0): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(n)
-}
-function fmtComma(n: number, decimals = 2): string {
-  return new Intl.NumberFormat('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(n)
-}
 
 interface UploadAndMappingProps {
   onProviderData: (rows: ProviderRow[], mapping: ColumnMapping | null, fileName?: string) => void
@@ -107,8 +99,8 @@ export function UploadAndMapping({
   const [marketRaw, setMarketRaw] = useState<RawFileState | null>(null)
   const [providerMapping, setProviderMapping] = useState<ColumnMapping>({})
   const [marketMapping, setMarketMapping] = useState<ColumnMapping>({})
-  const [appliedProviderRows, setAppliedProviderRows] = useState<ProviderRow[] | null>(null)
-  const [appliedMarketRows, setAppliedMarketRows] = useState<MarketRow[] | null>(null)
+  const [, setAppliedProviderRows] = useState<ProviderRow[] | null>(null)
+  const [, setAppliedMarketRows] = useState<MarketRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState<FileType | null>(null)
   const [expandedCard, setExpandedCard] = useState<ExpandedCard>(null)
@@ -257,91 +249,8 @@ export function UploadAndMapping({
   const providerHeaders = providerRaw ? providerRaw.headers : []
   const marketHeaders = marketRaw ? marketRaw.headers : []
 
-  const providerTableColumnsBase: ResizableColumn<ProviderRow>[] = [
-    { key: 'providerName', label: 'Name', defaultWidth: 160, minWidth: 100 },
-    { key: 'specialty', label: 'Specialty', defaultWidth: 120, minWidth: 80 },
-    { key: 'division', label: 'Division', defaultWidth: 100, minWidth: 70 },
-    // FTE (CART)
-    { key: 'totalFTE', label: 'Total FTE', align: 'right', defaultWidth: 90, minWidth: 70, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
-    { key: 'clinicalFTE', label: 'Clinical FTE', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
-    { key: 'adminFTE', label: 'Admin FTE', align: 'right', defaultWidth: 90, minWidth: 70, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
-    { key: 'researchFTE', label: 'Research FTE', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
-    { key: 'teachingFTE', label: 'Teaching FTE', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 2) : '—') },
-    // Compensation & wRVUs
-    { key: 'baseSalary', label: 'Base salary', align: 'right', defaultWidth: 120, minWidth: 90, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
-    { key: 'nonClinicalPay', label: 'Non-clinical', align: 'right', defaultWidth: 110, minWidth: 80, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
-    { key: 'workRVUs', label: 'Work wRVUs', align: 'right', defaultWidth: 110, minWidth: 80, render: (v, row) => { const n = row?.workRVUs ?? row?.pchWRVUs ?? v; return n != null ? fmtComma(Number(n), 0) : '—' } },
-    { key: 'outsideWRVUs', label: 'Outside wRVUs', align: 'right', defaultWidth: 110, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 0) : '—') },
-    { key: 'totalWRVUs', label: 'Total wRVUs', align: 'right', defaultWidth: 110, minWidth: 80, render: (v) => (v != null ? fmtComma(Number(v), 0) : '—') },
-    { key: 'currentCF', label: 'Current CF', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtCurrency(Number(v), 2) : '—') },
-    { key: 'qualityPayments', label: 'Quality', align: 'right', defaultWidth: 100, minWidth: 80, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
-    { key: 'otherIncentives', label: 'Other incentives', align: 'right', defaultWidth: 120, minWidth: 90, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
-    { key: 'currentTCC', label: 'Current TCC', align: 'right', defaultWidth: 120, minWidth: 90, render: (v) => (v != null ? fmtCurrency(Number(v)) : '—') },
-    { key: 'productivityModel', label: 'Model', defaultWidth: 100, minWidth: 70 },
-  ]
-
-  const providerTableColumns: ResizableColumn<ProviderRow>[] =
-    onUpdateProviderRow
-      ? [
-          ...providerTableColumnsBase,
-          {
-            key: '_edit',
-            label: '',
-            defaultWidth: 48,
-            minWidth: 40,
-            align: 'center' as const,
-            render: (_: unknown, row: ProviderRow) => (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8 shrink-0"
-                onClick={() => setEditingProvider(row)}
-                title="Edit"
-                aria-label="Edit"
-              >
-                <Pencil className="size-4" />
-              </Button>
-            ),
-          },
-        ]
-      : providerTableColumnsBase
-
-  const marketTableColumns: ResizableColumn<MarketRow>[] = [
-    { key: 'specialty', label: 'Specialty', defaultWidth: 140, minWidth: 90 },
-    { key: 'providerType', label: 'Type', defaultWidth: 90, minWidth: 60 },
-    { key: 'region', label: 'Region', defaultWidth: 90, minWidth: 60 },
-    ...(['TCC_25', 'TCC_50', 'TCC_75', 'TCC_90'] as const).map((k) => ({
-      key: k,
-      label: k,
-      align: 'right' as const,
-      defaultWidth: 100,
-      minWidth: 80,
-      render: (v: unknown) => (v != null ? fmtCurrency(Number(v)) : '—'),
-    })),
-    ...(['WRVU_25', 'WRVU_50', 'WRVU_75', 'WRVU_90'] as const).map((k) => ({
-      key: k,
-      label: k,
-      align: 'right' as const,
-      defaultWidth: 95,
-      minWidth: 75,
-      render: (v: unknown) => (v != null ? fmtComma(Number(v)) : '—'),
-    })),
-    ...(['CF_25', 'CF_50', 'CF_75', 'CF_90'] as const).map((k) => ({
-      key: k,
-      label: k,
-      align: 'right' as const,
-      defaultWidth: 95,
-      minWidth: 75,
-      render: (v: unknown) => (v != null ? fmtCurrency(Number(v), 2) : '—'),
-    })),
-  ]
-
   const providerHasData = !!providerRaw || existingProviderRows.length > 0
   const marketHasData = !!marketRaw || existingMarketRows.length > 0
-  const providerDisplayRows = appliedProviderRows ?? existingProviderRows
-  const marketDisplayRows = appliedMarketRows ?? existingMarketRows
-
   const providerSpecialties = useMemo(() => {
     const set = new Set(existingProviderRows.map((r) => r.specialty).filter(Boolean))
     return Array.from(set).sort() as string[]
