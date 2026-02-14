@@ -1,5 +1,6 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Info, Play } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Gauge, Info, Play, Trash2 } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Command, CommandInput } from '@/components/ui/command'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -30,6 +32,34 @@ import type {
   OptimizerErrorMetric,
   OptimizerSettings,
 } from '@/types/optimizer'
+
+/** Minimum provider count above which we recommend MSE (avoid a few large misalignments). */
+const ERROR_METRIC_LARGE_COHORT_THRESHOLD = 30
+
+function getRecommendedErrorMetric(
+  objective: OptimizationObjective,
+  providerCount: number
+): { metric: OptimizerErrorMetric; reason: string } {
+  const isTargetFixed = objective.kind === 'target_fixed_percentile'
+  const isSmallCohort = providerCount < ERROR_METRIC_LARGE_COHORT_THRESHOLD
+
+  if (isTargetFixed) {
+    return {
+      metric: 'absolute',
+      reason: "You're targeting a single percentile; absolute (MAE) spreads adjustments more evenly across providers.",
+    }
+  }
+  if (isSmallCohort) {
+    return {
+      metric: 'absolute',
+      reason: 'With a small group, absolute (MAE) avoids one or two providers dominating the solution.',
+    }
+  }
+  return {
+    metric: 'squared',
+    reason: 'With this many providers, squared (MSE) helps avoid a few being badly out of line.',
+  }
+}
 import {
   TCC_BUILTIN_COMPONENTS,
   DEFAULT_TCC_COMPONENT_INCLUSION,
@@ -85,9 +115,11 @@ export function OptimizerConfigureStage({
   targetMode,
   selectedSpecialties,
   selectedDivisions,
+  excludedProviderTypes,
   providerTypeFilter,
   availableSpecialties,
   availableDivisions,
+  availableProviderTypes,
   onRun,
   onSetOptimizationObjective,
   onSetErrorMetric,
@@ -95,6 +127,7 @@ export function OptimizerConfigureStage({
   onSetProviderTypeFilter,
   onSetSelectedSpecialties,
   onSetSelectedDivisions,
+  onSetExcludedProviderTypes,
   onSetSettings,
   configStep,
   onSetConfigStep,
@@ -106,9 +139,11 @@ export function OptimizerConfigureStage({
   targetMode: 'all' | 'custom'
   selectedSpecialties: string[]
   selectedDivisions: string[]
+  excludedProviderTypes: string[]
   providerTypeFilter: 'all' | 'productivity' | 'base'
   availableSpecialties: string[]
   availableDivisions: string[]
+  availableProviderTypes: string[]
   onRun: () => void
   onSetOptimizationObjective: (objective: OptimizationObjective) => void
   onSetErrorMetric: (metric: OptimizerErrorMetric) => void
@@ -116,39 +151,100 @@ export function OptimizerConfigureStage({
   onSetProviderTypeFilter: (filter: 'all' | 'productivity' | 'base') => void
   onSetSelectedSpecialties: (specialties: string[]) => void
   onSetSelectedDivisions: (divisions: string[]) => void
+  onSetExcludedProviderTypes: (types: string[]) => void
   onSetSettings: Dispatch<SetStateAction<OptimizerSettings>>
   configStep: number
   onSetConfigStep: (step: number) => void
 }) {
+  const [specialtySearch, setSpecialtySearch] = useState('')
+  const [divisionSearch, setDivisionSearch] = useState('')
+  const [providerTypeSearch, setProviderTypeSearch] = useState('')
+
+  const filteredSpecialties = useMemo(() => {
+    if (!specialtySearch.trim()) return availableSpecialties
+    const q = specialtySearch.toLowerCase()
+    return availableSpecialties.filter((s) => s.toLowerCase().includes(q))
+  }, [availableSpecialties, specialtySearch])
+
+  const filteredDivisions = useMemo(() => {
+    if (!divisionSearch.trim()) return availableDivisions
+    const q = divisionSearch.toLowerCase()
+    return availableDivisions.filter((d) => d.toLowerCase().includes(q))
+  }, [availableDivisions, divisionSearch])
+
+  const filteredProviderTypes = useMemo(() => {
+    if (!providerTypeSearch.trim()) return availableProviderTypes
+    const q = providerTypeSearch.toLowerCase()
+    return availableProviderTypes.filter((t) => t.toLowerCase().includes(q))
+  }, [availableProviderTypes, providerTypeSearch])
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Conversion Factor Optimizer</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Configure target scope and guardrails, then run optimization.
-        </p>
-        {/* Step-through indicator */}
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
-          {CONFIG_STEPS.map((step, idx) => (
-            <div key={step.id} className="flex items-center gap-1.5">
-              {idx > 0 ? (
-                <ChevronRight className="size-4 text-muted-foreground/60" aria-hidden />
-              ) : null}
-              <button
-                type="button"
-                onClick={() => onSetConfigStep(step.id)}
-                className={cn(
-                  'rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                  configStep === step.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                {step.id}. {step.label}
-              </button>
-            </div>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Gauge className="size-6" aria-hidden />
+          </div>
+          <div>
+            <CardTitle className="leading-tight">Conversion Factor Optimizer</CardTitle>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Configure target scope and guardrails, then run optimization.
+            </p>
+          </div>
         </div>
+        {/* Step-through indicator */}
+        <nav
+          className="mt-4 flex min-h-11 w-full min-w-0 items-center gap-0 rounded-xl border border-border/60 bg-muted/20 p-1.5"
+          aria-label="Optimizer configuration steps"
+        >
+          {CONFIG_STEPS.map((step, idx) => {
+            const isActive = configStep === step.id
+            const isComplete = configStep > step.id
+            const isUpcoming = configStep < step.id
+            return (
+              <div key={step.id} className="flex min-w-0 flex-1 items-center gap-2 sm:flex-initial sm:gap-2">
+                {idx > 0 ? (
+                  <div
+                    className={cn(
+                      'h-px min-w-[12px] flex-1 sm:min-w-4 sm:flex-initial',
+                      isComplete ? 'bg-primary/30' : 'bg-border'
+                    )}
+                    aria-hidden
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => onSetConfigStep(step.id)}
+                  className={cn(
+                    'flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all sm:flex-initial',
+                    'border-transparent',
+                    isActive &&
+                      'border-border bg-background text-foreground shadow-sm ring-2 ring-primary/30',
+                    isComplete &&
+                      !isActive &&
+                      'text-muted-foreground hover:bg-background/80 hover:text-foreground',
+                    isUpcoming && 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                  )}
+                  aria-current={isActive ? 'step' : undefined}
+                >
+                  <span
+                    className={cn(
+                      'flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-colors',
+                      isActive && 'bg-primary text-primary-foreground',
+                      isComplete &&
+                        !isActive &&
+                        'border border-primary/50 bg-primary/10 text-primary',
+                      isUpcoming && 'border border-border bg-background/80'
+                    )}
+                  >
+                    {isComplete && !isActive ? <Check className="size-4" /> : step.id}
+                  </span>
+                  <span className="hidden truncate sm:inline">{step.label}</span>
+                </button>
+              </div>
+            )
+          })}
+        </nav>
       </CardHeader>
       <CardContent className="space-y-6">
         <TooltipProvider delayDuration={200}>
@@ -226,7 +322,7 @@ export function OptimizerConfigureStage({
 
                 {targetMode === 'custom' ? (
                   <>
-                    <DropdownMenu>
+                    <DropdownMenu onOpenChange={(open) => open && setSpecialtySearch('')}>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="min-w-[220px] justify-between gap-2">
                           {selectedSpecialties.length === 0
@@ -235,27 +331,50 @@ export function OptimizerConfigureStage({
                           <ChevronDown className="size-4 opacity-50" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="max-h-[280px] overflow-y-auto">
-                        <DropdownMenuLabel>Specialty</DropdownMenuLabel>
-                        {availableSpecialties.map((specialty) => (
-                          <DropdownMenuCheckboxItem
-                            key={specialty}
-                            checked={selectedSpecialties.includes(specialty)}
-                            onCheckedChange={(checked) =>
-                              onSetSelectedSpecialties(
-                                checked
-                                  ? [...selectedSpecialties, specialty]
-                                  : selectedSpecialties.filter((item) => item !== specialty)
-                              )
-                            }
-                          >
-                            {specialty}
-                          </DropdownMenuCheckboxItem>
-                        ))}
+                      <DropdownMenuContent
+                        align="start"
+                        className="max-h-[320px] overflow-hidden p-0"
+                        onCloseAutoFocus={(e) => e.preventDefault()}
+                        onOpenAutoFocus={(e) => {
+                          e.preventDefault()
+                          const input = (e.currentTarget as HTMLElement).querySelector('input')
+                          if (input) requestAnimationFrame(() => (input as HTMLInputElement).focus())
+                        }}
+                      >
+                        <Command shouldFilter={false} className="rounded-none border-0">
+                          <CommandInput
+                            placeholder="Search specialties…"
+                            value={specialtySearch}
+                            onValueChange={setSpecialtySearch}
+                            className="h-9"
+                          />
+                        </Command>
+                        <div className="max-h-[240px] overflow-y-auto p-1">
+                          <DropdownMenuLabel>Specialty</DropdownMenuLabel>
+                          {filteredSpecialties.length === 0 ? (
+                            <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                          ) : (
+                            filteredSpecialties.map((specialty) => (
+                              <DropdownMenuCheckboxItem
+                                key={specialty}
+                                checked={selectedSpecialties.includes(specialty)}
+                                onCheckedChange={(checked) =>
+                                  onSetSelectedSpecialties(
+                                    checked
+                                      ? [...selectedSpecialties, specialty]
+                                      : selectedSpecialties.filter((item) => item !== specialty)
+                                  )
+                                }
+                              >
+                                {specialty}
+                              </DropdownMenuCheckboxItem>
+                            ))
+                          )}
+                        </div>
                       </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <DropdownMenu>
+                    <DropdownMenu onOpenChange={(open) => open && setDivisionSearch('')}>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="min-w-[180px] justify-between gap-2">
                           {selectedDivisions.length === 0
@@ -264,33 +383,144 @@ export function OptimizerConfigureStage({
                           <ChevronDown className="size-4 opacity-50" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="max-h-[280px] overflow-y-auto">
-                        <DropdownMenuLabel>Division / Department</DropdownMenuLabel>
-                        {availableDivisions.length === 0 ? (
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                            No divisions in data
-                          </div>
-                        ) : (
-                          availableDivisions.map((division) => (
-                            <DropdownMenuCheckboxItem
-                              key={division}
-                              checked={selectedDivisions.includes(division)}
-                              onCheckedChange={(checked) =>
-                                onSetSelectedDivisions(
-                                  checked
-                                    ? [...selectedDivisions, division]
-                                    : selectedDivisions.filter((item) => item !== division)
-                                )
-                              }
-                            >
-                              {division}
-                            </DropdownMenuCheckboxItem>
-                          ))
-                        )}
+                      <DropdownMenuContent
+                        align="start"
+                        className="max-h-[320px] overflow-hidden p-0"
+                        onCloseAutoFocus={(e) => e.preventDefault()}
+                        onOpenAutoFocus={(e) => {
+                          e.preventDefault()
+                          const input = (e.currentTarget as HTMLElement).querySelector('input')
+                          if (input) requestAnimationFrame(() => (input as HTMLInputElement).focus())
+                        }}
+                      >
+                        <Command shouldFilter={false} className="rounded-none border-0">
+                          <CommandInput
+                            placeholder="Search divisions…"
+                            value={divisionSearch}
+                            onValueChange={setDivisionSearch}
+                            className="h-9"
+                          />
+                        </Command>
+                        <div className="max-h-[240px] overflow-y-auto p-1">
+                          <DropdownMenuLabel>Division / Department</DropdownMenuLabel>
+                          {availableDivisions.length === 0 ? (
+                            <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                              No divisions in data
+                            </div>
+                          ) : filteredDivisions.length === 0 ? (
+                            <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                          ) : (
+                            filteredDivisions.map((division) => (
+                              <DropdownMenuCheckboxItem
+                                key={division}
+                                checked={selectedDivisions.includes(division)}
+                                onCheckedChange={(checked) =>
+                                  onSetSelectedDivisions(
+                                    checked
+                                      ? [...selectedDivisions, division]
+                                      : selectedDivisions.filter((item) => item !== division)
+                                  )
+                                }
+                              >
+                                {division}
+                              </DropdownMenuCheckboxItem>
+                            ))
+                          )}
+                        </div>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </>
                 ) : null}
+              </div>
+            </div>
+
+            {availableProviderTypes.length > 0 ? (
+              <div className="space-y-2">
+                <SectionHeaderWithTooltip
+                  title="Exclude provider types"
+                  tooltip="Exclude providers by role or job type (e.g. Division Chief, Medical Director). Add a Provider type / Role column in your provider upload to use this."
+                />
+                <DropdownMenu onOpenChange={(open) => open && setProviderTypeSearch('')}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="min-w-[220px] justify-between gap-2">
+                      {excludedProviderTypes.length === 0
+                        ? 'None excluded'
+                        : `${excludedProviderTypes.length} type(s) excluded`}
+                      <ChevronDown className="size-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="start"
+                    className="max-h-[320px] overflow-hidden p-0"
+                    onCloseAutoFocus={(e) => e.preventDefault()}
+                    onOpenAutoFocus={(e) => {
+                      e.preventDefault()
+                      const input = (e.currentTarget as HTMLElement).querySelector('input')
+                      if (input) requestAnimationFrame(() => (input as HTMLInputElement).focus())
+                    }}
+                  >
+                    <Command shouldFilter={false} className="rounded-none border-0">
+                      <CommandInput
+                        placeholder="Search provider types…"
+                        value={providerTypeSearch}
+                        onValueChange={setProviderTypeSearch}
+                        className="h-9"
+                      />
+                    </Command>
+                    <div className="max-h-[240px] overflow-y-auto p-1">
+                      <DropdownMenuLabel>Exclude these provider types from the run</DropdownMenuLabel>
+                      {filteredProviderTypes.length === 0 ? (
+                        <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                      ) : (
+                        filteredProviderTypes.map((providerType) => (
+                          <DropdownMenuCheckboxItem
+                            key={providerType}
+                            checked={excludedProviderTypes.includes(providerType)}
+                            onCheckedChange={(checked) =>
+                              onSetExcludedProviderTypes(
+                                checked
+                                  ? [...excludedProviderTypes, providerType]
+                                  : excludedProviderTypes.filter((item) => item !== providerType)
+                              )
+                            }
+                          >
+                            {providerType}
+                          </DropdownMenuCheckboxItem>
+                        ))
+                      )}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <p className="text-xs text-muted-foreground">
+                  Add a &quot;Provider type&quot; or &quot;Role&quot; column when uploading provider data to see types here.
+                </p>
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <SectionHeaderWithTooltip
+                title="Assume productivity gain (%)"
+                tooltip="Scale recorded wRVUs by this amount for this run only (e.g. 5 = 5% higher). Use when budgeting for expected productivity growth—the optimizer will align pay to where productivity would be at that level."
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step={1}
+                  value={settings.wRVUGrowthFactorPct ?? ''}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    const num = raw === '' ? undefined : Number(raw)
+                    const val = num === undefined ? undefined : Math.max(0, Math.min(50, Number.isNaN(num) ? 0 : num))
+                    onSetSettings((prev) => ({ ...prev, wRVUGrowthFactorPct: val }))
+                  }}
+                  placeholder="0"
+                  className="h-9 w-20"
+                />
+                <span className="text-sm text-muted-foreground">
+                  % higher wRVUs for this run (0 = use recorded values)
+                </span>
               </div>
             </div>
 
@@ -304,6 +534,12 @@ export function OptimizerConfigureStage({
               ) : null}
               {targetMode === 'custom' && selectedSpecialties.length > 0 ? (
                 <span> across {selectedSpecialties.length} specialty(ies)</span>
+              ) : null}
+              {excludedProviderTypes.length > 0 ? (
+                <span> ({excludedProviderTypes.length} provider type(s) excluded)</span>
+              ) : null}
+              {(settings.wRVUGrowthFactorPct ?? 0) > 0 ? (
+                <span> (wRVUs assumed {(settings.wRVUGrowthFactorPct ?? 0)}% higher for this run)</span>
               ) : null}
             </div>
                 </div>
@@ -345,6 +581,13 @@ export function OptimizerConfigureStage({
                   <SelectItem value="hybrid">Hybrid (alignment + fixed target)</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-muted-foreground text-xs">
+                {settings.optimizationObjective.kind === 'align_percentile'
+                  ? 'Match pay rank to productivity rank: higher wRVU percentile → higher TCC percentile.'
+                  : settings.optimizationObjective.kind === 'target_fixed_percentile'
+                    ? 'Move everyone toward one target percentile (e.g. median); good for standardizing to a market level.'
+                    : 'Combine alignment with a target: partly match productivity rank, partly pull toward a chosen percentile.'}
+              </p>
               {settings.optimizationObjective.kind === 'target_fixed_percentile' ? (
                 <div className="flex items-center gap-2">
                   <Label className="text-muted-foreground">Target percentile</Label>
@@ -364,63 +607,117 @@ export function OptimizerConfigureStage({
                 </div>
               ) : null}
               {settings.optimizationObjective.kind === 'hybrid' ? (
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={Math.round((settings.optimizationObjective.alignWeight ?? 0.7) * 100)}
-                    onChange={(e) => {
-                      const align = (Number(e.target.value) || 70) / 100
-                      onSetOptimizationObjective({
-                        kind: 'hybrid',
-                        alignWeight: align,
-                        targetWeight: 1 - align,
-                        targetPercentile:
-                          (settings.optimizationObjective as { targetPercentile?: number }).targetPercentile ??
-                          40,
-                      })
-                    }}
-                    className="w-16"
-                  />
-                  <span className="text-muted-foreground">% productivity alignment</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={99}
-                    value={(settings.optimizationObjective as { targetPercentile?: number }).targetPercentile ?? 40}
-                    onChange={(e) => {
-                      const objective = settings.optimizationObjective
-                      const targetPercentile = Number(e.target.value) || 40
-                      onSetOptimizationObjective(
-                        objective.kind === 'hybrid'
-                          ? { ...objective, targetPercentile }
-                          : {
-                              kind: 'hybrid',
-                              alignWeight: 0.7,
-                              targetWeight: 0.3,
-                              targetPercentile,
-                            }
-                      )
-                    }}
-                    className="w-16"
-                  />
-                  <span className="text-muted-foreground">target %ile</span>
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={5}
+                      value={Math.round((settings.optimizationObjective.alignWeight ?? 0.7) * 100)}
+                      onChange={(e) => {
+                        const align = (Number(e.target.value) || 70) / 100
+                        onSetOptimizationObjective({
+                          kind: 'hybrid',
+                          alignWeight: align,
+                          targetWeight: 1 - align,
+                          targetPercentile:
+                            (settings.optimizationObjective as { targetPercentile?: number }).targetPercentile ??
+                            40,
+                        })
+                      }}
+                      className="w-16"
+                    />
+                    <span className="text-muted-foreground">% productivity alignment</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={(settings.optimizationObjective as { targetPercentile?: number }).targetPercentile ?? 40}
+                      onChange={(e) => {
+                        const objective = settings.optimizationObjective
+                        const targetPercentile = Number(e.target.value) || 40
+                        onSetOptimizationObjective(
+                          objective.kind === 'hybrid'
+                            ? { ...objective, targetPercentile }
+                            : {
+                                kind: 'hybrid',
+                                alignWeight: 0.7,
+                                targetWeight: 0.3,
+                                targetPercentile,
+                              }
+                        )
+                      }}
+                      className="w-16"
+                    />
+                    <span className="text-muted-foreground">target %ile</span>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    {Math.round((settings.optimizationObjective.alignWeight ?? 0.7) * 100)}% is the weight for “match pay to productivity”; the rest pulls pay toward the target percentile. Higher % = more “pay follows productivity”; lower % = more “move everyone toward the target.”
+                  </p>
                 </div>
               ) : null}
             </div>
             <div className="space-y-2">
-              <Label>Error metric</Label>
-              <Select value={settings.errorMetric} onValueChange={(value) => onSetErrorMetric(value as OptimizerErrorMetric)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="squared">Squared (MSE)</SelectItem>
-                  <SelectItem value="absolute">Absolute (MAE)</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Label>Error metric</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label="What is error metric?"
+                    >
+                      <Info className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[320px] text-xs">
+                    <p className="font-medium mb-1">How we measure “how far off” pay is from the goal</p>
+                    <p className="mb-2">The optimizer tries to match total cash compensation (TCC) to productivity (wRVU). The error metric decides how we count those mismatches.</p>
+                    <p className="mb-1"><strong>Squared (MSE):</strong> Big misses count much more than small ones. Use when you want to avoid a few providers being badly out of line, even if that means more small tweaks overall.</p>
+                    <p><strong>Absolute (MAE):</strong> Every unit of “off by” counts the same. Use when you want adjustments spread more evenly and are less concerned about a few large outliers.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              {(() => {
+                const recommendation = getRecommendedErrorMetric(settings.optimizationObjective, filteredProviderRowsCount)
+                const matchesRecommendation = settings.errorMetric === recommendation.metric
+                return (
+                  <>
+                    <Select value={settings.errorMetric} onValueChange={(value) => onSetErrorMetric(value as OptimizerErrorMetric)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="squared">Squared (MSE)</SelectItem>
+                        <SelectItem value="absolute">Absolute (MAE)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      {matchesRecommendation ? (
+                        <span className="text-muted-foreground">
+                          ✓ Recommended for your setup ({filteredProviderRowsCount} provider{filteredProviderRowsCount !== 1 ? 's' : ''}, {settings.optimizationObjective.kind === 'target_fixed_percentile' ? 'fixed target' : settings.optimizationObjective.kind === 'hybrid' ? 'hybrid' : 'alignment'}).
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-muted-foreground">
+                            Recommended: {recommendation.metric === 'squared' ? 'Squared (MSE)' : 'Absolute (MAE)'} — {recommendation.reason}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => onSetErrorMetric(recommendation.metric)}
+                          >
+                            Use recommended
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )
+              })()}
             </div>
           </div>
                 </div>
@@ -572,7 +869,7 @@ export function OptimizerConfigureStage({
               return (
                 <div
                   key={def.id}
-                  className="flex flex-col gap-2 rounded-lg border border-border/60 bg-background/50 p-3"
+                  className="flex flex-col gap-2 rounded-lg border border-border bg-white p-3 dark:bg-background"
                 >
                   <div className="flex items-start gap-3">
                     <input
@@ -651,7 +948,7 @@ export function OptimizerConfigureStage({
             })}
           </div>
 
-          <div className="mt-4 space-y-3 rounded-lg border border-border/60 bg-background/50 p-3">
+          <div className="mt-4 space-y-3 rounded-lg border border-border bg-white p-3 dark:bg-background">
             <h4 className="text-sm font-medium">Additional TCC (layered)</h4>
             <p className="text-xs text-muted-foreground">
               Add named layers on top of the selected components for both baseline and modeled (e.g.
@@ -677,7 +974,7 @@ export function OptimizerConfigureStage({
                         }))
                       }
                       placeholder="e.g. Value-based payment"
-                      className="h-9"
+                      className="h-9 bg-white dark:bg-white"
                     />
                   </div>
                   <div className="min-w-[160px] space-y-1">
@@ -695,7 +992,7 @@ export function OptimizerConfigureStage({
                         }))
                       }
                     >
-                      <SelectTrigger className="h-9">
+                      <SelectTrigger className="h-9 bg-white dark:bg-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -726,7 +1023,7 @@ export function OptimizerConfigureStage({
                           }))
                         }}
                         placeholder="0"
-                        className="h-9 w-24"
+                        className="h-9 w-24 bg-white dark:bg-white"
                       />
                     </div>
                   ) : (
@@ -744,7 +1041,7 @@ export function OptimizerConfigureStage({
                             }))
                           }
                         >
-                          <SelectTrigger className="h-9">
+                          <SelectTrigger className="h-9 bg-white dark:bg-white">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -773,8 +1070,9 @@ export function OptimizerConfigureStage({
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    className="h-9 shrink-0 text-destructive hover:text-destructive"
+                    size="icon"
+                    className="h-9 w-9 shrink-0 text-destructive hover:text-destructive"
+                    aria-label="Remove layer"
                     onClick={() =>
                       onSetSettings((prev) => ({
                         ...prev,
@@ -782,7 +1080,7 @@ export function OptimizerConfigureStage({
                       }))
                     }
                   >
-                    Remove
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
               ))}

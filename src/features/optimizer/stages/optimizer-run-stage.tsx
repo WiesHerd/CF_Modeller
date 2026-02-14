@@ -1,7 +1,6 @@
-import { FileSpreadsheet, LineChart, Play, RotateCcw, Save } from 'lucide-react'
+import { FileSpreadsheet, Gauge, LineChart, Play, RotateCcw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import type { ExclusionReason, OptimizerRunResult } from '@/types/optimizer'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { EXCLUSION_REASON_LABELS } from '@/features/optimizer/components/optimizer-constants'
@@ -14,12 +13,9 @@ export function OptimizerRunStage({
   runError,
   runDisabled,
   runProgress,
-  saveName,
-  onSaveNameChange,
   onRun,
   onStartOver,
   onExport,
-  onSaveScenario,
   onOpenCFSweep,
 }: {
   hasData: boolean
@@ -28,18 +24,20 @@ export function OptimizerRunStage({
   runError: string | null
   runDisabled: boolean
   runProgress: { specialtyIndex: number; totalSpecialties: number; specialtyName: string } | null
-  saveName: string
-  onSaveNameChange: (name: string) => void
   onRun: () => void
   onStartOver: () => void
   onExport: () => void
-  onSaveScenario?: () => void
   onOpenCFSweep?: () => void
 }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Run and review</CardTitle>
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary [&_svg]:size-5">
+            <Gauge />
+          </div>
+          <CardTitle className="leading-tight">Run and review</CardTitle>
+        </div>
         <p className="text-sm text-muted-foreground">
           Run optimization, then review recommendations with policy and outlier context.
         </p>
@@ -118,7 +116,7 @@ export function OptimizerRunStage({
                 </p>
 
                 <p className="text-xs text-muted-foreground">
-                  Pay vs productivity: when TCC percentile is higher than wRVU percentile, the group is generally overpaid; when wRVU percentile is higher, underpaid. The optimizer adjusts CF toward alignment.
+                  Pay vs productivity: when TCC percentile is higher than wRVU percentile, pay is generally above productivity; when wRVU percentile is higher, underpaid. The optimizer adjusts CF toward alignment.
                 </p>
 
                 <OptimizerReviewWorkspace rows={result.bySpecialty} />
@@ -159,20 +157,6 @@ export function OptimizerRunStage({
               </div>
             ) : null}
 
-            {onSaveScenario && result ? (
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <Input
-                  placeholder="Scenario name"
-                  value={saveName}
-                  onChange={(e) => onSaveNameChange(e.target.value)}
-                  className="max-w-xs"
-                />
-                <Button variant="secondary" onClick={onSaveScenario} disabled={!saveName.trim()} className="gap-2">
-                  <Save className="size-4" />
-                  Save scenario
-                </Button>
-              </div>
-            ) : null}
           </>
         ) : null}
       </CardContent>

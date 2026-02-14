@@ -112,7 +112,7 @@ export function OptimizerSpecialtyCard({
 
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Gap = TCC %ile − wRVU %ile. Positive = overpaid relative to output; negative = underpaid.
+            Gap = TCC %ile − wRVU %ile. Positive = pay above productivity; negative = underpaid.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <MetricRail label="Work RVU percentile" value={result.keyMetrics.prodPercentile} />

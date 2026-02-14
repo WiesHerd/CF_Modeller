@@ -12,20 +12,55 @@ import { ImpactReportPage } from '@/components/impact-report-page'
 import { MarketPositionTable } from '@/components/market-position-table'
 import { ModellerStepper, type ModellerStep } from '@/components/modeller-stepper'
 import { GovernanceFlags } from '@/components/governance-flags'
-import { SavedScenariosSection } from '@/components/saved-scenarios-section'
+import { SaveScenarioDialog } from '@/components/saved-scenarios-section'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BatchScenarioStep } from '@/components/batch/batch-scenario-step'
 import { BatchCardPicker, type BatchCardId } from '@/components/batch/batch-card-picker'
 import { ConversionFactorOptimizerScreen } from '@/features/optimizer/conversion-factor-optimizer-screen'
+import { CompareScenariosScreen } from '@/features/optimizer/compare-scenarios-screen'
 import { ImputedVsMarketScreen } from '@/features/optimizer/imputed-vs-market-screen'
 import { DataTablesScreen } from '@/features/data/data-tables-screen'
-import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
+import { HelpScreen } from '@/features/help/help-screen'
 import { LegalPage } from '@/components/legal-page'
+import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
+import { ArrowLeft, ChevronDown, ChevronRight, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
-import type { BatchResults, BatchScenarioSnapshot } from '@/types/batch'
+import type { BatchResults, BatchRowResult, BatchScenarioSnapshot } from '@/types/batch'
+import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
+import { DEFAULT_SCENARIO_INPUTS } from '@/types/scenario'
 
 type ModelMode = 'existing' | 'new'
+
+function scopeResultsBySnapshot(
+  results: BatchResults,
+  snapshot: BatchScenarioSnapshot | null
+): BatchResults {
+  if (!snapshot) return results
+  const hasSpecialtyScope = snapshot.selectedSpecialties && snapshot.selectedSpecialties.length > 0
+  const hasProviderScope = snapshot.selectedProviderIds && snapshot.selectedProviderIds.length > 0
+  if (!hasSpecialtyScope && !hasProviderScope) return results
+  const specialtySet = hasSpecialtyScope
+    ? new Set(snapshot.selectedSpecialties!.map((s) => s.trim().toLowerCase()))
+    : null
+  const providerSet = hasProviderScope
+    ? new Set(snapshot.selectedProviderIds!.map((id) => String(id).trim()))
+    : null
+  const filteredRows = results.rows.filter((row: BatchRowResult) => {
+    if (specialtySet && !specialtySet.has((row.specialty ?? '').trim().toLowerCase())) return false
+    if (providerSet && !providerSet.has(String(row.providerId ?? '').trim())) return false
+    return true
+  })
+  return { ...results, rows: filteredRows }
+}
 
 function getLegalViewFromHash(): 'privacy' | 'terms' | null {
   const h = window.location.hash.slice(1).toLowerCase()
@@ -82,19 +117,28 @@ export default function App() {
   const [modellerStep, setModellerStep] = useState<ModellerStep>('provider')
   const [newProviderForm, setNewProviderForm] = useState<NewProviderFormValues>(DEFAULT_NEW_PROVIDER)
   const [batchCard, setBatchCard] = useState<BatchCardId | null>(null)
+  const [dataTab, setDataTab] = useState<'providers' | 'market'>('providers')
+  const [modellerSaveDialogOpen, setModellerSaveDialogOpen] = useState(false)
+  const [uploadSaveDialogOpen, setUploadSaveDialogOpen] = useState(false)
 
-  const handleStepChange = (newStep: AppStep) => {
+  const handleStepChange = (newStep: AppStep, dataTabOption?: 'providers' | 'market') => {
     setStep(newStep)
+    if (newStep === 'data' && dataTabOption) setDataTab(dataTabOption)
     if (newStep === 'modeller') setAppMode('single')
     else if (newStep === 'batch-scenario' || newStep === 'batch-results') setAppMode('batch')
-    if (newStep !== 'batch-scenario') setBatchCard(null)
+    if (newStep !== 'batch-scenario' && newStep !== 'batch-results') setBatchCard(null)
   }
 
-  const handleBatchRunComplete = (results: BatchResults, scenarioSnapshot?: BatchScenarioSnapshot) => {
-    setBatchResults(results, scenarioSnapshot ?? null)
+  const handleBatchRunComplete = (
+    mode: 'bulk' | 'detailed',
+    results: BatchResults,
+    scenarioSnapshot?: BatchScenarioSnapshot
+  ) => {
+    const snapshotWithMode = scenarioSnapshot ? { ...scenarioSnapshot, mode } : undefined
+    setBatchResults(mode, results, snapshotWithMode ?? null)
+    setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
     setStep('batch-results')
     setAppMode('batch')
-    // Auto-save the base scenario to the library so you can refer back (name includes run time)
     const runAt = new Date(results.runAt)
     const scenarioName = `Batch run – ${runAt.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`
     saveCurrentScenario(scenarioName)
@@ -269,15 +313,101 @@ export default function App() {
     <AppLayout
       step={step}
       onStepChange={handleStepChange}
-      canShowBatchResults={!!state.batchResults}
       currentBatchCard={batchCard}
-      currentSingleProviderMode={modelMode === 'existing' ? 'existing' : modelMode === 'new' ? 'new' : undefined}
       onBatchCardSelect={(id) => setBatchCard(id)}
-      onSingleProviderMode={(mode) => setModelMode(mode)}
     >
       {step === 'upload' && (
         <div className="space-y-6">
-          <h2 className="section-title">Upload</h2>
+          {/* Top bar: same position and style as CF optimizer — Save, Folder (saved scenarios), Refresh */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <SectionTitleWithIcon icon={<FileUp />}>Import data</SectionTitleWithIcon>
+            <div className="flex flex-wrap items-center gap-2">
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUploadSaveDialogOpen(true)}
+                      aria-label="Save scenario"
+                    >
+                      <Save className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Save scenario</TooltipContent>
+                </Tooltip>
+                {state.savedScenarios.length > 0 && (
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label={`Saved scenarios (${state.savedScenarios.length})`}
+                          >
+                            <FolderOpen className="size-4" />
+                            <ChevronDown className="size-4 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        Saved scenarios ({state.savedScenarios.length})
+                      </TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto">
+                      {[...state.savedScenarios].reverse().map((sc) => (
+                        <DropdownMenuItem
+                          key={sc.id}
+                          onSelect={(e) => {
+                            e.preventDefault()
+                            loadScenario(sc.id)
+                          }}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="truncate">{sc.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              deleteScenario(sc.id)
+                            }}
+                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Delete ${sc.name}`}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (window.confirm('Clear all provider and market data and start over? This cannot be undone.')) {
+                          setProviderData([], null)
+                          setMarketData([], null)
+                        }
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="Reset data"
+                    >
+                      <RotateCcw className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Reset data</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+
           <UploadAndMapping
             onProviderData={setProviderData}
             onMarketData={setMarketData}
@@ -288,7 +418,16 @@ export default function App() {
             batchSynonymMap={state.batchSynonymMap}
             onAddSynonym={updateBatchSynonymMap}
             onRemoveSynonym={removeBatchSynonym}
-            onNavigateToData={() => handleStepChange('data')}
+            onNavigateToData={(tab) => handleStepChange('data', tab)}
+          />
+
+          <SaveScenarioDialog
+            open={uploadSaveDialogOpen}
+            onOpenChange={setUploadSaveDialogOpen}
+            onSave={(name) => {
+              saveCurrentScenario(name)
+              setUploadSaveDialogOpen(false)
+            }}
           />
         </div>
       )}
@@ -297,20 +436,128 @@ export default function App() {
         <DataTablesScreen
           providerRows={state.providerRows}
           marketRows={state.marketRows}
+          dataTab={dataTab}
+          onDataTabChange={setDataTab}
           onNavigateToUpload={() => handleStepChange('upload')}
         />
       )}
 
       {step === 'modeller' && (
         <div className="space-y-8">
+          {/* Top bar: same as CF optimizer — Back (left), Save + Folder + Refresh (right) */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (modellerStep === 'scenario') setModellerStep('provider')
+                else if (modellerStep === 'market') setModellerStep('scenario')
+                else if (modellerStep === 'results') setModellerStep('market')
+                else handleStepChange('data')
+              }}
+              className="gap-2"
+            >
+              <ArrowLeft className="size-4" />
+              Back
+            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setModellerSaveDialogOpen(true)}
+                      disabled={!canShowScenario}
+                      aria-label="Save scenario"
+                    >
+                      <Save className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Save scenario</TooltipContent>
+                </Tooltip>
+                {state.savedScenarios.length > 0 ? (
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label={`Saved scenarios (${state.savedScenarios.length})`}
+                          >
+                            <FolderOpen className="size-4" />
+                            <ChevronDown className="size-4 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        Saved scenarios ({state.savedScenarios.length})
+                      </TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto">
+                      {[...state.savedScenarios].reverse().map((sc) => (
+                        <DropdownMenuItem
+                          key={sc.id}
+                          onSelect={(e) => {
+                            e.preventDefault()
+                            loadScenario(sc.id)
+                          }}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="truncate">{sc.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              deleteScenario(sc.id)
+                            }}
+                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Delete ${sc.name}`}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setScenarioInputs({ ...DEFAULT_SCENARIO_INPUTS })}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="Reset scenario"
+                    >
+                      <RotateCcw className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Reset scenario</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+
+          <SectionTitleWithIcon icon={<User />}>
+            Single scenario
+          </SectionTitleWithIcon>
           <ModellerStepper
             currentStep={modellerStep}
             onStepChange={setModellerStep}
             canAdvanceFromProvider={!!canShowScenario}
             canAdvanceFromScenario={!!canShowScenario}
             canAdvanceFromMarket={!!canShowScenario}
+            showNavButtons={false}
           />
 
+          {/* Step content: keyed so transition runs when step changes */}
+          <div key={modellerStep} className="animate-in fade-in-0 duration-200">
           {/* Screen 1: Provider — select or enter provider + specialty */}
           {modellerStep === 'provider' && (
             <section>
@@ -325,10 +572,10 @@ export default function App() {
               >
                 <TabsList className="mb-4 w-full max-w-md sm:grid sm:grid-cols-2">
                   <TabsTrigger value="existing" className="w-full">
-                    From upload
+                    From uploaded data
                   </TabsTrigger>
                   <TabsTrigger value="new" className="w-full">
-                    New
+                    Custom data
                   </TabsTrigger>
                 </TabsList>
 
@@ -425,36 +672,6 @@ export default function App() {
                           <span className="text-foreground">{state.selectedSpecialty ?? effectiveProvider.specialty}</span>
                         </span>
                       )}
-                      <div className="ml-auto shrink-0">
-                        <SavedScenariosSection
-                          scenarios={state.savedScenarios}
-                          onLoad={loadScenario}
-                          onDuplicate={duplicateScenario}
-                          onDelete={deleteScenario}
-                          onSaveNew={(name) =>
-                            saveCurrentScenario(name, effectiveProvider ?? undefined)
-                          }
-                          loadWarning={state.lastScenarioLoadWarning}
-                          onDismissWarning={dismissScenarioLoadWarning}
-                          canSave={!!canShowScenario}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {modelMode === 'new' && (
-                    <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-sm">
-                      <SavedScenariosSection
-                        scenarios={state.savedScenarios}
-                        onLoad={loadScenario}
-                        onDuplicate={duplicateScenario}
-                        onDelete={deleteScenario}
-                        onSaveNew={(name) =>
-                          saveCurrentScenario(name, effectiveProvider ?? undefined)
-                        }
-                        loadWarning={state.lastScenarioLoadWarning}
-                        onDismissWarning={dismissScenarioLoadWarning}
-                        canSave={!!canShowScenario}
-                      />
                     </div>
                   )}
                   <BaselineVsModeledSection
@@ -465,27 +682,11 @@ export default function App() {
                   />
                 </>
               ) : (
-                <>
-                  <Card>
-                    <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                      Select a provider on the Provider step first to set scenario parameters.
-                    </CardContent>
-                  </Card>
-                  <div className="flex justify-end">
-                    <SavedScenariosSection
-                      scenarios={state.savedScenarios}
-                      onLoad={loadScenario}
-                      onDuplicate={duplicateScenario}
-                      onDelete={deleteScenario}
-                      onSaveNew={(name) =>
-                        saveCurrentScenario(name, effectiveProvider ?? undefined)
-                      }
-                      loadWarning={state.lastScenarioLoadWarning}
-                      onDismissWarning={dismissScenarioLoadWarning}
-                      canSave={!!canShowScenario}
-                    />
-                  </div>
-                </>
+                <Card>
+                  <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                    Select a provider on the Provider step first to set scenario parameters.
+                  </CardContent>
+                </Card>
               )}
             </section>
           )}
@@ -544,15 +745,84 @@ export default function App() {
               )}
             </div>
           )}
+          </div>
+
+          {state.lastScenarioLoadWarning && (
+            <div
+              className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900/50 dark:bg-amber-950/30"
+              role="alert"
+            >
+              <span className="text-amber-800 dark:text-amber-200">{state.lastScenarioLoadWarning}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="shrink-0 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+                onClick={dismissScenarioLoadWarning}
+              >
+                Dismiss
+              </Button>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/70 pt-4">
+            {modellerStep !== 'results' && (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                className="gap-1.5"
+                disabled={
+                  (modellerStep === 'provider' && !canShowScenario) ||
+                  (modellerStep === 'scenario' && !canShowScenario) ||
+                  (modellerStep === 'market' && !canShowScenario)
+                }
+                onClick={() => {
+                  if (modellerStep === 'provider') setModellerStep('scenario')
+                  else if (modellerStep === 'scenario') setModellerStep('market')
+                  else if (modellerStep === 'market') setModellerStep('results')
+                }}
+              >
+                Next:{' '}
+                {modellerStep === 'provider'
+                  ? 'Scenario'
+                  : modellerStep === 'scenario'
+                    ? 'Market data'
+                    : 'Results'}
+                <ChevronRight className="size-4" />
+              </Button>
+            )}
+          </div>
+
+          <SaveScenarioDialog
+            open={modellerSaveDialogOpen}
+            onOpenChange={setModellerSaveDialogOpen}
+            onSave={(name) => saveCurrentScenario(name, effectiveProvider ?? undefined)}
+          />
         </div>
       )}
 
       {step === 'batch-scenario' && batchCard === null && (
         <div className="space-y-6">
-          <h2 className="section-title">Batch</h2>
+          <SectionTitleWithIcon icon={<LayoutGrid />}>Batch</SectionTitleWithIcon>
           <BatchCardPicker onSelect={setBatchCard} />
         </div>
       )}
+      {step === 'compare-scenarios' && (
+        <CompareScenariosScreen
+          savedOptimizerConfigs={state.savedOptimizerConfigs}
+          onBack={() => handleStepChange('upload')}
+        />
+      )}
+
+      {step === 'help' && (
+        <HelpScreen
+          onNavigate={(s, batchCard) => {
+            handleStepChange(s)
+            if (batchCard != null) setBatchCard(batchCard)
+          }}
+        />
+      )}
+
       {step === 'batch-scenario' && batchCard === 'cf-optimizer' && (
         <ConversionFactorOptimizerScreen
           providerRows={state.providerRows}
@@ -560,7 +830,6 @@ export default function App() {
           scenarioInputs={state.scenarioInputs}
           synonymMap={state.batchSynonymMap}
           onBack={() => setBatchCard(null)}
-          onSaveScenario={(name) => saveCurrentScenario(name)}
           optimizerConfig={state.optimizerConfig}
           onOptimizerConfigChange={setOptimizerConfig}
           onClearOptimizerConfig={clearOptimizerConfig}
@@ -568,6 +837,7 @@ export default function App() {
           onSaveOptimizerConfig={saveOptimizerConfig}
           onLoadOptimizerConfig={loadOptimizerConfig}
           onDeleteSavedOptimizerConfig={deleteSavedOptimizerConfig}
+          onNavigateToCompareScenarios={() => handleStepChange('compare-scenarios')}
         />
       )}
       {step === 'batch-scenario' && batchCard === 'imputed-vs-market' && (
@@ -591,12 +861,21 @@ export default function App() {
           onBatchScenarioConfigApplied={clearAppliedBatchScenarioConfig}
           onDeleteBatchScenarioConfig={deleteSavedBatchScenarioConfig}
           batchSynonymMap={state.batchSynonymMap}
-          onRunComplete={handleBatchRunComplete}
+          onRunComplete={(results, snapshot) => handleBatchRunComplete('bulk', results, snapshot)}
           onNavigateToUpload={() => setStep('upload')}
           onSaveScenario={saveBatchScenarioConfig}
           onClearSavedScenarios={clearAllScenarios}
           mode="bulk"
           onBack={() => setBatchCard(null)}
+          lastResults={state.batchResultsBulk}
+          lastScenarioSnapshot={state.lastBatchScenarioSnapshotBulk}
+          savedBatchRuns={state.savedBatchRuns}
+          onSaveRun={(name) => saveCurrentBatchRun('bulk', name)}
+          onLoadRun={(id) => loadSavedBatchRun(id, (mode) => {
+            setStep('batch-results')
+            setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
+          })}
+          onDeleteRun={deleteSavedBatchRun}
         />
       )}
       {step === 'batch-scenario' && batchCard === 'detailed-scenario' && (
@@ -612,44 +891,79 @@ export default function App() {
           onBatchScenarioConfigApplied={clearAppliedBatchScenarioConfig}
           onDeleteBatchScenarioConfig={deleteSavedBatchScenarioConfig}
           batchSynonymMap={state.batchSynonymMap}
-          onRunComplete={handleBatchRunComplete}
+          onRunComplete={(results, snapshot) => handleBatchRunComplete('detailed', results, snapshot)}
           onNavigateToUpload={() => setStep('upload')}
           onSaveScenario={saveBatchScenarioConfig}
           onClearSavedScenarios={clearAllScenarios}
           mode="detailed"
           onBack={() => setBatchCard(null)}
-        />
-      )}
-
-      {step === 'batch-results' && state.batchResults && (
-        <BatchResultsDashboard
-          results={state.batchResults}
-          marketRows={state.marketRows}
+          lastResults={state.batchResultsDetailed}
+          lastScenarioSnapshot={state.lastBatchScenarioSnapshotDetailed}
           savedBatchRuns={state.savedBatchRuns}
-          onSaveRun={(name) => saveCurrentBatchRun(name)}
-          onLoadRun={(id) => {
-            loadSavedBatchRun(id)
+          onSaveRun={(name) => saveCurrentBatchRun('detailed', name)}
+          onLoadRun={(id) => loadSavedBatchRun(id, (mode) => {
             setStep('batch-results')
-          }}
+            setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
+          })}
           onDeleteRun={deleteSavedBatchRun}
         />
       )}
 
-      {step === 'batch-results' && !state.batchResults && (
-        <div className="space-y-6">
-          <h2 className="section-title">Batch results</h2>
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground text-sm space-y-2">
-              <p>
-                <strong>Results</strong> shows the output of a <strong>Bulk</strong> or <strong>Detailed</strong> scenario run (provider-level TCC). Run one of those from Batch scenario to see results here.
-              </p>
-              <p>
-                The Conversion Factor Optimizer shows its own results on the optimizer screen after you click Run.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {step === 'batch-results' && (() => {
+        const isDetailed = batchCard === 'detailed-scenario'
+        const results = isDetailed ? state.batchResultsDetailed : state.batchResultsBulk
+        const scenarioSnapshot = isDetailed ? state.lastBatchScenarioSnapshotDetailed : state.lastBatchScenarioSnapshotBulk
+        const backLabel = isDetailed ? 'Back to Detailed scenarios' : 'Back to Create and Run Scenario'
+        const handleBack = () => {
+          setStep('batch-scenario')
+          setBatchCard(isDetailed ? 'detailed-scenario' : 'bulk-scenario')
+        }
+        if (!results) {
+          return (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={handleBack} className="gap-2" aria-label="Back">
+                  <ArrowLeft className="size-4" />
+                  Back
+                </Button>
+                <SectionTitleWithIcon icon={<Layers className="size-5" />}>
+                  Scenario results
+                </SectionTitleWithIcon>
+              </div>
+              <p className="text-muted-foreground">No results for this run. Run a scenario to see results here.</p>
+            </div>
+          )
+        }
+        const scopedResults = scopeResultsBySnapshot(results, scenarioSnapshot ?? null)
+        const headerLeft = (
+          <>
+            <Button type="button" variant="outline" size="sm" onClick={handleBack} className="gap-2" aria-label="Back">
+              <ArrowLeft className="size-4" />
+              Back
+            </Button>
+            <SectionTitleWithIcon icon={<Layers className="size-5" />}>
+              Scenario results
+            </SectionTitleWithIcon>
+          </>
+        )
+        return (
+          <div className="space-y-6">
+            <BatchResultsDashboard
+              results={scopedResults}
+              marketRows={state.marketRows}
+              savedBatchRuns={state.savedBatchRuns}
+              scenarioSnapshot={scenarioSnapshot ?? null}
+              onSaveRun={(name) => saveCurrentBatchRun(isDetailed ? 'detailed' : 'bulk', name)}
+              onLoadRun={(id) => loadSavedBatchRun(id, (mode) => {
+                setStep('batch-results')
+                setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
+              })}
+              onDeleteRun={deleteSavedBatchRun}
+              headerLeft={headerLeft}
+            />
+          </div>
+        )
+      })()}
 
     </AppLayout>
   )

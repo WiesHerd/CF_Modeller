@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { ArrowLeft, ChevronDown, FolderOpen, RotateCcw, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FolderOpen, GitCompare, RotateCcw, Save, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -42,7 +42,6 @@ interface ConversionFactorOptimizerScreenProps {
   scenarioInputs: ScenarioInputs
   synonymMap: Record<string, string>
   onBack: () => void
-  onSaveScenario?: (name: string) => void
   /** Persisted config (in-memory); when set, form initializes from it. */
   optimizerConfig: OptimizerConfigSnapshot | null
   onOptimizerConfigChange: (snapshot: OptimizerConfigSnapshot) => void
@@ -51,6 +50,8 @@ interface ConversionFactorOptimizerScreenProps {
   onSaveOptimizerConfig?: (name: string) => void
   onLoadOptimizerConfig?: (id: string) => void
   onDeleteSavedOptimizerConfig?: (id: string) => void
+  /** Navigate to the Compare scenarios full screen. */
+  onNavigateToCompareScenarios?: () => void
 }
 
 /** Ensure settings from persisted config have required fields so OptimizerConfigureStage never crashes. */
@@ -81,6 +82,7 @@ function getInitialState(
       targetMode: 'all' as const,
       selectedSpecialties: [] as string[],
       selectedDivisions: [] as string[],
+      excludedProviderTypes: [] as string[],
       providerTypeFilter: 'all' as const,
       configStep: 1,
     }
@@ -91,6 +93,7 @@ function getInitialState(
     targetMode: optimizerConfig.targetMode,
     selectedSpecialties: [...(optimizerConfig.selectedSpecialties ?? [])],
     selectedDivisions: [...(optimizerConfig.selectedDivisions ?? [])],
+    excludedProviderTypes: [...(optimizerConfig.excludedProviderTypes ?? [])],
     providerTypeFilter: optimizerConfig.providerTypeFilter,
     configStep: Math.min(4, Math.max(1, optimizerConfig.configStep ?? 1)),
   }
@@ -102,7 +105,6 @@ export function ConversionFactorOptimizerScreen({
   scenarioInputs,
   synonymMap,
   onBack,
-  onSaveScenario,
   optimizerConfig,
   onOptimizerConfigChange,
   onClearOptimizerConfig,
@@ -110,6 +112,7 @@ export function ConversionFactorOptimizerScreen({
   onSaveOptimizerConfig,
   onLoadOptimizerConfig,
   onDeleteSavedOptimizerConfig,
+  onNavigateToCompareScenarios,
 }: ConversionFactorOptimizerScreenProps) {
   const providerRows = providerRowsProp ?? []
   const marketRows = marketRowsProp ?? []
@@ -121,7 +124,6 @@ export function ConversionFactorOptimizerScreen({
   const [settings, setSettings] = useState<OptimizerSettings>(initial.settings)
   const [result, setResult] = useState<OptimizerRunResult | null>(initial.result)
   const [isRunning, setIsRunning] = useState(false)
-  const [saveName, setSaveName] = useState('')
   const [runError, setRunError] = useState<string | null>(null)
   const [runProgress, setRunProgress] = useState<{
     specialtyIndex: number
@@ -131,6 +133,7 @@ export function ConversionFactorOptimizerScreen({
   const [targetMode, setTargetMode] = useState<'all' | 'custom'>(initial.targetMode)
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(initial.selectedSpecialties)
   const [selectedDivisions, setSelectedDivisions] = useState<string[]>(initial.selectedDivisions)
+  const [excludedProviderTypes, setExcludedProviderTypes] = useState<string[]>(initial.excludedProviderTypes)
   const [providerTypeFilter, setProviderTypeFilter] = useState<'all' | 'productivity' | 'base'>(initial.providerTypeFilter)
   const [configStep, setConfigStep] = useState(initial.configStep)
   const [optimizerStep, setOptimizerStep] = useState<'configure' | 'run'>('configure')
@@ -151,6 +154,7 @@ export function ConversionFactorOptimizerScreen({
     setTargetMode(optimizerConfig.targetMode)
     setSelectedSpecialties([...(optimizerConfig.selectedSpecialties ?? [])])
     setSelectedDivisions([...(optimizerConfig.selectedDivisions ?? [])])
+    setExcludedProviderTypes([...(optimizerConfig.excludedProviderTypes ?? [])])
     setProviderTypeFilter(optimizerConfig.providerTypeFilter)
     setConfigStep(Math.min(4, Math.max(1, optimizerConfig.configStep ?? 1)))
   }, [optimizerConfig])
@@ -161,10 +165,11 @@ export function ConversionFactorOptimizerScreen({
     targetMode,
     selectedSpecialties: [...selectedSpecialties],
     selectedDivisions: [...selectedDivisions],
+    excludedProviderTypes: [...excludedProviderTypes],
     settings,
     configStep,
     lastRunResult: result ?? undefined,
-  }), [providerTypeFilter, targetMode, selectedSpecialties, selectedDivisions, settings, configStep, result])
+  }), [providerTypeFilter, targetMode, selectedSpecialties, selectedDivisions, excludedProviderTypes, settings, configStep, result])
 
   useEffect(() => {
     const snapshot = buildSnapshot()
@@ -215,10 +220,21 @@ export function ConversionFactorOptimizerScreen({
     return [...values].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   }, [providerRowsByCompModel, targetMode, selectedSpecialties])
 
+  /** Data-driven: provider types (roles) present in scope; used for "Exclude provider types" filter. */
+  const availableProviderTypes = useMemo(() => {
+    const values = new Set<string>()
+    providerRowsByCompModel.forEach((provider) => {
+      const pt = (provider.providerType ?? '').trim()
+      if (pt) values.add(pt)
+    })
+    return [...values].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+  }, [providerRowsByCompModel])
+
   /** When compensation model or specialty scope changes, prune selections to only those still in scope. */
   useEffect(() => {
     const specSet = new Set(availableSpecialties)
     const divSet = new Set(availableDivisions)
+    const typeSet = new Set(availableProviderTypes)
     setSelectedSpecialties((prev) => {
       const next = prev.filter((s) => specSet.has(s))
       return next.length !== prev.length || prev.some((s, i) => next[i] !== s) ? next : prev
@@ -227,7 +243,11 @@ export function ConversionFactorOptimizerScreen({
       const next = prev.filter((d) => divSet.has(d))
       return next.length !== prev.length || prev.some((d, i) => next[i] !== d) ? next : prev
     })
-  }, [availableSpecialties, availableDivisions])
+    setExcludedProviderTypes((prev) => {
+      const next = prev.filter((t) => typeSet.has(t))
+      return next.length !== prev.length || prev.some((t, i) => next[i] !== t) ? next : prev
+    })
+  }, [availableSpecialties, availableDivisions, availableProviderTypes])
 
   const filteredProviderRowsForRun = useMemo(() => {
     let rows = providerRows
@@ -237,6 +257,14 @@ export function ConversionFactorOptimizerScreen({
       rows = rows.filter((provider) => {
         const model = (provider.productivityModel ?? '').toLowerCase()
         return model === 'base' || model === ''
+      })
+    }
+
+    if (excludedProviderTypes.length > 0) {
+      const excludedSet = new Set(excludedProviderTypes)
+      rows = rows.filter((provider) => {
+        const pt = (provider.providerType ?? '').trim()
+        return !excludedSet.has(pt)
       })
     }
 
@@ -253,7 +281,7 @@ export function ConversionFactorOptimizerScreen({
     }
 
     return rows
-  }, [providerRows, providerTypeFilter, selectedDivisions, selectedSpecialties, targetMode])
+  }, [providerRows, providerTypeFilter, excludedProviderTypes, selectedDivisions, selectedSpecialties, targetMode])
 
   useEffect(() => {
     return () => {
@@ -323,6 +351,7 @@ export function ConversionFactorOptimizerScreen({
     setTargetMode('all')
     setSelectedSpecialties([])
     setSelectedDivisions([])
+    setExcludedProviderTypes([])
     setProviderTypeFilter('all')
     setOptimizerStep('configure')
   }, [])
@@ -336,6 +365,7 @@ export function ConversionFactorOptimizerScreen({
     setTargetMode('all')
     setSelectedSpecialties([])
     setSelectedDivisions([])
+    setExcludedProviderTypes([])
     setProviderTypeFilter('all')
     setConfigStep(1)
     setOptimizerStep('configure')
@@ -399,7 +429,20 @@ export function ConversionFactorOptimizerScreen({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (optimizerStep === 'run') {
+                setOptimizerStep('configure')
+                setConfigStep(1)
+              } else {
+                onBack()
+              }
+            }}
+            className="gap-2"
+          >
             <ArrowLeft className="size-4" />
             Back
           </Button>
@@ -482,6 +525,20 @@ export function ConversionFactorOptimizerScreen({
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : null}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onNavigateToCompareScenarios?.()}
+                    aria-label="Compare scenarios"
+                  >
+                    <GitCompare className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Compare scenarios</TooltipContent>
+              </Tooltip>
             </>
           ) : null}
           {onClearOptimizerConfig ? (
@@ -550,9 +607,11 @@ export function ConversionFactorOptimizerScreen({
           targetMode={targetMode}
           selectedSpecialties={selectedSpecialties}
           selectedDivisions={selectedDivisions}
+          excludedProviderTypes={excludedProviderTypes}
           providerTypeFilter={providerTypeFilter}
           availableSpecialties={availableSpecialties}
           availableDivisions={availableDivisions}
+          availableProviderTypes={availableProviderTypes}
           onRun={handleRunAndOpenReview}
           onSetOptimizationObjective={setOptimizationObjective}
           onSetErrorMetric={setErrorMetric}
@@ -560,6 +619,7 @@ export function ConversionFactorOptimizerScreen({
           onSetProviderTypeFilter={setProviderTypeFilter}
           onSetSelectedSpecialties={setSelectedSpecialties}
           onSetSelectedDivisions={setSelectedDivisions}
+          onSetExcludedProviderTypes={setExcludedProviderTypes}
           onSetSettings={setSettings}
           configStep={configStep}
           onSetConfigStep={setConfigStep}
@@ -572,21 +632,10 @@ export function ConversionFactorOptimizerScreen({
           runError={runError}
           runDisabled={runDisabled}
           runProgress={runProgress}
-          saveName={saveName}
-          onSaveNameChange={setSaveName}
           onRun={handleRun}
           onStartOver={handleStartOver}
           onExport={exportToExcel}
           onOpenCFSweep={() => setCfSweepDrawerOpen(true)}
-          onSaveScenario={
-            onSaveScenario
-              ? () => {
-                  if (!saveName.trim()) return
-                  onSaveScenario(saveName.trim())
-                  setSaveName('')
-                }
-              : undefined
-          }
         />
       )}
 

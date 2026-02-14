@@ -130,6 +130,11 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
         cell: (c) => c.getValue() || EMPTY,
         meta: { wrap: true, minWidth: '100px' },
       }),
+      columnHelper.accessor('providerType', {
+        header: 'Type / Role',
+        cell: (c) => c.getValue() || EMPTY,
+        meta: { wrap: true, minWidth: '100px' },
+      }),
       columnHelper.accessor('scenarioName', {
         header: 'Model name',
         cell: (c) => c.getValue() || EMPTY,
@@ -411,11 +416,11 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
         </div>
       </div>
       <div
-        className="rounded-md border overflow-x-scroll overflow-y-auto"
+        className="rounded-md border border-border overflow-x-auto overflow-y-auto"
         style={{ maxHeight }}
       >
         <table
-          className={cn('w-full caption-bottom text-sm min-w-max')}
+          className="w-full caption-bottom text-sm min-w-max"
           style={{ minWidth: 'max-content' }}
         >
           <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
@@ -491,7 +496,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
           </TableHeader>
           <tbody className="[&_tr:last-child]:border-0">
             {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
+              <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')}>
                 {row.getVisibleCells().map((cell) => {
                   const meta = cell.column.columnDef.meta as { sticky?: boolean; minWidth?: string; wrap?: boolean } | undefined
                   const stickyClass = meta?.sticky ? 'sticky left-0 z-10 bg-background shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''

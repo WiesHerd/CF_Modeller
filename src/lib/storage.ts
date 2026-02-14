@@ -56,6 +56,10 @@ export function saveProviderMapping(mapping: ColumnMapping): void {
   localStorage.setItem(KEY_PROVIDER_MAPPING, JSON.stringify(mapping))
 }
 
+export function clearProviderMapping(): void {
+  localStorage.removeItem(KEY_PROVIDER_MAPPING)
+}
+
 export function loadMarketMapping(): ColumnMapping | null {
   try {
     const s = localStorage.getItem(KEY_MARKET_MAPPING)
@@ -69,6 +73,10 @@ export function loadMarketMapping(): ColumnMapping | null {
 
 export function saveMarketMapping(mapping: ColumnMapping): void {
   localStorage.setItem(KEY_MARKET_MAPPING, JSON.stringify(mapping))
+}
+
+export function clearMarketMapping(): void {
+  localStorage.removeItem(KEY_MARKET_MAPPING)
 }
 
 export function loadSavedScenarios(): SavedScenario[] {

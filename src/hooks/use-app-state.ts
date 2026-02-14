@@ -3,7 +3,7 @@ import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, ScenarioResults, SavedScenario } from '@/types/scenario'
 import type { ColumnMapping } from '@/types/upload'
-import type { BatchResults, BatchOverrides, BatchScenarioSnapshot, SavedBatchRun, SavedBatchScenarioConfig, SynonymMap } from '@/types/batch'
+import type { BatchResults, BatchOverrides, BatchRunMode, BatchScenarioSnapshot, SavedBatchRun, SavedBatchScenarioConfig, SynonymMap } from '@/types/batch'
 import type { OptimizerConfigSnapshot, SavedOptimizerConfig } from '@/types/optimizer'
 import * as storage from '@/lib/storage'
 import * as batchStorage from '@/lib/batch-storage'
@@ -23,10 +23,14 @@ export interface AppState {
   lastScenarioLoadWarning: string | null
   /** When set, provider Save on the Provider step updates this scenario's provider snapshot (same as Scenario planning). */
   currentScenarioId: string | null
-  /** Last batch run results (persisted to localStorage when not too large). */
-  batchResults: BatchResults | null
-  /** Scenario(s) used for the last batch run; attached when saving a run so you can refer back. */
-  lastBatchScenarioSnapshot: BatchScenarioSnapshot | null
+  /** Last Bulk scenario run results (persisted when not too large). */
+  batchResultsBulk: BatchResults | null
+  /** Scenario(s) used for the last Bulk run; attached when saving a run. */
+  lastBatchScenarioSnapshotBulk: BatchScenarioSnapshot | null
+  /** Last Detailed scenario run results (persisted when not too large). */
+  batchResultsDetailed: BatchResults | null
+  /** Scenario(s) used for the last Detailed run; attached when saving a run. */
+  lastBatchScenarioSnapshotDetailed: BatchScenarioSnapshot | null
   /** Saved batch runs the user can load or delete (persisted). */
   savedBatchRuns: SavedBatchRun[]
   /** Saved batch scenario configs (inputs, overrides, run-for) for reload and retweak (persisted). */
@@ -72,8 +76,10 @@ const initialState: AppState = {
   savedScenarios: [],
   lastScenarioLoadWarning: null,
   currentScenarioId: null,
-  batchResults: null,
-  lastBatchScenarioSnapshot: null,
+  batchResultsBulk: null,
+  lastBatchScenarioSnapshotBulk: null,
+  batchResultsDetailed: null,
+  lastBatchScenarioSnapshotDetailed: null,
   savedBatchRuns: [],
   savedBatchScenarioConfigs: [],
   appliedBatchScenarioConfig: null,
@@ -92,21 +98,23 @@ export function useAppState() {
     const pm = storage.loadProviderMapping()
     const mm = storage.loadMarketMapping()
     const savedScenarios = storage.loadSavedScenarios()
-    const batchResults = batchStorage.loadBatchResults()
+    const batchResultsByMode = batchStorage.loadBatchResultsByMode()
     const savedBatchRuns = batchStorage.loadSavedBatchRuns()
     const savedBatchScenarioConfigs = batchStorage.loadSavedBatchScenarioConfigs()
     const savedOptimizerConfigs = optimizerStorage.loadSavedOptimizerConfigs()
     const batchSynonymMap = batchStorage.loadSynonymMap()
     const batchUploadMeta = batchStorage.loadBatchUploadMeta()
-    const hasStoredData = providers.length > 0 && market.length > 0
     return {
       ...initialState,
-      providerRows: hasStoredData ? providers : [],
-      marketRows: hasStoredData ? market : [],
-      providerMapping: hasStoredData ? pm : null,
-      marketMapping: hasStoredData ? mm : null,
+      providerRows: providers,
+      marketRows: market,
+      providerMapping: pm,
+      marketMapping: mm,
       savedScenarios,
-      batchResults,
+      batchResultsBulk: batchResultsByMode.bulk,
+      lastBatchScenarioSnapshotBulk: null,
+      batchResultsDetailed: batchResultsByMode.detailed,
+      lastBatchScenarioSnapshotDetailed: null,
       savedBatchRuns,
       savedBatchScenarioConfigs,
       savedOptimizerConfigs,
@@ -118,21 +126,27 @@ export function useAppState() {
   })
 
   useEffect(() => {
-    if (state.providerRows.length > 0) storage.saveProviders(state.providerRows)
+    storage.saveProviders(state.providerRows)
   }, [state.providerRows])
 
   useEffect(() => {
-    if (state.marketRows.length > 0) storage.saveMarket(state.marketRows)
+    storage.saveMarket(state.marketRows)
   }, [state.marketRows])
 
   useEffect(() => {
-    if (state.providerMapping && Object.keys(state.providerMapping).length > 0)
+    if (state.providerMapping != null && Object.keys(state.providerMapping).length > 0) {
       storage.saveProviderMapping(state.providerMapping)
+    } else {
+      storage.clearProviderMapping()
+    }
   }, [state.providerMapping])
 
   useEffect(() => {
-    if (state.marketMapping && Object.keys(state.marketMapping).length > 0)
+    if (state.marketMapping != null && Object.keys(state.marketMapping).length > 0) {
       storage.saveMarketMapping(state.marketMapping)
+    } else {
+      storage.clearMarketMapping()
+    }
   }, [state.marketMapping])
 
   useEffect(() => {
@@ -141,8 +155,12 @@ export function useAppState() {
   }, [state.savedScenarios])
 
   useEffect(() => {
-    if (state.batchResults) batchStorage.saveBatchResults(state.batchResults)
-  }, [state.batchResults])
+    if (state.batchResultsBulk) batchStorage.saveBatchResults(state.batchResultsBulk, 'bulk')
+  }, [state.batchResultsBulk])
+
+  useEffect(() => {
+    if (state.batchResultsDetailed) batchStorage.saveBatchResults(state.batchResultsDetailed, 'detailed')
+  }, [state.batchResultsDetailed])
 
   useEffect(() => {
     batchStorage.saveSavedBatchRuns(state.savedBatchRuns)
@@ -353,18 +371,33 @@ export function useAppState() {
     })
   }, [])
 
-  const setBatchResults = useCallback((results: BatchResults | null, scenarioSnapshot?: BatchScenarioSnapshot | null) => {
-    setState((s) => ({
-      ...s,
-      batchResults: results,
-      lastBatchScenarioSnapshot: scenarioSnapshot ?? (results ? s.lastBatchScenarioSnapshot : null),
-    }))
-  }, [])
+  const setBatchResults = useCallback(
+    (mode: BatchRunMode, results: BatchResults | null, scenarioSnapshot?: BatchScenarioSnapshot | null) => {
+      setState((s) => {
+        const snapshot = scenarioSnapshot ?? (results ? (mode === 'bulk' ? s.lastBatchScenarioSnapshotBulk : s.lastBatchScenarioSnapshotDetailed) : null)
+        if (mode === 'bulk') {
+          return {
+            ...s,
+            batchResultsBulk: results,
+            lastBatchScenarioSnapshotBulk: snapshot,
+          }
+        }
+        return {
+          ...s,
+          batchResultsDetailed: results,
+          lastBatchScenarioSnapshotDetailed: snapshot,
+        }
+      })
+    },
+    []
+  )
 
-  const saveCurrentBatchRun = useCallback((name?: string) => {
+  const saveCurrentBatchRun = useCallback((mode: BatchRunMode, name?: string) => {
     setState((s) => {
-      if (!s.batchResults) return s
-      const run = s.batchResults
+      const results = mode === 'bulk' ? s.batchResultsBulk : s.batchResultsDetailed
+      const snapshot = mode === 'bulk' ? s.lastBatchScenarioSnapshotBulk : s.lastBatchScenarioSnapshotDetailed
+      if (!results) return s
+      const run = results
       const displayName =
         name?.trim() ||
         `${run.providerCount} providers × ${run.scenarioCount} scenario(s) – ${new Date(run.runAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`
@@ -373,7 +406,8 @@ export function useAppState() {
         name: displayName,
         createdAt: new Date().toISOString(),
         results: { ...run, rows: [...run.rows] },
-        ...(s.lastBatchScenarioSnapshot && { scenarioSnapshot: s.lastBatchScenarioSnapshot }),
+        ...(snapshot && { scenarioSnapshot: { ...snapshot, mode } }),
+        mode,
       }
       if (batchStorage.getSavedRunSizeBytes(saved) > batchStorage.MAX_BATCH_RESULTS_BYTES) return s
       const list = [...s.savedBatchRuns, saved].sort(
@@ -384,11 +418,28 @@ export function useAppState() {
     })
   }, [])
 
-  const loadSavedBatchRun = useCallback((id: string) => {
+  const loadSavedBatchRun = useCallback((id: string, onLoaded?: (mode: BatchRunMode) => void) => {
     setState((s) => {
       const run = s.savedBatchRuns.find((r) => r.id === id)
       if (!run) return s
-      return { ...s, batchResults: run.results }
+      const mode: BatchRunMode = run.mode === 'detailed' ? 'detailed' : 'bulk'
+      const snapshot = run.scenarioSnapshot ? { ...run.scenarioSnapshot, mode } : undefined
+      if (mode === 'bulk') {
+        const next = {
+          ...s,
+          batchResultsBulk: run.results,
+          lastBatchScenarioSnapshotBulk: snapshot ?? null,
+        }
+        queueMicrotask(() => onLoaded?.('bulk'))
+        return next
+      }
+      const next = {
+        ...s,
+        batchResultsDetailed: run.results,
+        lastBatchScenarioSnapshotDetailed: snapshot ?? null,
+      }
+      queueMicrotask(() => onLoaded?.('detailed'))
+      return next
     })
   }, [])
 

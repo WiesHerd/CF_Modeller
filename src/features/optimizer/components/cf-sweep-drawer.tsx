@@ -7,6 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -116,7 +117,7 @@ export function CFSweepDrawer({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[680px] md:max-w-[720px] border-border"
+        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[880px] md:max-w-[960px] border-border"
       >
         <SheetHeader className="space-y-1.5 border-b border-border pb-4">
           <SheetTitle className="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
@@ -203,32 +204,32 @@ function SweepResultsTable({ sweepResult }: { sweepResult: CFSweepAllResult }) {
   return (
     <div className="space-y-6">
       {entries.map(([specialty, rows]) => (
-        <div key={specialty} className="overflow-hidden rounded-lg border border-border">
-          <div className="border-b border-border bg-muted/50 px-3 py-2 text-sm font-medium text-foreground">{specialty}</div>
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableHead className="text-right font-semibold">CF %ile</TableHead>
-                <TableHead className="text-right font-semibold">CF $</TableHead>
-                <TableHead className="text-right font-semibold">Mean TCC %ile</TableHead>
-                <TableHead className="text-right font-semibold">Mean wRVU %ile</TableHead>
-                <TableHead className="text-right font-semibold">Gap</TableHead>
-                <TableHead className="text-right font-semibold">Incentive $</TableHead>
-                <TableHead className="text-right font-semibold">Spend impact</TableHead>
+        <div key={specialty} className="overflow-hidden rounded-md border border-border">
+          <div className="border-b border-border bg-muted px-3 py-2.5 text-sm font-medium text-foreground">{specialty}</div>
+          <Table className="w-full caption-bottom text-sm">
+            <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+              <TableRow>
+                <TableHead className="text-right px-3 py-2.5">CF %ile</TableHead>
+                <TableHead className="text-right px-3 py-2.5">CF $</TableHead>
+                <TableHead className="text-right px-3 py-2.5">Mean TCC %ile</TableHead>
+                <TableHead className="text-right px-3 py-2.5">Mean wRVU %ile</TableHead>
+                <TableHead className="text-right px-3 py-2.5">Gap</TableHead>
+                <TableHead className="text-right px-3 py-2.5">Incentive $</TableHead>
+                <TableHead className="text-right px-3 py-2.5">Spend impact</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((row: CFSweepRow) => (
-                <TableRow key={row.cfPercentile} className="tabular-nums text-sm">
-                  <TableCell className="text-right">{row.cfPercentile}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(row.cfDollars, 2)}</TableCell>
-                  <TableCell className="text-right">{formatPercentile(row.meanModeledTCCPctile)}</TableCell>
-                  <TableCell className="text-right">{formatPercentile(row.meanWrvuPctile)}</TableCell>
-                  <TableCell className="text-right">{formatPercentile(row.gap)}</TableCell>
-                  <TableCell className="text-right">
+              {rows.map((row: CFSweepRow, idx) => (
+                <TableRow key={row.cfPercentile} className={cn(idx % 2 === 1 && 'bg-muted/30', 'tabular-nums text-sm')}>
+                  <TableCell className="text-right px-3 py-2.5">{row.cfPercentile}</TableCell>
+                  <TableCell className="text-right px-3 py-2.5">{formatCurrency(row.cfDollars, 2)}</TableCell>
+                  <TableCell className="text-right px-3 py-2.5">{formatPercentile(row.meanModeledTCCPctile)}</TableCell>
+                  <TableCell className="text-right px-3 py-2.5">{formatPercentile(row.meanWrvuPctile)}</TableCell>
+                  <TableCell className="text-right px-3 py-2.5">{formatPercentile(row.gap)}</TableCell>
+                  <TableCell className="text-right px-3 py-2.5">
                     {row.totalIncentiveDollars != null ? formatCurrency(row.totalIncentiveDollars, 0) : '—'}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right px-3 py-2.5">
                     {row.spendImpactRaw != null ? formatCurrency(row.spendImpactRaw, 0) : '—'}
                   </TableCell>
                 </TableRow>

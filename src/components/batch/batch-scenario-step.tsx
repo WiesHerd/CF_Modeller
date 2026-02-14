@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuItem,
   DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -29,14 +30,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Play, Loader2, AlertCircle, Users, Target, Plus, Trash2, Sliders, ChevronDown, ChevronRight, Link2, Layers, Check, Search, Save, ArrowLeft, FolderOpen } from 'lucide-react'
+import { Play, Loader2, AlertCircle, Users, Target, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, Link2, Layers, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { BatchScenarioInline } from '@/components/batch/batch-scenario-inline'
 import { ScenarioControls } from '@/components/scenario-controls'
 import { Input } from '@/components/ui/input'
 import type { ProviderRow } from '@/types/provider'
 import type { ScenarioInputs, SavedScenario } from '@/types/scenario'
-import type { BatchOverrides, SavedBatchScenarioConfig, SynonymMap } from '@/types/batch'
+import type { BatchOverrides, BatchResults, BatchScenarioSnapshot, SavedBatchRun, SavedBatchScenarioConfig, SynonymMap } from '@/types/batch'
 import type { BatchWorkerRunPayload, BatchWorkerOutMessage } from '@/workers/batch-worker'
 
 interface BatchScenarioStepProps {
@@ -46,7 +48,7 @@ interface BatchScenarioStepProps {
   setScenarioInputs: (inputs: Partial<ScenarioInputs>) => void
   savedScenarios: SavedScenario[]
   batchSynonymMap: SynonymMap
-  onRunComplete: (results: import('@/types/batch').BatchResults, scenarioSnapshot?: import('@/types/batch').BatchScenarioSnapshot) => void
+  onRunComplete: (results: BatchResults, scenarioSnapshot?: BatchScenarioSnapshot) => void
   /** When provided, show a link to edit synonyms on the Upload screen. */
   onNavigateToUpload?: () => void
   /** When provided, Save scenario button is shown and this is called with current config. */
@@ -64,6 +66,15 @@ interface BatchScenarioStepProps {
   onLoadBatchScenarioConfig?: (config: SavedBatchScenarioConfig) => void
   onBatchScenarioConfigApplied?: () => void
   onDeleteBatchScenarioConfig?: (id: string) => void
+  /** Last run results for this card (bulk or detailed); when set, show Results section on the card. */
+  lastResults?: BatchResults | null
+  /** Snapshot for the last run (for save/display). */
+  lastScenarioSnapshot?: BatchScenarioSnapshot | null
+  /** Saved batch runs for load/delete (shared list; filter by mode in UI if desired). */
+  savedBatchRuns?: SavedBatchRun[]
+  onSaveRun?: (name?: string) => void
+  onLoadRun?: (id: string) => void
+  onDeleteRun?: (id: string) => void
 }
 
 export function BatchScenarioStep({
@@ -84,6 +95,12 @@ export function BatchScenarioStep({
   onLoadBatchScenarioConfig,
   onBatchScenarioConfigApplied,
   onDeleteBatchScenarioConfig,
+  lastResults = null,
+  lastScenarioSnapshot = null,
+  savedBatchRuns = [],
+  onSaveRun,
+  onLoadRun,
+  onDeleteRun,
 }: BatchScenarioStepProps) {
   const isBulk = mode === 'bulk'
   const isDetailed = mode === 'detailed'
@@ -111,8 +128,6 @@ export function BatchScenarioStep({
         psqPercent: inputs.psqPercent != null ? String(inputs.psqPercent) : '',
       }))
     )
-    setSelectedSpecialties(c.selectedSpecialties ?? [])
-    setSelectedProviderIds(c.selectedProviderIds ?? [])
     setRunBaseScenarioOnly(c.runBaseScenarioOnly ?? true)
     onBatchScenarioConfigApplied()
   }, [appliedBatchScenarioConfig, onBatchScenarioConfigApplied])
@@ -129,16 +144,6 @@ export function BatchScenarioStep({
     return Array.from(set).sort() as string[]
   }, [providerRows])
 
-  /** Empty = all specialties. */
-  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([])
-  /** Empty = all providers (after specialty filter). */
-  const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>([])
-  /** Search filter for Run for > Specialty dropdown. */
-  const [specialtySearch, setSpecialtySearch] = useState('')
-  /** Search filter for Run for > Provider dropdown. */
-  const [providerSearch, setProviderSearch] = useState('')
-  const specialtySearchInputRef = useRef<HTMLInputElement>(null)
-  const providerSearchInputRef = useRef<HTMLInputElement>(null)
   /** Which override row's specialty dropdown is open (null = none). */
   const [openSpecialtyOverrideRow, setOpenSpecialtyOverrideRow] = useState<number | null>(null)
   /** Which override row's provider dropdown is open (null = none). */
@@ -159,37 +164,44 @@ export function BatchScenarioStep({
     { providerIds: string[]; proposedCFPercentile: string; overrideCF: string; psqPercent: string }[]
   >([])
 
+  /** Bulk step-through: 1 = Base scenario, 2 = Scope & guardrails, 3 = Run */
+  const [bulkStep, setBulkStep] = useState<1 | 2 | 3>(1)
+  /** Bulk guardrails (same idea as CF Optimizer): exclude low FTE / low wRVU volume */
+  const [minBasisFTE, setMinBasisFTE] = useState(0.5)
+  const [minWRVUPer1p0CFTE, setMinWRVUPer1p0CFTE] = useState(1000)
+
+  /** In detailed mode with overrides: run only providers that match the override scope (selected specialties or provider IDs). Otherwise all providers. */
   const providersAfterSpecialtyFilter = useMemo(() => {
-    if (selectedSpecialties.length === 0) return providerRows
-    const set = new Set(selectedSpecialties)
-    return providerRows.filter((p) => set.has((p.specialty ?? '').trim()))
-  }, [providerRows, selectedSpecialties])
+    if (isBulk) return providerRows
+    const specialtySet = new Set(
+      specialtyOverrides.flatMap((r) => r.specialties.map((s) => s.trim()).filter(Boolean))
+    )
+    const providerIdSet = new Set(
+      providerOverrides.flatMap((r) => r.providerIds.map((id) => String(id).trim()).filter(Boolean))
+    )
+    if (specialtySet.size === 0 && providerIdSet.size === 0) return providerRows
+    return providerRows.filter((p) => {
+      const pid = String(p.providerId ?? p.providerName ?? '').trim()
+      const spec = (p.specialty ?? '').trim()
+      if (providerIdSet.size > 0 && providerIdSet.has(pid)) return true
+      if (specialtySet.size > 0 && specialtySet.has(spec)) return true
+      return false
+    })
+  }, [providerRows, isBulk, specialtyOverrides, providerOverrides])
+
+  /** For bulk mode: basis FTE and total wRVUs per provider (for guardrail filter). */
+  const getBasisFTE = useCallback((p: ProviderRow) => Math.max(0.01, (p.clinicalFTE ?? p.totalFTE ?? 1) as number), [])
+  const getTotalWRVUs = useCallback((p: ProviderRow) => (p.totalWRVUs ?? (p.workRVUs ?? 0) + (p.outsideWRVUs ?? 0) + (p.pchWRVUs ?? 0)) || 0, [])
 
   const providersToRun = useMemo(() => {
-    if (selectedProviderIds.length === 0) return providersAfterSpecialtyFilter
-    const set = new Set(selectedProviderIds)
-    return providersAfterSpecialtyFilter.filter((p) =>
-      set.has((p.providerId ?? p.providerName ?? '').toString())
-    )
-  }, [providersAfterSpecialtyFilter, selectedProviderIds])
-
-  /** Filtered specialties for Run for dropdown (searchable). */
-  const filteredSpecialtiesForRun = useMemo(() => {
-    const q = specialtySearch.trim().toLowerCase()
-    if (!q) return providerSpecialties
-    return providerSpecialties.filter((s) => s.toLowerCase().includes(q))
-  }, [providerSpecialties, specialtySearch])
-
-  /** Filtered providers for Run for dropdown (searchable by name or specialty). */
-  const filteredProvidersForRun = useMemo(() => {
-    const q = providerSearch.trim().toLowerCase()
-    if (!q) return providersAfterSpecialtyFilter
+    if (!isBulk) return providersAfterSpecialtyFilter
     return providersAfterSpecialtyFilter.filter((p) => {
-      const name = (p.providerName ?? p.providerId ?? '').toString().toLowerCase()
-      const spec = (p.specialty ?? '').toLowerCase()
-      return name.includes(q) || spec.includes(q)
+      const fte = getBasisFTE(p)
+      const wrvu = getTotalWRVUs(p)
+      const wrvuPer1p0 = fte > 0 ? wrvu / fte : 0
+      return fte >= minBasisFTE && wrvuPer1p0 >= minWRVUPer1p0CFTE
     })
-  }, [providersAfterSpecialtyFilter, providerSearch])
+  }, [providersAfterSpecialtyFilter, isBulk, minBasisFTE, minWRVUPer1p0CFTE, getBasisFTE, getTotalWRVUs])
 
   /** For Overrides > By specialty: options when a row dropdown is open, filtered by search. */
   const filteredSpecialtyOverrideOptions = useMemo(() => {
@@ -198,16 +210,27 @@ export function BatchScenarioStep({
     return providerSpecialties.filter((s) => s.toLowerCase().includes(q))
   }, [providerSpecialties, specialtyOverrideSearch])
 
-  /** For Overrides > By provider: options when a row dropdown is open, filtered by search. */
+  /** When any "By specialty" override row has specialties selected, restrict "Add provider" to only those specialties (e.g. Gen Peds only when that's the override). */
+  const providerOverridePool = useMemo(() => {
+    const specialtiesInOverrides = new Set(
+      specialtyOverrides.flatMap((r) => r.specialties.map((s) => s.trim()).filter(Boolean))
+    )
+    if (specialtiesInOverrides.size === 0) return providersToRun
+    return providersToRun.filter((p) =>
+      specialtiesInOverrides.has((p.specialty ?? '').trim())
+    )
+  }, [providersToRun, specialtyOverrides])
+
+  /** For Overrides > By provider: options when a row dropdown is open, filtered by search; limited to providerOverridePool (e.g. only Gen Peds when that specialty is in By specialty). */
   const filteredProviderOverrideOptions = useMemo(() => {
     const q = providerOverrideSearch.trim().toLowerCase()
-    if (!q) return providersToRun
-    return providersToRun.filter((p) => {
+    if (!q) return providerOverridePool
+    return providerOverridePool.filter((p) => {
       const name = (p.providerName ?? p.providerId ?? '').toString().toLowerCase()
       const spec = (p.specialty ?? '').toLowerCase()
       return name.includes(q) || spec.includes(q)
     })
-  }, [providersToRun, providerOverrideSearch])
+  }, [providerOverridePool, providerOverrideSearch])
 
   const batchOverrides = useMemo((): BatchOverrides | undefined => {
     const bySpecialty: Record<string, Partial<ScenarioInputs>> = {}
@@ -248,23 +271,16 @@ export function BatchScenarioStep({
       return
     }
     if (providersToRun.length === 0) {
-      setError('No providers match the selected specialties and/or providers. Clear filters or change selection.')
+      setError(isBulk
+        ? 'No providers pass the scope guardrails. Adjust min FTE or min wRVU in Scope & guardrails.'
+        : 'No providers match the selected overrides. Add at least one specialty or provider above, or clear overrides to run all.')
       return
     }
     setError(null)
     setIsRunning(true)
     setProgress({ processed: 0, total: providersToRun.length, elapsedMs: 0 })
 
-    const scenarios = runBaseScenarioOnly
-      ? [{ id: 'current', name: 'Current', scenarioInputs: { ...scenarioInputs } }]
-      : [
-          { id: 'current', name: 'Current', scenarioInputs: { ...scenarioInputs } },
-          ...savedScenarios.map((s) => ({
-            id: s.id,
-            name: s.name,
-            scenarioInputs: s.scenarioInputs,
-          })),
-        ]
+    const scenarios = [{ id: 'current', name: 'Current', scenarioInputs: { ...scenarioInputs } }]
     const payload: BatchWorkerRunPayload = {
       type: 'run',
       providers: providersToRun,
@@ -293,7 +309,11 @@ export function BatchScenarioStep({
         worker.terminate()
         workerRef.current = null
         setIsRunning(false)
-        const snapshot = { scenarios }
+        const snapshot = {
+          scenarios,
+          selectedSpecialties: [...new Set(msg.results.rows.map((r) => r.specialty).filter(Boolean))],
+          selectedProviderIds: [...new Set(msg.results.rows.map((r) => r.providerId).filter(Boolean))],
+        }
         onRunComplete(msg.results, snapshot)
       }
     }
@@ -308,8 +328,6 @@ export function BatchScenarioStep({
     providersToRun,
     marketRows,
     scenarioInputs,
-    savedScenarios,
-    runBaseScenarioOnly,
     batchSynonymMap,
     batchOverrides,
     onRunComplete,
@@ -355,16 +373,15 @@ export function BatchScenarioStep({
   return (
     <div className="space-y-6">
       {isCardView && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {onBack && (
-              <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2">
-                <ArrowLeft className="size-4" />
-                Back
-              </Button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+        <>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <SectionTitleWithIcon
+                icon={isBulk ? <LayoutGrid /> : <Sliders />}
+              >
+                {isBulk ? 'Create and Run Scenario' : 'Detailed scenario'}
+              </SectionTitleWithIcon>
+              <div className="flex flex-wrap items-center gap-2">
             <TooltipProvider delayDuration={300}>
               {onSaveScenario && (
                 <Tooltip>
@@ -461,49 +478,142 @@ export function BatchScenarioStep({
                 </DropdownMenu>
               )}
             </TooltipProvider>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {onBack && (
+                <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2">
+                  <ArrowLeft className="size-4" />
+                  Back
+                </Button>
+              )}
+              {isBulk && bulkStep === 3 && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setBulkStep(2)} className="gap-2">
+                  <ArrowLeft className="size-4" />
+                  Back to Scope & guardrails
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+          {isBulk && (
+            <nav
+              className="mb-3 flex min-h-11 w-full min-w-0 items-center gap-0 rounded-xl border border-border/60 bg-muted/20 p-1.5"
+              aria-label="Batch steps"
+            >
+              {([
+                { num: 1, label: 'Base scenario' },
+                { num: 2, label: 'Scope & guardrails' },
+                { num: 3, label: 'Run' },
+              ] as const).map((step, idx) => {
+                const isActive = bulkStep === step.num
+                const isComplete = bulkStep > step.num
+                const isUpcoming = bulkStep < step.num
+                return (
+                  <div key={step.num} className="flex min-w-0 flex-1 items-center gap-2 sm:flex-initial sm:gap-2">
+                    {idx > 0 ? (
+                      <div
+                        className={cn(
+                          'h-px min-w-[12px] flex-1 sm:min-w-4 sm:flex-initial',
+                          isComplete ? 'bg-primary/30' : 'bg-border'
+                        )}
+                        aria-hidden
+                      />
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => setBulkStep(step.num)}
+                      className={cn(
+                        'flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all sm:flex-initial',
+                        'border-transparent',
+                        isActive &&
+                          'border-border bg-background text-foreground shadow-sm ring-2 ring-primary/30',
+                        isComplete &&
+                          !isActive &&
+                          'text-muted-foreground hover:bg-background/80 hover:text-foreground',
+                        isUpcoming && 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                      )}
+                      aria-current={isActive ? 'step' : undefined}
+                    >
+                      <span
+                        className={cn(
+                          'flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-colors',
+                          isActive && 'bg-primary text-primary-foreground',
+                          isComplete &&
+                            !isActive &&
+                            'border border-primary/50 bg-primary/10 text-primary',
+                          isUpcoming && 'border border-border bg-background/80'
+                        )}
+                      >
+                        {isComplete && !isActive ? <Check className="size-4" /> : step.num}
+                      </span>
+                      <span className="hidden truncate sm:inline">{step.label}</span>
+                    </button>
+                  </div>
+                )
+              })}
+            </nav>
+          )}
+        </>
       )}
       {!isCardView && (
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <nav
-          className="flex items-center gap-1 rounded-xl border border-border/60 bg-muted/20 p-1"
+          className="flex min-h-11 w-full min-w-0 items-center gap-0 rounded-xl border border-border/60 bg-muted/20 p-1.5"
           aria-label="Batch steps"
         >
-          {steps.map((step) => {
+          {steps.map((step, idx) => {
             const isActive = activeStep === step.id
             const isComplete = 'complete' in step && step.complete
+            const isUpcoming = !isActive && !isComplete
             const isOptional = 'optional' in step && step.optional && !step.complete
+            const prevStepComplete = idx > 0 && steps[idx - 1].complete
             return (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => scrollToSection(step.sectionId)}
-                className={cn(
-                  'flex min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all',
-                  'border-transparent',
-                  isActive
-                    ? 'border-border bg-background text-foreground shadow-sm ring-1 ring-primary/20'
-                    : 'bg-background/60 text-muted-foreground hover:bg-background/80 hover:text-foreground'
-                )}
-                aria-current={isActive ? 'step' : undefined}
-              >
-                <span
+              <div key={step.id} className="flex min-w-0 flex-1 items-center gap-2 sm:flex-initial sm:gap-2">
+                {idx > 0 ? (
+                  <div
+                    className={cn(
+                      'h-px min-w-[12px] flex-1 sm:min-w-4 sm:flex-initial',
+                      prevStepComplete ? 'bg-primary/30' : 'bg-border'
+                    )}
+                    aria-hidden
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => scrollToSection(step.sectionId)}
                   className={cn(
-                    'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-colors',
-                    isActive && 'border-2 border-primary bg-primary text-primary-foreground',
-                    isComplete && !isActive && 'border border-primary/50 bg-primary/10 text-primary',
-                    !isActive && !isComplete && 'border border-border bg-background/80'
+                    'flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all sm:flex-initial',
+                    'border-transparent',
+                    isActive &&
+                      'border-border bg-background text-foreground shadow-sm ring-2 ring-primary/30',
+                    isComplete &&
+                      !isActive &&
+                      'text-muted-foreground hover:bg-background/80 hover:text-foreground',
+                    isUpcoming && 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                   )}
+                  aria-current={isActive ? 'step' : undefined}
                 >
-                  {isComplete && !isActive ? <Check className="size-4" /> : step.num}
-                </span>
-                <span className="hidden truncate sm:inline">
-                  {step.label}
-                  {isOptional && <span className="text-muted-foreground font-normal"> (optional)</span>}
-                </span>
-                {step.icon}
-              </button>
+                  <span
+                    className={cn(
+                      'flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-colors',
+                      isActive && 'bg-primary text-primary-foreground',
+                      isComplete &&
+                        !isActive &&
+                        'border border-primary/50 bg-primary/10 text-primary',
+                      isUpcoming && 'border border-border bg-background/80'
+                    )}
+                  >
+                    {isComplete && !isActive ? <Check className="size-4" /> : step.num}
+                  </span>
+                  <span className="hidden truncate sm:inline">
+                    {step.label}
+                    {isOptional && <span className="text-muted-foreground font-normal"> (optional)</span>}
+                  </span>
+                  <span className="hidden shrink-0 text-muted-foreground/70 sm:inline [&_svg]:size-4">
+                    {step.icon}
+                  </span>
+                </button>
+              </div>
             )
           })}
         </nav>
@@ -631,12 +741,18 @@ export function BatchScenarioStep({
       </div>
       )}
 
-      {!isDetailed && (
+      {/* Base scenario: for Detailed mode in a collapsible; for Bulk mode step 1 */}
+      {(!isBulk || bulkStep === 1) && (
       <div id="batch-scenario" className="scroll-mt-6 space-y-6">
         <details open className="group rounded-lg border border-border/60 bg-card">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
             <ChevronRight className="size-4 shrink-0 transition-transform group-open:rotate-90" />
             Base scenario
+            {isBulk && (
+              <span className="text-muted-foreground font-normal text-xs ml-1">
+                — Set conversion factor, wRVU target, and PSQ
+              </span>
+            )}
           </summary>
           <div className="border-t border-border/60 px-4 pt-4 pb-4">
             <div className="space-y-4">
@@ -655,9 +771,104 @@ export function BatchScenarioStep({
               />
               </div>
             </div>
+            {isBulk && bulkStep === 1 && (
+              <div className="flex justify-end border-t border-border/60 pt-4 mt-4">
+                <Button type="button" onClick={() => setBulkStep(2)} className="gap-1.5">
+                  Next: Scope & guardrails
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            )}
           </div>
         </details>
       </div>
+      )}
+
+      {/* Bulk only: Step 2 — Scope & guardrails (wRVU bumper, min FTE) */}
+      {isBulk && bulkStep === 2 && (
+        <Card id="batch-bulk-guardrails" className="scroll-mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="size-4" />
+              Scope & guardrails
+            </CardTitle>
+            <p className="text-muted-foreground text-sm">
+              Exclude providers below these thresholds so the run focuses on those with stable volume (same idea as the CF Optimizer). Leave defaults to include everyone.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <TooltipProvider delayDuration={200}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="bulk-min-fte">Min clinical FTE</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground" aria-label="Help">
+                        <Info className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[260px] text-xs">
+                      Exclude providers with clinical FTE below this (e.g. 0.5 = exclude &lt; half-time).
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  id="bulk-min-fte"
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={minBasisFTE}
+                  onChange={(e) => setMinBasisFTE(Math.max(0, Math.min(1, Number(e.target.value) || 0.5)))}
+                  disabled={isRunning}
+                  className="w-24"
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="bulk-min-wrvu">Min wRVU per 1.0 cFTE</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground" aria-label="Help">
+                        <Info className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[260px] text-xs">
+                      Exclude providers whose wRVUs per 1.0 clinical FTE are below this (low volume; ratios can be unstable). Same as CF Optimizer bumper.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <Input
+                  id="bulk-min-wrvu"
+                  type="number"
+                  min={0}
+                  value={minWRVUPer1p0CFTE}
+                  onChange={(e) => setMinWRVUPer1p0CFTE(Math.max(0, Number(e.target.value) || 1000))}
+                  disabled={isRunning}
+                  className="w-28"
+                />
+              </div>
+            </div>
+            </TooltipProvider>
+            <p className="text-xs text-muted-foreground border-t border-border/40 pt-3">
+              <strong>{providersToRun.length}</strong> provider{providersToRun.length !== 1 ? 's' : ''} in scope
+              {providerRows.length > 0 && providersToRun.length < providerRows.length && (
+                <span> ({providerRows.length - providersToRun.length} excluded by guardrails)</span>
+              )}
+            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3">
+              <Button type="button" variant="outline" onClick={() => setBulkStep(1)} className="gap-1.5">
+                <ChevronLeft className="size-4" />
+                Back
+              </Button>
+              <Button type="button" onClick={() => setBulkStep(3)} className="gap-1.5">
+                Next: Run
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {!isBulk && (
@@ -697,23 +908,24 @@ export function BatchScenarioStep({
             {specialtyOverrides.length === 0 ? (
               <p className="text-muted-foreground text-sm py-2">No specialty overrides.</p>
             ) : (
-              <Table>
-                <TableHeader>
+              <div className="w-full overflow-auto rounded-md border border-border">
+              <Table className="w-full caption-bottom text-sm">
+                <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
                   <TableRow>
-                    <TableHead className="min-w-[160px]">Specialties</TableHead>
+                    <TableHead className="min-w-[160px] px-3 py-2.5">Specialties</TableHead>
                     {baseUsesOverrideCF ? (
-                      <TableHead className="w-[100px]">Target CF ($)</TableHead>
+                      <TableHead className="w-[100px] px-3 py-2.5">Target CF ($)</TableHead>
                     ) : (
-                      <TableHead className="w-[90px]">CF %ile</TableHead>
+                      <TableHead className="w-[90px] px-3 py-2.5">CF %ile</TableHead>
                     )}
-                    <TableHead className="w-[80px]">PSQ %</TableHead>
-                    <TableHead className="w-[60px]" />
+                    <TableHead className="w-[80px] px-3 py-2.5">PSQ %</TableHead>
+                    <TableHead className="w-[60px] px-3 py-2.5" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {specialtyOverrides.map((row, idx) => (
-                    <TableRow key={`spec-${idx}`}>
-                      <TableCell>
+                    <TableRow key={`spec-${idx}`} className={cn(idx % 2 === 1 && 'bg-muted/30')}>
+                      <TableCell className="px-3 py-2.5">
                         <DropdownMenu
                           open={openSpecialtyOverrideRow === idx}
                           onOpenChange={(open) => {
@@ -738,7 +950,7 @@ export function BatchScenarioStep({
                                   ? 'Select specialties…'
                                   : row.specialties.length === 1
                                     ? row.specialties[0]
-                                    : `${row.specialties.length} specialties`}
+                                    : `${row.specialties.length} specialty(ies)`}
                               </span>
                               <ChevronDown className="size-4 shrink-0 opacity-50" />
                             </Button>
@@ -752,7 +964,7 @@ export function BatchScenarioStep({
                               <Search className="size-4 shrink-0 text-muted-foreground" />
                               <Input
                                 ref={openSpecialtyOverrideRow === idx ? specialtyOverrideSearchRef : undefined}
-                                placeholder="Search…"
+                                placeholder="Search specialties…"
                                 value={openSpecialtyOverrideRow === idx ? specialtyOverrideSearch : ''}
                                 onChange={(e) => setSpecialtyOverrideSearch(e.target.value)}
                                 onKeyDown={(e) => e.stopPropagation()}
@@ -760,6 +972,7 @@ export function BatchScenarioStep({
                               />
                             </div>
                             <div className="max-h-[220px] overflow-y-auto p-1">
+                              <DropdownMenuLabel>Specialty</DropdownMenuLabel>
                               {filteredSpecialtyOverrideOptions.length === 0 ? (
                                 <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching specialties</p>
                               ) : (
@@ -790,7 +1003,7 @@ export function BatchScenarioStep({
                         </DropdownMenu>
                       </TableCell>
                       {baseUsesOverrideCF ? (
-                        <TableCell>
+                        <TableCell className="px-3 py-2.5">
                           <Input
                             type="number"
                             min={0}
@@ -807,7 +1020,7 @@ export function BatchScenarioStep({
                           />
                         </TableCell>
                       ) : (
-                        <TableCell>
+                        <TableCell className="px-3 py-2.5">
                           <Input
                             type="number"
                             min={0}
@@ -824,7 +1037,7 @@ export function BatchScenarioStep({
                           />
                         </TableCell>
                       )}
-                      <TableCell>
+                      <TableCell className="px-3 py-2.5">
                         <Input
                           type="number"
                           min={0}
@@ -841,7 +1054,7 @@ export function BatchScenarioStep({
                           className="h-9 w-full"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-3 py-2.5">
                         <Button
                           type="button"
                           variant="ghost"
@@ -857,6 +1070,7 @@ export function BatchScenarioStep({
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </div>
 
@@ -882,23 +1096,24 @@ export function BatchScenarioStep({
             {providerOverrides.length === 0 ? (
               <p className="text-muted-foreground text-sm py-2">No provider overrides.</p>
             ) : (
-              <Table>
-                <TableHeader>
+              <div className="w-full overflow-auto rounded-md border border-border">
+              <Table className="w-full caption-bottom text-sm">
+                <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
                   <TableRow>
-                    <TableHead className="min-w-[160px]">Providers</TableHead>
+                    <TableHead className="min-w-[160px] px-3 py-2.5">Providers</TableHead>
                     {baseUsesOverrideCF ? (
-                      <TableHead className="w-[100px]">Target CF ($)</TableHead>
+                      <TableHead className="w-[100px] px-3 py-2.5">Target CF ($)</TableHead>
                     ) : (
-                      <TableHead className="w-[90px]">CF %ile</TableHead>
+                      <TableHead className="w-[90px] px-3 py-2.5">CF %ile</TableHead>
                     )}
-                    <TableHead className="w-[80px]">PSQ %</TableHead>
-                    <TableHead className="w-[60px]" />
+                    <TableHead className="w-[80px] px-3 py-2.5">PSQ %</TableHead>
+                    <TableHead className="w-[60px] px-3 py-2.5" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {providerOverrides.map((row, idx) => (
-                    <TableRow key={`prov-${idx}`}>
-                      <TableCell>
+                    <TableRow key={`prov-${idx}`} className={cn(idx % 2 === 1 && 'bg-muted/30')}>
+                      <TableCell className="px-3 py-2.5">
                         <DropdownMenu
                           open={openProviderOverrideRow === idx}
                           onOpenChange={(open) => {
@@ -923,7 +1138,7 @@ export function BatchScenarioStep({
                                   ? 'Select providers…'
                                   : row.providerIds.length === 1
                                     ? (providersToRun.find((p) => (p.providerId ?? p.providerName ?? '').toString() === row.providerIds[0])?.providerName ?? row.providerIds[0])
-                                    : `${row.providerIds.length} providers`}
+                                    : `${row.providerIds.length} provider(s)`}
                               </span>
                               <ChevronDown className="size-4 shrink-0 opacity-50" />
                             </Button>
@@ -945,6 +1160,7 @@ export function BatchScenarioStep({
                               />
                             </div>
                             <div className="max-h-[260px] overflow-y-auto p-1">
+                              <DropdownMenuLabel>Providers</DropdownMenuLabel>
                               {filteredProviderOverrideOptions.length === 0 ? (
                                 <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching providers</p>
                               ) : (
@@ -981,7 +1197,7 @@ export function BatchScenarioStep({
                         </DropdownMenu>
                       </TableCell>
                       {baseUsesOverrideCF ? (
-                        <TableCell>
+                        <TableCell className="px-3 py-2.5">
                           <Input
                             type="number"
                             min={0}
@@ -998,7 +1214,7 @@ export function BatchScenarioStep({
                           />
                         </TableCell>
                       ) : (
-                        <TableCell>
+                        <TableCell className="px-3 py-2.5">
                           <Input
                             type="number"
                             min={0}
@@ -1015,7 +1231,7 @@ export function BatchScenarioStep({
                           />
                         </TableCell>
                       )}
-                      <TableCell>
+                      <TableCell className="px-3 py-2.5">
                         <Input
                           type="number"
                           min={0}
@@ -1032,7 +1248,7 @@ export function BatchScenarioStep({
                           className="h-9 w-full"
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="px-3 py-2.5">
                         <Button
                           type="button"
                           variant="ghost"
@@ -1048,222 +1264,37 @@ export function BatchScenarioStep({
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </div>
         </CardContent>
       </Card>
       )}
 
+      {(!isBulk || bulkStep === 3) && (
       <Card id="batch-run" className="scroll-mt-6">
         <CardHeader>
           <CardTitle>Run</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Scenarios: base only vs base + library */}
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Scenarios to run">
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="radio"
-                  name="batch-run-mode"
-                  checked={runBaseScenarioOnly}
-                  onChange={() => setRunBaseScenarioOnly(true)}
-                  disabled={isRunning}
-                  className="size-4"
-                />
-                <span className="text-sm">Base scenario only</span>
-              </label>
-              <label className="flex cursor-pointer items-center gap-2">
-                <input
-                  type="radio"
-                  name="batch-run-mode"
-                  checked={!runBaseScenarioOnly}
-                  onChange={() => setRunBaseScenarioOnly(false)}
-                  disabled={isRunning}
-                  className="size-4"
-                />
-                <span className="text-sm">
-                  Base + scenario library{savedScenarios.length > 0 ? ` (${savedScenarios.length} saved)` : ''}
-                </span>
-              </label>
+          {isBulk && bulkStep === 3 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Check className="size-4 shrink-0 text-primary" strokeWidth={2.5} />
+              <span className="tabular-nums">
+                {providersToRun.length} provider{providersToRun.length !== 1 ? 's' : ''} × 1 scenario
+                {overrideCount > 0 && ` · ${overrideCount} override${overrideCount !== 1 ? 's' : ''}`}
+              </span>
             </div>
-            {!runBaseScenarioOnly && savedScenarios.length > 0 && onClearSavedScenarios && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 text-muted-foreground hover:text-destructive -ml-1"
-                onClick={onClearSavedScenarios}
-                disabled={isRunning}
-              >
-                Clear library
-              </Button>
-            )}
-          </div>
-          {/* Who to run: scope (all vs selected specialties/providers) */}
-          <div className="space-y-2">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Target className="size-4" />
-                  Specialty
-                </Label>
-                <DropdownMenu
-                  onOpenChange={(open) => {
-                    if (open) setTimeout(() => specialtySearchInputRef.current?.focus(), 0)
-                    else setSpecialtySearch('')
-                  }}
-                >
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="min-h-9 w-full justify-between font-normal"
-                      disabled={isRunning || providerSpecialties.length === 0}
-                    >
-                      <span className="truncate">
-                        {selectedSpecialties.length === 0
-                          ? 'All specialties'
-                          : `${selectedSpecialties.length} specialty${selectedSpecialties.length !== 1 ? 'ies' : ''} selected`}
-                      </span>
-                      <ChevronDown className="size-4 shrink-0 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden flex flex-col p-0" align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
-                    <div className="flex items-center gap-2 border-b px-2 py-1.5">
-                      <Search className="size-4 shrink-0 text-muted-foreground" />
-                      <Input
-                        ref={specialtySearchInputRef}
-                        placeholder="Search specialties…"
-                        value={specialtySearch}
-                        onChange={(e) => setSpecialtySearch(e.target.value)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
-                      />
-                    </div>
-                    <div className="max-h-[260px] overflow-y-auto p-1">
-                      <DropdownMenuCheckboxItem
-                        checked={selectedSpecialties.length === 0}
-                        onCheckedChange={(checked) => {
-                          if (checked) setSelectedSpecialties([])
-                        }}
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        All specialties
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuSeparator />
-                      {filteredSpecialtiesForRun.length === 0 ? (
-                        <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching specialties</p>
-                      ) : (
-                        filteredSpecialtiesForRun.map((s) => (
-                          <DropdownMenuCheckboxItem
-                            key={s}
-                            checked={selectedSpecialties.length > 0 && selectedSpecialties.includes(s)}
-                            onCheckedChange={(checked) => {
-                              setSelectedSpecialties((prev) =>
-                                checked ? [...prev, s] : prev.filter((x) => x !== s)
-                              )
-                            }}
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            {s}
-                          </DropdownMenuCheckboxItem>
-                        ))
-                      )}
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Users className="size-4" />
-                  Provider
-                </Label>
-                <DropdownMenu
-                  onOpenChange={(open) => {
-                    if (open) setTimeout(() => providerSearchInputRef.current?.focus(), 0)
-                    else setProviderSearch('')
-                  }}
-                >
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="min-h-9 w-full justify-between font-normal"
-                      disabled={isRunning || providersAfterSpecialtyFilter.length === 0}
-                    >
-                      <span className="truncate">
-                        {selectedProviderIds.length === 0
-                          ? 'All providers'
-                          : `${selectedProviderIds.length} provider${selectedProviderIds.length !== 1 ? 's' : ''} selected`}
-                      </span>
-                      <ChevronDown className="size-4 shrink-0 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden flex flex-col p-0" align="start" onCloseAutoFocus={(e) => e.preventDefault()}>
-                    <div className="flex items-center gap-2 border-b px-2 py-1.5">
-                      <Search className="size-4 shrink-0 text-muted-foreground" />
-                      <Input
-                        ref={providerSearchInputRef}
-                        placeholder="Search by name or specialty…"
-                        value={providerSearch}
-                        onChange={(e) => setProviderSearch(e.target.value)}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
-                      />
-                    </div>
-                    <div className="max-h-[260px] overflow-y-auto p-1">
-                      <DropdownMenuCheckboxItem
-                        checked={selectedProviderIds.length === 0}
-                        onCheckedChange={(checked) => {
-                          if (checked) setSelectedProviderIds([])
-                        }}
-                        onSelect={(e) => e.preventDefault()}
-                      >
-                        All providers
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuSeparator />
-                      {filteredProvidersForRun.length === 0 ? (
-                        <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching providers</p>
-                      ) : (
-                        filteredProvidersForRun.map((p) => {
-                          const id = (p.providerId ?? p.providerName ?? '').toString()
-                          const name = (p.providerName ?? id) || id
-                          const sub = (p.specialty ?? '').trim()
-                          return (
-                            <DropdownMenuCheckboxItem
-                              key={id}
-                              checked={selectedProviderIds.includes(id)}
-                              onCheckedChange={(checked) => {
-                                setSelectedProviderIds((prev) =>
-                                  checked ? [...prev, id] : prev.filter((x) => x !== id)
-                                )
-                              }}
-                              onSelect={(e) => e.preventDefault()}
-                            >
-                              {name}
-                              {sub ? ` · ${sub}` : ''}
-                            </DropdownMenuCheckboxItem>
-                          )
-                        })
-                      )}
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+          )}
+          {!isBulk && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Check className="size-4 shrink-0 text-primary" strokeWidth={2.5} />
+              <span className="tabular-nums">
+                {providersToRun.length} provider{providersToRun.length !== 1 ? 's' : ''} × 1 scenario
+                {overrideCount > 0 && ` · ${overrideCount} override${overrideCount !== 1 ? 's' : ''}`}
+              </span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {selectedSpecialties.length === 0 && selectedProviderIds.length === 0
-                ? 'All providers'
-                : `${providersToRun.length} provider${providersToRun.length !== 1 ? 's' : ''} selected`}
-            </p>
-          </div>
-          {/* One-line summary */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Check className="size-4 shrink-0 text-primary" strokeWidth={2.5} />
-            <span className="tabular-nums">
-              {providersToRun.length} provider{providersToRun.length !== 1 ? 's' : ''} × {runBaseScenarioOnly ? '1' : 1 + savedScenarios.length} scenario{runBaseScenarioOnly || savedScenarios.length === 0 ? '' : 's'}
-              {overrideCount > 0 && ` · ${overrideCount} override${overrideCount !== 1 ? 's' : ''}`}
-            </span>
-          </div>
+          )}
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               <AlertCircle className="size-4 shrink-0" />
@@ -1282,25 +1313,24 @@ export function BatchScenarioStep({
               <p className="text-muted-foreground text-xs">Results open when done.</p>
             </div>
           )}
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="space-y-2">
-              <Button
-                onClick={runBatch}
-                disabled={isRunning || providersToRun.length === 0 || marketRows.length === 0}
-              >
-                {isRunning ? (
-                  <>
-                    <Loader2 className="size-4 mr-2 animate-spin" />
-                    Running…
-                  </>
-                ) : (
-                  <>
-                    <Play className="size-4 mr-2" />
-                    Run
-                  </>
-                )}
-              </Button>
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              onClick={runBatch}
+              disabled={isRunning || providersToRun.length === 0 || marketRows.length === 0}
+              className="gap-2"
+            >
+              {isRunning ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Running…
+                </>
+              ) : (
+                <>
+                  <Play className="size-4" />
+                  Run
+                </>
+              )}
+            </Button>
           </div>
           {onSaveScenario && (
             <Dialog open={saveScenarioDialogOpen} onOpenChange={setSaveScenarioDialogOpen}>
@@ -1308,7 +1338,7 @@ export function BatchScenarioStep({
                 <DialogHeader>
                   <DialogTitle>Save scenario</DialogTitle>
                   <DialogDescription>
-                    Save this batch scenario (base inputs, overrides, run-for selection) in this browser. Load it later from the Saved batch scenarios menu.
+                    Save this batch scenario (base inputs and overrides) in this browser. Load it later from the Saved batch scenarios menu.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-2 py-2">
@@ -1334,9 +1364,9 @@ export function BatchScenarioStep({
                         name,
                         scenarioInputs: { ...scenarioInputs },
                         overrides: batchOverrides,
-                        selectedSpecialties: [...selectedSpecialties],
-                        selectedProviderIds: [...selectedProviderIds],
-                        runBaseScenarioOnly,
+                        selectedSpecialties: [],
+                        selectedProviderIds: [],
+                        runBaseScenarioOnly: true,
                       })
                       setSaveScenarioName('')
                       setSaveScenarioDialogOpen(false)
@@ -1351,6 +1381,8 @@ export function BatchScenarioStep({
           )}
         </CardContent>
       </Card>
+      )}
+
     </div>
   )
 }

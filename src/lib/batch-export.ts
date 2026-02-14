@@ -13,6 +13,7 @@ function rowToWideRecord(r: BatchRowResult): Record<string, string | number> {
     providerName: r.providerName,
     specialty: r.specialty,
     division: r.division,
+    providerType: r.providerType ?? '',
     scenarioId: r.scenarioId,
     scenarioName: r.scenarioName,
     matchStatus: r.matchStatus,

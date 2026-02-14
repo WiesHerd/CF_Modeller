@@ -290,22 +290,22 @@ export function SynonymEditor({
                 </Button>
               </div>
             </div>
-            <div className="max-h-[min(70vh,800px)] overflow-auto rounded-md border border-border/60">
-              <table className="w-full border-collapse text-sm">
-                <thead className="sticky top-0 z-10 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+            <div className="max-h-[min(70vh,800px)] overflow-auto rounded-md border border-border">
+              <table className="w-full caption-bottom text-sm border-collapse">
+                <thead className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
                   <tr>
-                    <th className="text-left px-3 py-2 font-semibold">Provider specialty</th>
-                    <th className="text-left px-3 py-2 font-semibold min-w-[320px]">→ Market specialty</th>
+                    <th className="text-left px-3 py-2.5 font-medium">Provider specialty</th>
+                    <th className="text-left px-3 py-2.5 font-medium min-w-[320px]">→ Market specialty</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/40">
-                  {providerSpecialtiesPaginated.map((prov) => {
+                <tbody className="[&_tr:last-child]:border-0">
+                  {providerSpecialtiesPaginated.map((prov, idx) => {
                     const value = bulkSelections[prov] ?? NO_MAP_VALUE
                     const displayLabel = value === NO_MAP_VALUE ? "— Don't map" : value
                     return (
-                      <tr key={prov} className="hover:bg-muted/30">
-                        <td className="px-3 py-2 font-medium">{prov}</td>
-                        <td className="px-3 py-2 min-w-[320px]">
+                      <tr key={prov} className={cn(idx % 2 === 1 && 'bg-muted/30', 'border-b border-border transition-colors hover:bg-muted/50')}>
+                        <td className="px-3 py-2.5 font-medium">{prov}</td>
+                        <td className="px-3 py-2.5 min-w-[320px]">
                           <DropdownMenu
                             open={openBulkKey === prov}
                             onOpenChange={(open) => setOpenBulkKey(open ? prov : null)}

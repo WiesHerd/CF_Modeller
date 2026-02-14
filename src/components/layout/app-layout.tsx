@@ -1,33 +1,30 @@
 import { useState } from 'react'
-import { Upload, Layers, Menu, Plus, PanelLeftClose, PanelLeft, FileUp, PenLine, TrendingUp, BarChart2, LayoutGrid, Sliders, Table2 } from 'lucide-react'
+import { Menu, Plus, PanelLeftClose, PanelLeft, FileUp, User, Users, Gauge, BarChart2, Sliders, Table2, GitCompare, HelpCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import type { BatchCardId } from '@/components/batch/batch-card-picker'
 
-export type AppStep = 'upload' | 'data' | 'modeller' | 'batch-scenario' | 'batch-results'
+export type AppStep = 'upload' | 'data' | 'modeller' | 'batch-scenario' | 'batch-results' | 'compare-scenarios' | 'help'
 export type AppMode = 'single' | 'batch'
 
 /** When collapsed, only this rail width is reserved — content keeps max width. */
-const RAIL_WIDTH = 56
-const SIDEBAR_EXPANDED_WIDTH = 240
+const RAIL_WIDTH = 68
+const SIDEBAR_EXPANDED_WIDTH = 260
 
 const BATCH_NAV: { id: BatchCardId; label: string; icon: React.ReactNode; tooltip: string }[] = [
-  { id: 'cf-optimizer', label: 'CF Optimizer', icon: <TrendingUp className="size-4 shrink-0" />, tooltip: 'Conversion Factor Optimizer' },
-  { id: 'imputed-vs-market', label: 'Market positioning', icon: <BarChart2 className="size-4 shrink-0" />, tooltip: 'Market positioning (imputed)' },
-  { id: 'bulk-scenario', label: 'Bulk scenario', icon: <LayoutGrid className="size-4 shrink-0" />, tooltip: 'Bulk scenario planning' },
-  { id: 'detailed-scenario', label: 'Detailed scenario', icon: <Sliders className="size-4 shrink-0" />, tooltip: 'Detailed scenario planning' },
+  { id: 'cf-optimizer', label: 'CF Optimizer', icon: <Gauge className="size-5 shrink-0" />, tooltip: 'Conversion Factor Optimizer' },
+  { id: 'imputed-vs-market', label: 'Market positioning', icon: <BarChart2 className="size-5 shrink-0" />, tooltip: 'Market positioning (imputed)' },
+  { id: 'bulk-scenario', label: 'Create and Run Scenario', icon: <Users className="size-5 shrink-0" />, tooltip: 'Create a scenario and run it for all providers' },
+  { id: 'detailed-scenario', label: 'Detailed scenarios', icon: <Sliders className="size-5 shrink-0" />, tooltip: 'Scenario overrides by specialty and provider' },
 ]
 
 interface AppLayoutProps {
   step: AppStep
   onStepChange: (step: AppStep) => void
-  canShowBatchResults: boolean
   currentBatchCard?: BatchCardId | null
-  currentSingleProviderMode?: 'existing' | 'new'
   onBatchCardSelect?: (id: BatchCardId) => void
-  onSingleProviderMode?: (mode: 'existing' | 'new') => void
   children: React.ReactNode
 }
 
@@ -77,7 +74,7 @@ function NavButton({
       disabled={disabled}
       className={cn(
         'flex w-full items-center rounded-lg transition-colors text-left shrink-0',
-        collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5 text-sm',
+        collapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2.5 text-sm',
         active && 'bg-muted text-foreground font-medium',
         !active && !disabled && 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
         disabled && 'cursor-not-allowed opacity-50'
@@ -105,11 +102,8 @@ function NavButton({
 export function AppLayout({
   step,
   onStepChange,
-  canShowBatchResults,
   currentBatchCard = null,
-  currentSingleProviderMode,
   onBatchCardSelect,
-  onSingleProviderMode,
   children,
 }: AppLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -119,6 +113,8 @@ export function AppLayout({
   const isDataActive = step === 'data'
   const isModellerActive = step === 'modeller'
   const isBatchScenarioActive = step === 'batch-scenario'
+  const isCompareScenariosActive = step === 'compare-scenarios'
+  const isHelpActive = step === 'help'
 
   const handleNav = (s: AppStep) => {
     onStepChange(s)
@@ -131,12 +127,6 @@ export function AppLayout({
     setMobileOpen(false)
   }
 
-  const handleSingleMode = (mode: 'existing' | 'new') => {
-    onSingleProviderMode?.(mode)
-    onStepChange('modeller')
-    setMobileOpen(false)
-  }
-
   const railContent = (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-full flex-col bg-muted/30 border-r border-border/50 w-full">
@@ -146,13 +136,13 @@ export function AppLayout({
             <button
               type="button"
               onClick={() => handleNav('upload')}
-              className="flex items-center justify-center p-2.5 w-full hover:bg-muted/50 transition-colors border-b border-border/50 shrink-0 rounded-none"
+              className="flex items-center justify-center p-3 w-full hover:bg-muted/50 transition-colors border-b border-border/50 shrink-0 rounded-none"
               aria-label="Go to Upload"
             >
-              <img src="/NewIMage.png" alt="" className="size-7 rounded-md object-contain" />
+              <img src="/NewIMage.png" alt="" className="size-8 rounded-md object-contain" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right">TCC Modeler — Upload</TooltipContent>
+          <TooltipContent side="right">TCC Modeler — Import data</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -161,30 +151,30 @@ export function AppLayout({
               type="button"
               onClick={() => handleNav('upload')}
               className={cn(
-                'flex w-full items-center justify-center rounded-lg p-2.5 transition-colors shrink-0 mx-1 mt-1',
+                'flex w-full items-center justify-center rounded-lg p-3 transition-colors shrink-0 mx-1 mt-1',
                 isUploadActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               )}
               aria-label="Start"
             >
-              <Plus className="size-4 shrink-0" />
+              <Plus className="size-5 shrink-0" />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right">Start — Upload</TooltipContent>
+          <TooltipContent side="right">Start — Import data</TooltipContent>
         </Tooltip>
 
         <div className="flex-1 overflow-auto py-1 space-y-0.5 px-1 min-h-0">
           <NavButton
-            icon={<FileUp className="size-4 shrink-0" />}
-            label="Upload"
-            tooltip="Upload"
+            icon={<FileUp className="size-5 shrink-0" />}
+            label="Import data"
+            tooltip="Import provider and market data"
             active={isUploadActive}
             disabled={false}
             onClick={() => handleNav('upload')}
             collapsed={true}
           />
           <NavButton
-            icon={<Table2 className="size-4 shrink-0" />}
-            label="Data"
+            icon={<Table2 className="size-5 shrink-0" />}
+            label="Data browser"
             tooltip="Browse and filter provider and market data"
             active={isDataActive}
             disabled={false}
@@ -192,21 +182,12 @@ export function AppLayout({
             collapsed={true}
           />
           <NavButton
-            icon={<Upload className="size-4 shrink-0" />}
-            label="Single from upload"
-            tooltip="Single from upload"
-            active={isModellerActive && currentSingleProviderMode === 'existing'}
+            icon={<User className="size-5 shrink-0" />}
+            label="Single scenario"
+            tooltip="Model TCC for one provider — from upload or custom"
+            active={isModellerActive}
             disabled={false}
-            onClick={() => handleSingleMode('existing')}
-            collapsed={true}
-          />
-          <NavButton
-            icon={<PenLine className="size-4 shrink-0" />}
-            label="Custom single scenario"
-            tooltip="Custom single scenario"
-            active={isModellerActive && currentSingleProviderMode === 'new'}
-            disabled={false}
-            onClick={() => handleSingleMode('new')}
+            onClick={() => handleNav('modeller')}
             collapsed={true}
           />
           {BATCH_NAV.map((item) => (
@@ -221,17 +202,24 @@ export function AppLayout({
               collapsed={true}
             />
           ))}
-          {canShowBatchResults && (
-            <NavButton
-              icon={<Layers className="size-4 shrink-0" />}
-              label="Results"
-              tooltip="View batch run results"
-              active={step === 'batch-results'}
-              disabled={false}
-              onClick={() => handleNav('batch-results')}
-              collapsed={true}
-            />
-          )}
+          <NavButton
+            icon={<GitCompare className="size-5 shrink-0" />}
+            label="Compare scenarios"
+            tooltip="Compare saved optimizer scenarios"
+            active={isCompareScenariosActive}
+            disabled={false}
+            onClick={() => handleNav('compare-scenarios')}
+            collapsed={true}
+          />
+          <NavButton
+            icon={<HelpCircle className="size-5 shrink-0" />}
+            label="How to use"
+            tooltip="Learn what each screen does and when to use it"
+            active={isHelpActive}
+            disabled={false}
+            onClick={() => handleNav('help')}
+            collapsed={true}
+          />
         </div>
 
         <div className="p-1 border-t border-border/50">
@@ -240,10 +228,10 @@ export function AppLayout({
               <button
                 type="button"
                 onClick={() => setSidebarCollapsed(false)}
-                className="flex w-full items-center justify-center rounded-lg p-2.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+                className="flex w-full items-center justify-center rounded-lg p-3 text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
                 aria-label="Expand sidebar"
               >
-                <PanelLeft className="size-4" />
+                <PanelLeft className="size-5" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="right">Expand sidebar</TooltipContent>
@@ -253,9 +241,9 @@ export function AppLayout({
     </TooltipProvider>
   )
 
-  /** Full 240px sidebar content (with labels). Shown when expanded; same strip pushes content. */
+  /** Full expanded sidebar content (with labels). Shown when expanded; same strip pushes content. */
   const expandedSidebarContent = (
-    <div className="flex h-full w-full min-w-[240px] flex-col bg-muted/30 border-r border-border/50">
+    <div className="flex h-full w-full min-w-[260px] flex-col bg-muted/30 border-r border-border/50">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-border/50 shrink-0">
         <img src="/NewIMage.png" alt="" className="size-9 rounded-lg object-contain ring-1 ring-border/40" />
@@ -274,7 +262,7 @@ export function AppLayout({
             isUploadActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
           )}
         >
-          <Plus className="size-4 shrink-0" />
+          <Plus className="size-5 shrink-0" />
           <span>Start</span>
         </button>
       </div>
@@ -283,17 +271,17 @@ export function AppLayout({
         <SidebarSection label="Get started" collapsed={false}>
           <div className="space-y-0.5">
             <NavButton
-              icon={<FileUp className="size-4 shrink-0" />}
-            label="Upload"
-            tooltip="Load provider and market data from CSV"
+              icon={<FileUp className="size-5 shrink-0" />}
+              label="Import data"
+              tooltip="Import provider and market data"
               active={isUploadActive}
               disabled={false}
               onClick={() => handleNav('upload')}
               collapsed={false}
             />
             <NavButton
-              icon={<Table2 className="size-4 shrink-0" />}
-              label="Data"
+              icon={<Table2 className="size-5 shrink-0" />}
+              label="Data browser"
               tooltip="Browse and filter provider and market data"
               active={isDataActive}
               disabled={false}
@@ -302,24 +290,15 @@ export function AppLayout({
             />
           </div>
         </SidebarSection>
-        <SidebarSection label="Single provider" collapsed={false}>
+        <SidebarSection label="Single scenario" collapsed={false}>
           <div className="space-y-0.5">
             <NavButton
-              icon={<Upload className="size-4 shrink-0" />}
-              label="Single from upload"
-              tooltip="Use a provider from your uploaded file"
-              active={isModellerActive && currentSingleProviderMode === 'existing'}
+              icon={<User className="size-5 shrink-0" />}
+              label="Single scenario"
+              tooltip="Model TCC for one provider — from upload or custom"
+              active={isModellerActive}
               disabled={false}
-              onClick={() => handleSingleMode('existing')}
-              collapsed={false}
-            />
-            <NavButton
-              icon={<PenLine className="size-4 shrink-0" />}
-              label="Custom single scenario"
-              tooltip="Enter your own data — no upload required"
-              active={isModellerActive && currentSingleProviderMode === 'new'}
-              disabled={false}
-              onClick={() => handleSingleMode('new')}
+              onClick={() => handleNav('modeller')}
               collapsed={false}
             />
           </div>
@@ -340,19 +319,28 @@ export function AppLayout({
             ))}
           </div>
         </SidebarSection>
-        {canShowBatchResults && (
-          <SidebarSection label="Output" collapsed={false}>
-            <NavButton
-              icon={<Layers className="size-4 shrink-0" />}
-              label="Results"
-              tooltip="View batch run results (Bulk or Detailed)"
-              active={step === 'batch-results'}
-              disabled={false}
-              onClick={() => handleNav('batch-results')}
-              collapsed={false}
-            />
-          </SidebarSection>
-        )}
+        <SidebarSection label="Output" collapsed={false}>
+          <NavButton
+            icon={<GitCompare className="size-5 shrink-0" />}
+            label="Compare scenarios"
+            tooltip="Compare saved optimizer scenarios"
+            active={isCompareScenariosActive}
+            disabled={false}
+            onClick={() => handleNav('compare-scenarios')}
+            collapsed={false}
+          />
+        </SidebarSection>
+        <SidebarSection label="Help" collapsed={false}>
+          <NavButton
+            icon={<HelpCircle className="size-5 shrink-0" />}
+            label="How to use"
+            tooltip="Learn what each screen does and when to use it"
+            active={isHelpActive}
+            disabled={false}
+            onClick={() => handleNav('help')}
+            collapsed={false}
+          />
+        </SidebarSection>
       </div>
       {/* Collapse + footer */}
       <div className="border-t border-border/50 shrink-0">
@@ -362,7 +350,7 @@ export function AppLayout({
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground mx-2 mt-2 transition-colors"
           aria-label="Collapse sidebar"
         >
-          <PanelLeftClose className="size-4 shrink-0" />
+          <PanelLeftClose className="size-5 shrink-0" />
           <span>Collapse</span>
         </button>
         <p className="px-4 py-3 text-xs text-muted-foreground/80 border-t border-border/50">
@@ -372,7 +360,7 @@ export function AppLayout({
     </div>
   )
 
-  /** Single sidebar: width transitions 56px ↔ 240px and pushes main content (no overlay). */
+  /** Single sidebar: width transitions 68px ↔ 260px and pushes main content (no overlay). */
   const sidebarWidthPx = sidebarCollapsed ? RAIL_WIDTH : SIDEBAR_EXPANDED_WIDTH
   const desktopSidebar = (
     <aside
@@ -412,7 +400,7 @@ export function AppLayout({
                     isUploadActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                   )}
                 >
-                  <Plus className="size-4 shrink-0" />
+                  <Plus className="size-5 shrink-0" />
                   <span>Start</span>
                 </button>
               </div>
@@ -420,17 +408,17 @@ export function AppLayout({
                 <SidebarSection label="Get started" collapsed={false}>
                   <div className="space-y-0.5">
                     <NavButton
-                      icon={<FileUp className="size-4 shrink-0" />}
-                      label="Upload"
-                      tooltip="Load provider and market data"
+                      icon={<FileUp className="size-5 shrink-0" />}
+                      label="Import data"
+                      tooltip="Import provider and market data"
                       active={isUploadActive}
                       disabled={false}
                       onClick={() => handleNav('upload')}
                       collapsed={false}
                     />
                     <NavButton
-                      icon={<Table2 className="size-4 shrink-0" />}
-                      label="Data"
+                      icon={<Table2 className="size-5 shrink-0" />}
+                      label="Data browser"
                       tooltip="Browse and filter provider and market data"
                       active={isDataActive}
                       disabled={false}
@@ -439,24 +427,15 @@ export function AppLayout({
                     />
                   </div>
                 </SidebarSection>
-                <SidebarSection label="Single provider" collapsed={false}>
+                <SidebarSection label="Single scenario" collapsed={false}>
                   <div className="space-y-0.5">
                     <NavButton
-                      icon={<Upload className="size-4 shrink-0" />}
-                      label="Single from upload"
-                      tooltip="Use a provider from your uploaded file"
-                      active={isModellerActive && currentSingleProviderMode === 'existing'}
+                      icon={<User className="size-5 shrink-0" />}
+                      label="Single scenario"
+                      tooltip="Model TCC for one provider — from upload or custom"
+                      active={isModellerActive}
                       disabled={false}
-                      onClick={() => handleSingleMode('existing')}
-                      collapsed={false}
-                    />
-                    <NavButton
-                      icon={<PenLine className="size-4 shrink-0" />}
-                      label="Custom single scenario"
-                      tooltip="Enter your own data"
-                      active={isModellerActive && currentSingleProviderMode === 'new'}
-                      disabled={false}
-                      onClick={() => handleSingleMode('new')}
+                      onClick={() => handleNav('modeller')}
                       collapsed={false}
                     />
                   </div>
@@ -477,19 +456,28 @@ export function AppLayout({
                     ))}
                   </div>
                 </SidebarSection>
-                {canShowBatchResults && (
-                  <SidebarSection label="Output" collapsed={false}>
-                    <NavButton
-                      icon={<Layers className="size-4 shrink-0" />}
-                      label="Results"
-                      tooltip="View batch run results"
-                      active={step === 'batch-results'}
-                      disabled={false}
-                      onClick={() => handleNav('batch-results')}
-                      collapsed={false}
-                    />
-                  </SidebarSection>
-                )}
+                <SidebarSection label="Output" collapsed={false}>
+                  <NavButton
+                    icon={<GitCompare className="size-5 shrink-0" />}
+                    label="Compare scenarios"
+                    tooltip="Compare saved optimizer scenarios"
+                    active={isCompareScenariosActive}
+                    disabled={false}
+                    onClick={() => handleNav('compare-scenarios')}
+                    collapsed={false}
+                  />
+                </SidebarSection>
+                <SidebarSection label="Help" collapsed={false}>
+                  <NavButton
+                    icon={<HelpCircle className="size-5 shrink-0" />}
+                    label="How to use"
+                    tooltip="Learn what each screen does and when to use it"
+                    active={isHelpActive}
+                    disabled={false}
+                    onClick={() => handleNav('help')}
+                    collapsed={false}
+                  />
+                </SidebarSection>
               </div>
             </div>
           </TooltipProvider>
@@ -511,8 +499,8 @@ export function AppLayout({
       {/* Main content — pushed by sidebar on desktop; padding-left matches sidebar width and transitions */}
       <div
         className={cn(
-          'relative z-0 flex flex-1 flex-col min-w-0 transition-[padding-left] duration-200 ease-out',
-          sidebarCollapsed ? 'md:pl-[56px]' : 'md:pl-[240px]'
+          'layout-content-wrap relative z-0 flex flex-1 flex-col min-w-0 transition-[padding-left] duration-200 ease-out',
+          sidebarCollapsed ? 'md:pl-[68px]' : 'md:pl-[260px]'
         )}
       >
         <main className="safe-area-bottom flex-1 overflow-auto pb-8 pt-6">

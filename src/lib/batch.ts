@@ -165,6 +165,7 @@ export function runBatch(
     const providerName = (provider.providerName ?? '').toString()
     const specialty = (provider.specialty ?? '').toString()
     const division = (provider.division ?? '').toString()
+    const providerType = (provider.providerType ?? '').toString()
 
     const match = matchMarketRow(provider, marketRows, synonymMap)
     const warnings: string[] = []
@@ -190,6 +191,7 @@ export function runBatch(
           providerName,
           specialty,
           division,
+          providerType: providerType || undefined,
           scenarioId: sc.id,
           scenarioName: sc.name,
           scenarioInputsSnapshot: effectiveInputs,
@@ -212,6 +214,7 @@ export function runBatch(
           providerName,
           specialty,
           division,
+          providerType: providerType || undefined,
           scenarioId: sc.id,
           scenarioName: sc.name,
           scenarioInputsSnapshot: effectiveInputs,

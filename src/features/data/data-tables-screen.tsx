@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useRef, useCallback } from 'react'
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -15,6 +15,7 @@ import {
   type ColumnSizingState,
   type VisibilityState,
 } from '@tanstack/react-table'
+import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -43,7 +44,7 @@ import {
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { formatCurrency, formatNumber } from '@/utils/format'
-import { ChevronLeft, ChevronRight, GripVertical, Columns3, Maximize2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, GripVertical, Columns3, Maximize2, Table2 } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 
@@ -70,6 +71,7 @@ function getProviderCellDisplayString(columnId: string, row: ProviderRow): strin
     case 'providerName': return String(row.providerName ?? EMPTY)
     case 'specialty': return String(row.specialty ?? EMPTY)
     case 'division': return String(row.division ?? EMPTY)
+    case 'providerType': return String(row.providerType ?? EMPTY)
     case 'totalFTE': return fmtNum(row.totalFTE, 2)
     case 'clinicalFTE': return fmtNum(row.clinicalFTE, 2)
     case 'adminFTE': return fmtNum(row.adminFTE, 2)
@@ -104,12 +106,17 @@ function getMarketCellDisplayString(columnId: string, row: MarketRow): string {
 interface DataTablesScreenProps {
   providerRows: ProviderRow[]
   marketRows: MarketRow[]
+  /** Controlled tab when provided; use with onDataTabChange. */
+  dataTab?: 'providers' | 'market'
+  onDataTabChange?: (tab: 'providers' | 'market') => void
   onNavigateToUpload?: () => void
 }
 
 export function DataTablesScreen({
   providerRows,
   marketRows,
+  dataTab: controlledTab,
+  onDataTabChange,
   onNavigateToUpload,
 }: DataTablesScreenProps) {
   const hasAny = providerRows.length > 0 || marketRows.length > 0
@@ -117,7 +124,7 @@ export function DataTablesScreen({
   if (!hasAny) {
     return (
       <div className="space-y-6">
-        <h2 className="section-title">Data</h2>
+        <SectionTitleWithIcon icon={<Table2 />}>Data browser</SectionTitleWithIcon>
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground mb-4">
@@ -133,10 +140,17 @@ export function DataTablesScreen({
   }
 
   const defaultTab = providerRows.length > 0 ? 'providers' : 'market'
+  const [internalTab, setInternalTab] = useState<'providers' | 'market'>(defaultTab)
+  const tabValue = controlledTab ?? internalTab
+  const handleTabChange = (v: string) => {
+    const t = v as 'providers' | 'market'
+    if (onDataTabChange) onDataTabChange(t)
+    else setInternalTab(t)
+  }
   return (
     <div className="space-y-6">
-      <h2 className="section-title">Data</h2>
-      <Tabs defaultValue={defaultTab} className="w-full">
+      <SectionTitleWithIcon icon={<Table2 />}>Data browser</SectionTitleWithIcon>
+      <Tabs value={tabValue} onValueChange={handleTabChange} className="w-full">
         <TabsList>
           <TabsTrigger value="providers">Providers ({providerRows.length})</TabsTrigger>
           <TabsTrigger value="market">Market ({marketRows.length})</TabsTrigger>
@@ -190,13 +204,17 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [draggedColId, setDraggedColId] = useState<string | null>(null)
   const [dropTargetColId, setDropTargetColId] = useState<string | null>(null)
+  const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
   const dragColIdRef = useRef<string | null>(null)
   const tableScrollRef = useRef<HTMLDivElement>(null)
+  const focusedCellRef = useRef<HTMLTableCellElement>(null)
+  const focusAfterPageChangeRef = useRef<{ rowIndex: number; columnIndex: number } | null>(null)
 
   const SCROLL_STEP = 120
   const handleTableKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     const el = tableScrollRef.current
     if (!el) return
+    if (focusedCell != null) return
     switch (e.key) {
       case 'ArrowLeft':
         el.scrollBy({ left: -SCROLL_STEP, behavior: 'smooth' })
@@ -237,7 +255,7 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
       default:
         break
     }
-  }, [])
+  }, [focusedCell])
 
   // Filters
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('all')
@@ -270,6 +288,7 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
       providerHelper.accessor('providerName', { header: 'Name', cell: (c) => c.getValue() ?? EMPTY, meta: { wrap: true }, size: 180, minSize: 100 }),
       providerHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, size: 220, minSize: 120 }),
       providerHelper.accessor('division', { header: 'Division', cell: (c) => c.getValue() ?? EMPTY, size: 200, minSize: 100 }),
+      providerHelper.accessor('providerType', { header: 'Type / Role', cell: (c) => c.getValue() ?? EMPTY, size: 140, minSize: 90 }),
       providerHelper.accessor('totalFTE', { header: 'Total FTE', cell: (c) => fmtNum(c.getValue() as number | undefined, 2), meta: { align: 'right' }, size: 100, minSize: 85 }),
       providerHelper.accessor('clinicalFTE', { header: 'Clinical FTE', cell: (c) => fmtNum(c.getValue() as number | undefined, 2), meta: { align: 'right' }, size: 108, minSize: 90 }),
       providerHelper.accessor('adminFTE', { header: 'Admin FTE', cell: (c) => fmtNum(c.getValue() as number | undefined, 2), meta: { align: 'right' }, size: 100, minSize: 85 }),
@@ -375,6 +394,83 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
     defaultColumn: { minSize: COL_MIN, maxSize: COL_MAX },
   })
 
+  const pageRows = table.getRowModel().rows
+  const rowCount = pageRows.length
+  const colCount = pageRows[0]?.getVisibleCells().length ?? 0
+
+  useEffect(() => {
+    if (focusedCell == null) return
+    const el = focusedCellRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.focus()
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
+    })
+  }, [focusedCell])
+
+  const { pageIndex, pageSize } = table.getState().pagination
+  const pageCount = table.getPageCount()
+  useEffect(() => {
+    if (focusAfterPageChangeRef.current) {
+      setFocusedCell(focusAfterPageChangeRef.current)
+      focusAfterPageChangeRef.current = null
+    } else {
+      setFocusedCell(null)
+    }
+  }, [pageIndex, pageSize, rowCount])
+
+  const handleCellKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTableCellElement>, rowIndex: number, columnIndex: number) => {
+      if (rowCount === 0 || colCount === 0) return
+      const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
+      if (isArrow) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+      switch (e.key) {
+        case 'ArrowLeft':
+          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.max(0, columnIndex - 1) } : null))
+          break
+        case 'ArrowRight':
+          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.min(colCount - 1, columnIndex + 1) } : null))
+          break
+        case 'ArrowUp':
+          if (rowIndex === 0 && pageIndex > 0) {
+            focusAfterPageChangeRef.current = { rowIndex: rowCount - 1, columnIndex }
+            table.previousPage()
+          } else {
+            setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.max(0, rowIndex - 1) } : null))
+          }
+          break
+        case 'ArrowDown':
+          if (rowIndex === rowCount - 1 && pageIndex < pageCount - 1) {
+            focusAfterPageChangeRef.current = { rowIndex: 0, columnIndex }
+            table.nextPage()
+          } else {
+            setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.min(rowCount - 1, rowIndex + 1) } : null))
+          }
+          break
+        case 'Home':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: 0 } : null))
+          }
+          break
+        case 'End':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: colCount - 1 } : null))
+          }
+          break
+        default:
+          break
+      }
+    },
+    [rowCount, colCount, table, pageIndex, pageCount]
+  )
+
   const handleAutoResize = useCallback(() => {
     const cols = table.getAllLeafColumns()
     const sizing: ColumnSizingState = {}
@@ -393,9 +489,14 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
     setColumnSizing(sizing)
   }, [table, filteredRows])
 
+  const didAutoResizeOnMount = useRef(false)
+  useEffect(() => {
+    if (didAutoResizeOnMount.current) return
+    didAutoResizeOnMount.current = true
+    handleAutoResize()
+  }, [handleAutoResize])
+
   const filteredCount = table.getFilteredRowModel().rows.length
-  const { pageIndex, pageSize } = table.getState().pagination
-  const pageCount = table.getPageCount()
   const start = filteredCount === 0 ? 0 : pageIndex * pageSize + 1
   const end = Math.min((pageIndex + 1) * pageSize, filteredCount)
   const hasActiveFilters = specialtyFilter !== 'all' || divisionFilter !== 'all' || modelFilter !== 'all' ||
@@ -404,86 +505,102 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
 
   return (
     <div className="space-y-3">
-      {/* Toolbar: search, filters, columns, page size */}
-      <div className="flex flex-wrap items-center gap-3">
-        <Input placeholder="Search table..." value={globalFilter ?? ''} onChange={(e) => setGlobalFilter(e.target.value)} className="max-w-xs h-9" />
-        <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-          <SelectTrigger className="h-9 w-[160px]">
-            <SelectValue placeholder="Specialty" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All specialties</SelectItem>
-            {specialties.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={divisionFilter} onValueChange={setDivisionFilter}>
-          <SelectTrigger className="h-9 w-[130px]">
-            <SelectValue placeholder="Division" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All divisions</SelectItem>
-            {divisions.map((d) => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={modelFilter} onValueChange={setModelFilter}>
-          <SelectTrigger className="h-9 w-[120px]">
-            <SelectValue placeholder="Model" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All models</SelectItem>
-            {models.map((m) => <SelectItem key={m} value={String(m)}>{m}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Label htmlFor="provider-page-size" className="text-xs whitespace-nowrap">Rows</Label>
-          <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
-            <SelectTrigger id="provider-page-size" className="h-9 w-[85px]"><SelectValue /></SelectTrigger>
+      {/* Toolbar: search + filters in a compact layout */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <Input
+          placeholder="Search table..."
+          value={globalFilter ?? ''}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="h-9 w-full sm:max-w-[220px]"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+            <SelectTrigger className="h-9 w-[160px]">
+              <SelectValue placeholder="Specialty" />
+            </SelectTrigger>
             <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              <SelectItem value="all">All specialties</SelectItem>
+              {specialties.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+            <SelectTrigger className="h-9 w-[130px]">
+              <SelectValue placeholder="Division" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All divisions</SelectItem>
+              {divisions.map((d) => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={modelFilter} onValueChange={setModelFilter}>
+            <SelectTrigger className="h-9 w-[120px]">
+              <SelectValue placeholder="Model" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All models</SelectItem>
+              {models.map((m) => <SelectItem key={m} value={String(m)}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="provider-page-size" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
+            <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
+              <SelectTrigger id="provider-page-size" className="h-9 w-[85px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
-      {/* FTE & wRVU range filters */}
-      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
-        <span className="text-xs font-medium text-muted-foreground">Ranges</span>
-        <div className="flex flex-wrap items-center gap-3">
+      {/* Ranges: 2x2 grid so they don't stretch in one long line */}
+      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+        <span className="mb-2 block text-xs font-medium text-muted-foreground">Ranges</span>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex items-center gap-1.5">
-            <Label className="text-xs text-muted-foreground">Total FTE</Label>
+            <Label className="w-20 shrink-0 text-xs text-muted-foreground">Total FTE</Label>
             <Input type="number" placeholder="Min" value={totalFTEMin} onChange={(e) => setTotalFTEMin(e.target.value)} className="h-8 w-20 text-xs" step="0.01" min={0} max={2} />
             <span className="text-muted-foreground">–</span>
             <Input type="number" placeholder="Max" value={totalFTEMax} onChange={(e) => setTotalFTEMax(e.target.value)} className="h-8 w-20 text-xs" step="0.01" min={0} max={2} />
           </div>
           <div className="flex items-center gap-1.5">
-            <Label className="text-xs text-muted-foreground">Clinical FTE</Label>
+            <Label className="w-20 shrink-0 text-xs text-muted-foreground">Clinical FTE</Label>
             <Input type="number" placeholder="Min" value={clinicalFTEMin} onChange={(e) => setClinicalFTEMin(e.target.value)} className="h-8 w-20 text-xs" step="0.01" min={0} max={2} />
             <span className="text-muted-foreground">–</span>
             <Input type="number" placeholder="Max" value={clinicalFTEMax} onChange={(e) => setClinicalFTEMax(e.target.value)} className="h-8 w-20 text-xs" step="0.01" min={0} max={2} />
           </div>
           <div className="flex items-center gap-1.5">
-            <Label className="text-xs text-muted-foreground">Work wRVUs</Label>
-            <Input type="number" placeholder="Min" value={workRVUsMin} onChange={(e) => setWorkRVUsMin(e.target.value)} className="h-8 w-24 text-xs" min={0} />
+            <Label className="w-20 shrink-0 text-xs text-muted-foreground">Work wRVUs</Label>
+            <Input type="number" placeholder="Min" value={workRVUsMin} onChange={(e) => setWorkRVUsMin(e.target.value)} className="h-8 w-20 text-xs" min={0} />
             <span className="text-muted-foreground">–</span>
-            <Input type="number" placeholder="Max" value={workRVUsMax} onChange={(e) => setWorkRVUsMax(e.target.value)} className="h-8 w-24 text-xs" min={0} />
+            <Input type="number" placeholder="Max" value={workRVUsMax} onChange={(e) => setWorkRVUsMax(e.target.value)} className="h-8 w-20 text-xs" min={0} />
           </div>
           <div className="flex items-center gap-1.5">
-            <Label className="text-xs text-muted-foreground">Total wRVUs</Label>
-            <Input type="number" placeholder="Min" value={totalWRVUsMin} onChange={(e) => setTotalWRVUsMin(e.target.value)} className="h-8 w-24 text-xs" min={0} />
+            <Label className="w-20 shrink-0 text-xs text-muted-foreground">Total wRVUs</Label>
+            <Input type="number" placeholder="Min" value={totalWRVUsMin} onChange={(e) => setTotalWRVUsMin(e.target.value)} className="h-8 w-20 text-xs" min={0} />
             <span className="text-muted-foreground">–</span>
-            <Input type="number" placeholder="Max" value={totalWRVUsMax} onChange={(e) => setTotalWRVUsMax(e.target.value)} className="h-8 w-24 text-xs" min={0} />
+            <Input type="number" placeholder="Max" value={totalWRVUsMax} onChange={(e) => setTotalWRVUsMax(e.target.value)} className="h-8 w-20 text-xs" min={0} />
           </div>
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Drag column headers to reorder; drag right edge to resize. Use Auto-resize to fit content. Focus the table and use arrow keys to scroll.
+        Drag column headers to reorder; drag right edge to resize. Click a cell and use arrow keys to move between cells (Excel-style). Focus the table and use arrow keys to scroll when no cell is selected.
       </p>
       <div
         ref={tableScrollRef}
-        role="region"
+        role="grid"
         aria-label="Provider data table"
+        aria-rowcount={rowCount}
+        aria-colcount={colCount}
         tabIndex={0}
         className="rounded-md border flex flex-col focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        onKeyDown={handleTableKeyDown}
+        onKeyDown={(e) => {
+          if (focusedCell == null && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+            setFocusedCell({ rowIndex: 0, columnIndex: 0 })
+            e.preventDefault()
+          } else {
+            handleTableKeyDown(e)
+          }
+        }}
       >
         <div className="flex justify-end gap-0.5 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleAutoResize} title="Size columns to fit content" aria-label="Auto-resize columns">
@@ -510,7 +627,15 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="overflow-x-auto overflow-y-auto min-h-0" style={{ maxHeight: 'min(880px, 65vh)' }}>
+        <div
+          className="rounded-md border border-border overflow-x-auto overflow-y-auto min-h-0"
+          style={{ maxHeight: 'min(880px, 65vh)' }}
+          onKeyDownCapture={(e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && (e.target as HTMLElement).closest?.('td[role="gridcell"]')) {
+              e.preventDefault()
+            }
+          }}
+        >
         <table className="w-full caption-bottom text-sm" style={{ minWidth: 'max-content' }}>
           <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
             {table.getHeaderGroups().map((hg) => (
@@ -560,19 +685,30 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
           </TableHeader>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
-                      'px-3 py-2.5'
-                    )}
-                    style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+              <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')} role="row">
+                {row.getVisibleCells().map((cell, colIndex) => {
+                  const isFocused = focusedCell?.rowIndex === row.index && focusedCell?.columnIndex === colIndex
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      ref={isFocused ? focusedCellRef : undefined}
+                      role="gridcell"
+                      tabIndex={isFocused ? 0 : -1}
+                      aria-rowindex={row.index + 1}
+                      aria-colindex={colIndex + 1}
+                      className={cn(
+                        (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
+                        'px-3 py-2.5 cursor-cell outline-none',
+                        isFocused && 'ring-2 ring-primary ring-inset bg-primary/5'
+                      )}
+                      style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
+                      onClick={() => setFocusedCell({ rowIndex: row.index, columnIndex: colIndex })}
+                      onKeyDown={(e) => handleCellKeyDown(e, row.index, colIndex)}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  )
+                })}
               </TableRow>
             ))}
           </tbody>
@@ -766,6 +902,13 @@ function MarketDataTable({ rows }: { rows: MarketRow[] }) {
     setColumnSizing(sizing)
   }, [table, filteredBySpecialty])
 
+  const didAutoResizeOnMount = useRef(false)
+  useEffect(() => {
+    if (didAutoResizeOnMount.current) return
+    didAutoResizeOnMount.current = true
+    handleAutoResize()
+  }, [handleAutoResize])
+
   const filteredCount = table.getFilteredRowModel().rows.length
   const { pageIndex, pageSize } = table.getState().pagination
   const pageCount = table.getPageCount()
@@ -774,23 +917,30 @@ function MarketDataTable({ rows }: { rows: MarketRow[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <Input placeholder="Search table..." value={globalFilter ?? ''} onChange={(e) => setGlobalFilter(e.target.value)} className="max-w-xs h-9" />
-        <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-          <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="Specialty" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All specialties</SelectItem>
-            {specialties.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Label htmlFor="market-page-size" className="text-xs whitespace-nowrap">Rows</Label>
-          <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
-            <SelectTrigger id="market-page-size" className="h-9 w-[85px]"><SelectValue /></SelectTrigger>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <Input
+          placeholder="Search table..."
+          value={globalFilter ?? ''}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="h-9 w-full sm:max-w-[220px]"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
+            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="Specialty" /></SelectTrigger>
             <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              <SelectItem value="all">All specialties</SelectItem>
+              {specialties.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="market-page-size" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
+            <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
+              <SelectTrigger id="market-page-size" className="h-9 w-[85px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
@@ -825,7 +975,7 @@ function MarketDataTable({ rows }: { rows: MarketRow[] }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="overflow-x-auto overflow-y-auto min-h-0" style={{ maxHeight: 'min(880px, 65vh)' }}>
+        <div className="rounded-md border border-border overflow-x-auto overflow-y-auto min-h-0" style={{ maxHeight: 'min(880px, 65vh)' }}>
         <table className="w-full caption-bottom text-sm" style={{ minWidth: 'max-content' }}>
           <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
             {table.getHeaderGroups().map((hg) => (

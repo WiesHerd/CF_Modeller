@@ -233,3 +233,25 @@ body {
 .impact-report .recharts-tooltip-wrapper {
   font-size: 12px;
 }
+
+/* Print: Compare scenarios report — hide chrome, show only report */
+@media print {
+  aside {
+    display: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  footer {
+    display: none !important;
+  }
+  .layout-content-wrap {
+    padding-left: 0 !important;
+  }
+  .compare-scenarios-report {
+    max-width: 100%;
+  }
+  .compare-scenarios-report section {
+    break-inside: avoid;
+  }
+}

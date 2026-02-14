@@ -233,25 +233,25 @@ function TCCBreakdownDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="rounded-md border border-border max-sm:min-w-0 max-sm:overflow-x-auto">
-          <Table className="w-full table-auto">
+          <Table className="w-full caption-bottom text-sm table-auto">
             <colgroup>
               <col className="w-auto" />
               <col className="min-w-[7.5rem]" />
               <col className="min-w-[7.5rem]" />
             </colgroup>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="text-muted-foreground font-medium">Component</TableHead>
-                <TableHead className="text-right tabular-nums font-medium">Current (Baseline)</TableHead>
-                <TableHead className="text-right tabular-nums font-medium">Modeled (Scenario)</TableHead>
+            <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+              <TableRow>
+                <TableHead className="text-muted-foreground font-medium px-3 py-2.5">Component</TableHead>
+                <TableHead className="text-right tabular-nums font-medium px-3 py-2.5">Current (Baseline)</TableHead>
+                <TableHead className="text-right tabular-nums font-medium px-3 py-2.5">Modeled (Scenario)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map(({ label, current, modeled }) => (
-                <TableRow key={label} className={cn(label.startsWith('Total') && 'border-t-2 border-border font-semibold')}>
-                  <TableCell className="text-muted-foreground text-sm">{label}</TableCell>
-                  <TableCell className="whitespace-nowrap text-right tabular-nums text-sm">{current > 0 ? fmtMoney(current) : '—'}</TableCell>
-                  <TableCell className="whitespace-nowrap text-right tabular-nums text-sm">{modeled > 0 ? fmtMoney(modeled) : '—'}</TableCell>
+              {rows.map(({ label, current, modeled }, idx) => (
+                <TableRow key={label} className={cn(idx % 2 === 1 && 'bg-muted/30', label.startsWith('Total') && 'border-t-2 border-border font-semibold')}>
+                  <TableCell className="text-muted-foreground text-sm px-3 py-2.5">{label}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5">{current > 0 ? fmtMoney(current) : '—'}</TableCell>
+                  <TableCell className="whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5">{modeled > 0 ? fmtMoney(modeled) : '—'}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

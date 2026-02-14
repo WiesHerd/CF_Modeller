@@ -18,6 +18,8 @@ export interface ProviderRow {
   providerName?: string
   specialty?: string
   division?: string
+  /** Role or job type (e.g. Division Chief, Medical Director, Clinical); used to exclude from optimizer. */
+  providerType?: string
   totalFTE?: number
   clinicalFTE?: number
   adminFTE?: number
@@ -55,6 +57,7 @@ export const PROVIDER_EXPECTED_COLUMNS = [
   'providerName',
   'specialty',
   'division',
+  'providerType',
   'totalFTE',
   'clinicalFTE',
   'adminFTE',

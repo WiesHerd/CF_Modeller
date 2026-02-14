@@ -224,6 +224,7 @@ export interface ImputedVsMarketProviderDetail {
   providerId: string
   providerName: string
   division: string
+  providerType: string
   cFTE: number
   wRVU_1p0: number
   baselineTCC: number
@@ -291,6 +292,7 @@ export function getImputedVsMarketProviderDetail(
       providerId: (provider.providerId ?? provider.providerName ?? '').toString(),
       providerName: (provider.providerName ?? '').toString(),
       division: (provider.division ?? '').toString().trim() || '—',
+      providerType: (provider.providerType ?? '').toString().trim() || '—',
       cFTE,
       wRVU_1p0,
       baselineTCC,

@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card'
-import { TrendingUp, LayoutGrid, Sliders, BarChart2 } from 'lucide-react'
+import { Gauge, LayoutGrid, Sliders, BarChart2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export type BatchCardId = 'cf-optimizer' | 'imputed-vs-market' | 'bulk-scenario' | 'detailed-scenario'
@@ -14,7 +14,7 @@ const CARDS: { id: BatchCardId; title: string; description: string; icon: React.
     id: 'cf-optimizer',
     title: 'Conversion Factor Optimizer',
     description: 'Recommends specialty-level CF adjustments to align productivity and pay positioning, with governance guardrails and audit-ready outputs.',
-    icon: <TrendingUp className="size-6" />,
+    icon: <Gauge className="size-6" />,
   },
   {
     id: 'imputed-vs-market',
@@ -24,8 +24,8 @@ const CARDS: { id: BatchCardId; title: string; description: string; icon: React.
   },
   {
     id: 'bulk-scenario',
-    title: 'Bulk scenario planning',
-    description: 'Global base scenario settings and run for the entire batch.',
+    title: 'Create and Run Scenario',
+    description: 'Apply one set of inputs (CF, wRVU target, PSQ) to all providers and run. Use scope and guardrails to filter who’s included.',
     icon: <LayoutGrid className="size-6" />,
   },
   {

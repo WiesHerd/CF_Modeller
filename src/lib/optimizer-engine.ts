@@ -482,7 +482,7 @@ export function buildExplanation(
       why.push('The optimal CF change is too small to materially impact incentives or alignment.')
       if (gap > 0) {
         why.push(
-          'Raising the conversion factor would increase work RVU incentive dollars, which would raise total cash compensation and push TCC percentile higher, worsening the current overpaid alignment.'
+          'Raising the conversion factor would increase work RVU incentive dollars, which would raise total cash compensation and push TCC percentile higher, further increasing pay above productivity.'
         )
       }
     }
@@ -511,13 +511,13 @@ export function buildExplanation(
     if (gap > 0) {
       // Overpaid on total comp but CF is low: increase (capped at 50th) fills the gap with wRVU incentive dollars.
       why.push(
-        `Total compensation is at the ${ordinal(compP)} percentile while productivity is at the ${ordinal(prodP)} percentile -- the group appears overpaid on total comp.`
+        `Total compensation is at the ${ordinal(compP)} percentile while productivity is at the ${ordinal(prodP)} percentile -- pay is above productivity on total comp.`
       )
       why.push(
         `The conversion factor is below market median, so the incentive piece is underpowered. Increasing CF (up to the 50th percentile) fills the gap with wRVU incentive dollars and better aligns incentive pay with output.`
       )
       if (marketCF && recommendedCF >= marketCF.cf50 - 0.01) {
-        why.push(`Recommended CF is capped at the market 50th percentile (${fmtCF(marketCF.cf50)}) for this overpaid group until a higher cap is explicitly allowed.`)
+        why.push(`Recommended CF is capped at the market 50th percentile (${fmtCF(marketCF.cf50)}) for this group (pay above productivity) until a higher cap is explicitly allowed.`)
       }
     } else {
       why.push(`Productivity is at the ${ordinal(prodP)} percentile but compensation is only at the ${ordinal(compP)} percentile -- this group is underpaid relative to output.`)
@@ -537,7 +537,7 @@ export function buildExplanation(
 
   if (action === 'DECREASE') {
     headline = `Decrease CF from ${fmtCF(currentCF)} to ${fmtCF(recommendedCF)} (${cfPctChange.toFixed(1)}%) to bring pay closer to productivity alignment.`
-    why.push(`Compensation is at the ${ordinal(compP)} percentile while productivity is at the ${ordinal(prodP)} percentile -- this group is overpaid relative to output.`)
+    why.push(`Compensation is at the ${ordinal(compP)} percentile while productivity is at the ${ordinal(prodP)} percentile -- pay is above productivity relative to output.`)
     why.push(`A ${fmtCF(Math.abs(cfDelta))} CF decrease brings compensation closer to the productivity level.`)
     addMarketCFContext()
     if (constraintsHit.includes('MAX_CHANGE_BOUND')) {
@@ -602,6 +602,7 @@ function buildProviderContexts(
   const manualExclude = new Set(settings.manualExcludeProviderIds)
   const manualInclude = new Set(settings.manualIncludeProviderIds)
 
+  const growthFactor = 1 + (settings.wRVUGrowthFactorPct ?? 0) / 100
   const contexts: OptimizerProviderContext[] = []
   for (const provider of providerRows) {
     const match = matchMarketRow(provider, marketRows, synonymMap)
@@ -615,10 +616,13 @@ function buildProviderContexts(
     }
     const currentCF = num(provider.currentCF) || (market?.CF_50 ?? 0)
     const baselineConfig = getOptimizerBaselineTCCConfig(settings, provider, currentCF)
-    const { baselineTCC, baselineTCC_1p0, wRVU_1p0, cFTE } = getBaselineTCCNormalizedForOptimizer(
+    const { baselineTCC, baselineTCC_1p0, wRVU_1p0: rawWRVU_1p0, cFTE } = getBaselineTCCNormalizedForOptimizer(
       provider,
       baselineConfig
     )
+    const totalWRVUs = getTotalWRVUs(provider)
+    const effectiveTotalWRVUs = totalWRVUs * growthFactor
+    const wRVU_1p0 = rawWRVU_1p0 * growthFactor
     const basisFTE = getBasisFTE(provider, basis)
     if (cFTE <= 0) {
       exclusionReasons.push('no_benchmarkable_fte_basis')
@@ -635,7 +639,6 @@ function buildProviderContexts(
       exclusionReasons.push('manual_exclude')
     }
 
-    const totalWRVUs = getTotalWRVUs(provider)
     const clinicalBase = getClinicalBase(provider)
     const qualityPaymentsDollars = getQualityDollarsForOptimizerConfig(provider, baselineConfig)
     const baseModeled =
@@ -643,14 +646,14 @@ function buildProviderContexts(
         ? getModeledTCCWithCF(
             clinicalBase,
             0,
-            totalWRVUs,
+            effectiveTotalWRVUs,
             currentCF,
             qualityPaymentsDollars
           )
         : 0
     const layeredTCC = getLayeredTCCAmount(baselineConfig, provider, clinicalBase, cFTE)
     const modeledTCCRaw = baseModeled + layeredTCC
-    const normalizedWRVU = basisFTE > 0 ? totalWRVUs / basisFTE : 0
+    const normalizedWRVU = basisFTE > 0 ? effectiveTotalWRVUs / basisFTE : 0
     const normalizedTCC = basisFTE > 0 ? modeledTCCRaw / basisFTE : 0
     const effectiveRate = normalizedWRVU > 0 ? normalizedTCC / normalizedWRVU : 0
 
@@ -697,6 +700,7 @@ function buildProviderContexts(
       currentTCC_1p0: baselineTCC_1p0,
       currentTCC_pctile: tccRes.percentile,
       wRVU_1p0,
+      effectiveTotalWRVUs,
       wrvuPercentile: wrvuRes.percentile,
       wrvuOffScale: wrvuRes.belowRange || wrvuRes.aboveRange,
       baselineGap,
@@ -911,14 +915,13 @@ export function optimizeCFForSpecialty(
     const errors: number[] = []
     for (const ctx of included) {
       const clinicalBase = getClinicalBase(ctx.provider)
-      const totalWRVUs = getTotalWRVUs(ctx.provider)
       const baselineConfigCtx = getOptimizerBaselineTCCConfig(settings, ctx.provider, cf)
       const qualityPaymentsDollars = getQualityDollarsForOptimizerConfig(ctx.provider, baselineConfigCtx)
       const cFTECtx = getClinicalFTE(ctx.provider)
       const baseModeled = getModeledTCCWithCF(
         clinicalBase,
         0,
-        totalWRVUs,
+        ctx.effectiveTotalWRVUs,
         cf,
         qualityPaymentsDollars
       )
@@ -952,9 +955,9 @@ export function optimizeCFForSpecialty(
   if (overpaidAndIncreaseCap) {
     bestCF = mktCF.cf50
     notes.push(
-      'Overpaid group: recommended CF capped at market 50th percentile; increase fills gap with wRVU incentive without exceeding market median.'
+      'Pay above productivity: recommended CF capped at market 50th percentile; increase fills gap with wRVU incentive without exceeding market median.'
     )
-    keyMessages.push('CF capped at market 50th (overpaid group); increase adds incentive alignment.')
+    keyMessages.push('CF capped at market 50th (pay above productivity); increase adds incentive alignment.')
   }
 
   // User cap: do not recommend CF above the configured max market percentile (e.g. 50th) for any specialty.
@@ -979,14 +982,13 @@ export function optimizeCFForSpecialty(
   let spendModeled = 0
   for (const ctx of included) {
     const clinicalBase = getClinicalBase(ctx.provider)
-    const totalWRVUs = getTotalWRVUs(ctx.provider)
     const baselineConfigCtx = getOptimizerBaselineTCCConfig(settings, ctx.provider, bestCF)
     const qualityPaymentsDollars = getQualityDollarsForOptimizerConfig(ctx.provider, baselineConfigCtx)
     const cFTECtx = getClinicalFTE(ctx.provider)
     const baseModeled = getModeledTCCWithCF(
       clinicalBase,
       0,
-      totalWRVUs,
+      ctx.effectiveTotalWRVUs,
       bestCF,
       qualityPaymentsDollars
     )
@@ -1003,8 +1005,8 @@ export function optimizeCFForSpecialty(
     ctx.modeledTCC_1p0 = modeledTCC_1p0
     ctx.modeledTCC_pctile = tccRes.percentile
     ctx.modeledTCCRaw = modeledTCC
-    ctx.baselineIncentiveDollars = getIncentiveDerived(clinicalBase, totalWRVUs, currentCF)
-    ctx.modeledIncentiveDollars = getIncentiveDerived(clinicalBase, totalWRVUs, bestCF)
+    ctx.baselineIncentiveDollars = getIncentiveDerived(clinicalBase, ctx.effectiveTotalWRVUs, currentCF)
+    ctx.modeledIncentiveDollars = getIncentiveDerived(clinicalBase, ctx.effectiveTotalWRVUs, bestCF)
   }
   const spendImpact = spendModeled - spendBaseline
 
@@ -1328,14 +1330,13 @@ export function runModeledTCCSweepForSpecialty(
 
     for (const ctx of included) {
       const clinicalBase = getClinicalBase(ctx.provider)
-      const totalWRVUs = getTotalWRVUs(ctx.provider)
       const baselineConfigCtx = getOptimizerBaselineTCCConfig(settings, ctx.provider, cfDollars)
       const qualityPaymentsDollars = getQualityDollarsForOptimizerConfig(ctx.provider, baselineConfigCtx)
       const cFTECtx = getClinicalFTE(ctx.provider)
       const baseModeled = getModeledTCCWithCF(
         clinicalBase,
         0,
-        totalWRVUs,
+        ctx.effectiveTotalWRVUs,
         cfDollars,
         qualityPaymentsDollars
       )
@@ -1350,7 +1351,7 @@ export function runModeledTCCSweepForSpecialty(
       )
       sumModeledTCCPctile += tccRes.percentile
       sumWrvuPctile += ctx.wrvuPercentile
-      totalIncentive += getIncentiveDerived(clinicalBase, totalWRVUs, cfDollars)
+      totalIncentive += getIncentiveDerived(clinicalBase, ctx.effectiveTotalWRVUs, cfDollars)
       sumModeledTCC += modeledTCC
       sumBaseline += ctx.currentTCCBaseline
     }

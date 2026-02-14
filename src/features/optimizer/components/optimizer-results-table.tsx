@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 import type { OptimizerSpecialtyResult } from '@/types/optimizer'
 import {
   formatPercentile,
@@ -46,14 +47,14 @@ export function OptimizerResultsTable({
 }) {
   return (
     <TooltipProvider>
-      <div className="w-full overflow-auto rounded-md border border-border/70">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/50">
-              <TableHead className="min-w-[140px]">Specialty</TableHead>
-              <TableHead className="text-right min-w-[80px]">wRVU %ile</TableHead>
-              <TableHead className="text-right min-w-[80px]">TCC %ile</TableHead>
-              <TableHead className="min-w-[120px]">
+      <div className="w-full overflow-auto rounded-md border border-border">
+        <Table className="w-full caption-bottom text-sm">
+          <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+            <TableRow>
+              <TableHead className="min-w-[140px] px-3 py-2.5">Specialty</TableHead>
+              <TableHead className="text-right min-w-[80px] px-3 py-2.5">wRVU %ile</TableHead>
+              <TableHead className="text-right min-w-[80px] px-3 py-2.5">TCC %ile</TableHead>
+              <TableHead className="min-w-[120px] px-3 py-2.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <span className="cursor-help underline decoration-dotted">
@@ -61,17 +62,17 @@ export function OptimizerResultsTable({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="top" className="max-w-xs">
-                    TCC %ile &gt; wRVU %ile = overpaid; wRVU %ile &gt; TCC %ile = underpaid.
+                    TCC %ile &gt; wRVU %ile = pay above productivity; wRVU %ile &gt; TCC %ile = underpaid.
                   </TooltipContent>
                 </Tooltip>
               </TableHead>
-              <TableHead className="min-w-[110px]">Recommendation</TableHead>
-              <TableHead className="min-w-[160px]">Market line</TableHead>
-              <TableHead className="w-12 text-right">Details</TableHead>
+              <TableHead className="min-w-[110px] px-3 py-2.5">Recommendation</TableHead>
+              <TableHead className="min-w-[160px] px-3 py-2.5">Market line</TableHead>
+              <TableHead className="w-12 text-right px-3 py-2.5">Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => {
+            {rows.map((row, index) => {
               const gapInterpretation = getGapInterpretation(row.keyMetrics.gap)
               const gapColor =
                 gapInterpretation === 'overpaid'
@@ -90,10 +91,10 @@ export function OptimizerResultsTable({
               return (
                 <TableRow
                   key={row.specialty}
-                  className="cursor-pointer hover:bg-muted/30"
+                  className={cn(index % 2 === 1 && 'bg-muted/30', 'cursor-pointer hover:bg-muted/50')}
                   onClick={() => onOpenDetail(row)}
                 >
-                  <TableCell className="font-medium">
+                  <TableCell className="font-medium px-3 py-2.5">
                     <div>
                       <p className="truncate">{row.specialty}</p>
                       {divisions ? (
@@ -103,21 +104,21 @@ export function OptimizerResultsTable({
                       ) : null}
                     </div>
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums px-3 py-2.5">
                     {formatPercentile(row.keyMetrics.prodPercentile)}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">
+                  <TableCell className="text-right tabular-nums px-3 py-2.5">
                     {formatPercentile(row.keyMetrics.compPercentile)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="px-3 py-2.5">
                     <span className={gapColor}>
                       {GAP_INTERPRETATION_LABEL[gapInterpretation]}
                     </span>
                   </TableCell>
-                  <TableCell className="tabular-nums">
+                  <TableCell className="tabular-nums px-3 py-2.5">
                     {formatRecommendation(row)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="px-3 py-2.5">
                     {row.marketCF ? (
                       <MarketCFLine
                         currentCF={row.currentCF}
@@ -128,7 +129,7 @@ export function OptimizerResultsTable({
                       <span className="text-muted-foreground text-xs">No market</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                  <TableCell className="text-right px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button

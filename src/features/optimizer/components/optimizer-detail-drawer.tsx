@@ -63,6 +63,13 @@ export function OptimizerDetailDrawer({
     ),
   ].join(', ')
   const gapInterpretation = getGapInterpretation(row.keyMetrics.gap)
+  const included = row.providerContexts.filter((c) => c.included)
+  const nIncluded = included.length
+  const modeledCompPercentile =
+    nIncluded > 0
+      ? included.reduce((s, c) => s + (c.modeledTCC_pctile ?? 0), 0) / nIncluded
+      : row.keyMetrics.prodPercentile + row.postGap
+  const postGapInterpretation = getGapInterpretation(row.postGap)
   const recLabel = RECOMMENDATION_LABEL[row.recommendedAction] ?? row.recommendedAction
   const RecIcon =
     row.recommendedAction === 'INCREASE'
@@ -75,12 +82,14 @@ export function OptimizerDetailDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[620px] md:max-w-[680px]"
+        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[620px] md:max-w-[680px] border-border"
       >
-        <SheetHeader className="space-y-1 border-b border-border/60 pb-5">
-          <SheetTitle className="pr-8 text-xl tracking-tight">{row.specialty}</SheetTitle>
+        <SheetHeader className="space-y-1.5 border-b border-border/60 pb-5">
+          <SheetTitle className="pr-8 text-xl font-semibold tracking-tight text-foreground">
+            {row.specialty}
+          </SheetTitle>
           {divisions ? (
-            <SheetDescription className="text-base font-normal text-muted-foreground">
+            <SheetDescription className="text-sm text-muted-foreground leading-relaxed">
               {divisions}
             </SheetDescription>
           ) : null}
@@ -126,10 +135,36 @@ export function OptimizerDetailDrawer({
             </div>
           </div>
 
+          {/* After adjustment: post-CF TCC vs wRVU so user can verify alignment */}
+          {(row.recommendedAction === 'INCREASE' || row.recommendedAction === 'DECREASE') &&
+            nIncluded > 0 && (
+              <div
+                className={`rounded-xl border px-4 py-3 ${GAP_PILL_CLASS[postGapInterpretation] ?? GAP_PILL_CLASS.aligned}`}
+              >
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90">
+                  After adjustment
+                </p>
+                <p className="mt-1 font-semibold">
+                  {GAP_INTERPRETATION_LABEL[postGapInterpretation]} vs productivity
+                </p>
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  TCC {formatPercentile(modeledCompPercentile)} · wRVU{' '}
+                  {formatPercentile(row.keyMetrics.prodPercentile)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground/90">
+                  If you apply the recommended CF, group TCC percentile moves to align with wRVU
+                  percentile. Review provider drilldown for outliers before finalizing.
+                </p>
+              </div>
+            )}
+
           {/* Why / evidence */}
           {(row.explanation.why.length > 0 || row.explanation.whatToDoNext.length > 0) ? (
-            <section className="rounded-xl border border-border/60 bg-muted/5 pl-4 pr-4 py-3">
-              <div className="border-l-2 border-primary/50 pl-3">
+            <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
+                Why & next steps
+              </h3>
+              <div className="border-l-4 border-primary/60 pl-3">
                 <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Why
                 </h4>
@@ -163,10 +198,10 @@ export function OptimizerDetailDrawer({
 
           {/* Market CF */}
           {row.marketCF ? (
-            <section className="rounded-xl border border-border/60 bg-muted/5 px-4 py-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
                 Market CF position
-              </h4>
+              </h3>
               <div className="mt-3">
                 <MarketCFRuler
                   currentCF={row.currentCF}
@@ -182,10 +217,10 @@ export function OptimizerDetailDrawer({
           {row.providerContexts.some(
             (c) => c.included && (c.baselineIncentiveDollars != null || c.modeledIncentiveDollars != null)
           ) ? (
-            <section className="rounded-xl border border-border/60 bg-muted/5 px-4 py-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
                 Work RVU incentive (what we're calculating)
-              </h4>
+              </h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 At <strong>current CF</strong> ({formatCurrency(row.currentCF)}): total incentive across included
                 providers. At <strong>recommended CF</strong> ({formatCurrency(row.recommendedCF)}): incentive if you
@@ -218,12 +253,12 @@ export function OptimizerDetailDrawer({
             </section>
           ) : null}
 
-          {/* Providers */}
-          <section className="flex flex-1 flex-col gap-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {/* Providers — frozen header: only table body scrolls so column headers stay visible */}
+          <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
               Providers ({row.providerContexts.length})
-            </h4>
-            <div className="min-w-0 flex-1 overflow-auto rounded-xl border border-border/60">
+            </h3>
+            <div className="min-h-[240px] max-h-[420px] overflow-auto rounded-lg border border-border/60">
               <ProviderDrilldownTable row={row} />
             </div>
           </section>
@@ -235,51 +270,55 @@ export function OptimizerDetailDrawer({
 
 function ProviderDrilldownTable({ row }: { row: OptimizerSpecialtyResult }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow className="bg-muted/30 hover:bg-muted/30">
-          <TableHead className="min-w-[140px] font-semibold">Provider</TableHead>
-          <TableHead className="min-w-[100px] font-semibold">Division</TableHead>
-          <TableHead className="min-w-[88px] text-right font-semibold">wRVU %</TableHead>
-          <TableHead className="min-w-[100px] text-right font-semibold">TCC %</TableHead>
-          <TableHead className="min-w-[72px] text-right font-semibold">Gap</TableHead>
-          <TableHead className="min-w-[80px] text-right font-semibold">Incentive (current)</TableHead>
-          <TableHead className="min-w-[80px] text-right font-semibold">Incentive (modeled)</TableHead>
-          <TableHead className="min-w-[72px] font-semibold">Included</TableHead>
-          <TableHead className="min-w-[140px] font-semibold">Reasons</TableHead>
+    <Table className="w-full caption-bottom text-sm">
+      <TableHeader className="sticky top-0 z-20 border-b border-border/60 [&_th]:text-foreground">
+        <TableRow>
+          <TableHead className="min-w-[140px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Provider</TableHead>
+          <TableHead className="min-w-[100px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Division</TableHead>
+          <TableHead className="min-w-[100px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Type / Role</TableHead>
+          <TableHead className="min-w-[88px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">wRVU %</TableHead>
+          <TableHead className="min-w-[100px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">TCC %</TableHead>
+          <TableHead className="min-w-[72px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">Gap</TableHead>
+          <TableHead className="min-w-[80px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">Incentive (current)</TableHead>
+          <TableHead className="min-w-[80px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">Incentive (modeled)</TableHead>
+          <TableHead className="min-w-[72px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Included</TableHead>
+          <TableHead className="min-w-[140px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Reasons</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {row.providerContexts.map((ctx, i) => (
           <TableRow
             key={ctx.providerId}
-            className={i % 2 === 0 ? 'bg-background' : 'bg-muted/10'}
+            className={i % 2 === 1 ? 'bg-muted/30' : undefined}
           >
-            <TableCell className="min-w-[140px] font-medium">
+            <TableCell className="min-w-[140px] font-medium px-3 py-2.5">
               {ctx.provider.providerName ?? ctx.providerId}
             </TableCell>
-            <TableCell className="min-w-[100px] text-muted-foreground">
+            <TableCell className="min-w-[100px] text-muted-foreground px-3 py-2.5">
               {ctx.provider.division ?? '—'}
             </TableCell>
-            <TableCell className="min-w-[88px] whitespace-nowrap text-right tabular-nums text-sm">
+            <TableCell className="min-w-[100px] text-muted-foreground px-3 py-2.5">
+              {ctx.provider.providerType ?? '—'}
+            </TableCell>
+            <TableCell className="min-w-[88px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5">
               {formatPercentile(ctx.wrvuPercentile)}
             </TableCell>
-            <TableCell className="min-w-[100px] whitespace-nowrap text-right tabular-nums text-sm">
+            <TableCell className="min-w-[100px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5">
               {formatPercentile(ctx.currentTCC_pctile)}
             </TableCell>
-            <TableCell className="min-w-[72px] whitespace-nowrap text-right tabular-nums text-sm">
+            <TableCell className="min-w-[72px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5">
               {formatPercentile(ctx.baselineGap)}
             </TableCell>
-            <TableCell className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground">
+            <TableCell className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5">
               {ctx.baselineIncentiveDollars != null ? formatCurrency(ctx.baselineIncentiveDollars, 0) : '—'}
             </TableCell>
-            <TableCell className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground">
+            <TableCell className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5">
               {ctx.modeledIncentiveDollars != null ? formatCurrency(ctx.modeledIncentiveDollars, 0) : '—'}
             </TableCell>
-            <TableCell className="min-w-[72px] text-sm">
+            <TableCell className="min-w-[72px] text-sm px-3 py-2.5">
               {ctx.included ? 'Yes' : 'No'}
             </TableCell>
-            <TableCell className="min-w-[140px]">
+            <TableCell className="min-w-[140px] px-3 py-2.5">
               <div className="flex flex-wrap gap-1">
                 {ctx.exclusionReasons.map((reason) => (
                   <ExclusionChip

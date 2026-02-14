@@ -5,9 +5,9 @@ import { MARKET_EXPECTED_COLUMNS } from '@/types/market'
 const PROVIDER_SAMPLE_HEADER = PROVIDER_EXPECTED_COLUMNS.join(',')
 
 const PROVIDER_SAMPLE_ROWS = [
-  // providerName, specialty, division, totalFTE, clinicalFTE, adminFTE, researchFTE, teachingFTE, baseSalary, workRVUs, outsideWRVUs, currentCF, nonClinicalPay, qualityPayments, otherIncentives, currentTCC, productivityModel
-  'Jane Smith,Cardiology,Heart,1,0.9,0.1,0,0,450000,5200,200,85,0,0,0,0,productivity',
-  'John Doe,Internal Medicine,Primary Care,1,0.95,0.05,0,0,320000,4100,100,78,0,0,0,0,base',
+  // providerName, specialty, division, providerType, totalFTE, clinicalFTE, adminFTE, researchFTE, teachingFTE, baseSalary, workRVUs, outsideWRVUs, currentCF, nonClinicalPay, qualityPayments, otherIncentives, currentTCC, productivityModel
+  'Jane Smith,Cardiology,Heart,Clinical,1,0.9,0.1,0,0,450000,5200,200,85,0,0,0,0,productivity',
+  'John Doe,Internal Medicine,Primary Care,,1,0.95,0.05,0,0,320000,4100,100,78,0,0,0,0,base',
 ]
 
 export const PROVIDER_SAMPLE_CSV = [PROVIDER_SAMPLE_HEADER, ...PROVIDER_SAMPLE_ROWS].join('\n')

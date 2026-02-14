@@ -23,6 +23,8 @@ export interface BatchRowResult {
   providerName: string
   specialty: string
   division: string
+  /** Role or job type from provider upload (e.g. Staff Physician, Division Chief). */
+  providerType?: string
   scenarioId: string
   scenarioName: string
   scenarioInputsSnapshot: ScenarioInputs
@@ -42,10 +44,19 @@ export interface BatchResults {
   providerCount: number
 }
 
+/** Whether the batch run was from Bulk or Detailed scenario card. */
+export type BatchRunMode = 'bulk' | 'detailed'
+
 /** Snapshot of scenario(s) used for a batch run (for reference when loading saved runs). */
 export interface BatchScenarioSnapshot {
   /** Scenarios that were run: base "Current" + any from scenario library. */
   scenarios: { id: string; name: string; scenarioInputs: ScenarioInputs }[]
+  /** Run scope: specialties included (empty = all). Shown on detailed report when present. */
+  selectedSpecialties?: string[]
+  /** Run scope: provider IDs included (empty = all after specialty filter). */
+  selectedProviderIds?: string[]
+  /** Which card (Bulk vs Detailed) this run came from. */
+  mode?: BatchRunMode
 }
 
 /** A saved batch run the user can revisit or delete. */
@@ -56,6 +67,8 @@ export interface SavedBatchRun {
   results: BatchResults
   /** Scenario(s) used for this run so you can refer back or re-use. */
   scenarioSnapshot?: BatchScenarioSnapshot
+  /** Which card (Bulk vs Detailed) this run came from. */
+  mode?: BatchRunMode
 }
 
 /** Optional overrides per specialty and/or provider; merged over base scenario inputs (provider overrides beat specialty). */

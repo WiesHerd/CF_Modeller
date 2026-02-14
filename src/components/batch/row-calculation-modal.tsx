@@ -81,6 +81,7 @@ export function RowCalculationModal({
               <span className="block text-foreground/80">
                 {row.providerName}
                 {row.specialty ? ` · ${row.specialty}` : ''}
+                {row.providerType ? ` · ${row.providerType}` : ''}
                 {row.scenarioName ? ` · ${row.scenarioName}` : ''}
               </span>
             )}
@@ -104,17 +105,17 @@ export function RowCalculationModal({
                 <p className="text-muted-foreground mb-3">
                   Only wRVUs above the threshold are paid at the modeled conversion factor.
                 </p>
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-muted-foreground">Input</TableHead>
-                      <TableHead className="text-right tabular-nums">Value</TableHead>
+                <Table className="w-full caption-bottom text-sm">
+                  <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+                    <TableRow>
+                      <TableHead className="text-muted-foreground px-3 py-2.5">Input</TableHead>
+                      <TableHead className="text-right tabular-nums px-3 py-2.5">Value</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     <TableRow>
-                      <TableCell className="text-muted-foreground">Modeled wRVUs</TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="text-muted-foreground px-3 py-2.5">Modeled wRVUs</TableCell>
+                      <TableCell className="text-right tabular-nums px-3 py-2.5">
                         {fmt(
                           inputs.modeledWRVUs != null && Number.isFinite(inputs.modeledWRVUs)
                             ? inputs.modeledWRVUs
@@ -124,12 +125,12 @@ export function RowCalculationModal({
                       </TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell className="text-muted-foreground">Threshold (wRVUs)</TableCell>
-                      <TableCell className="text-right tabular-nums">{fmt(results.annualThreshold, 2)}</TableCell>
+                      <TableCell className="text-muted-foreground px-3 py-2.5">Threshold (wRVUs)</TableCell>
+                      <TableCell className="text-right tabular-nums px-3 py-2.5">{fmt(results.annualThreshold, 2)}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell className="text-muted-foreground">Threshold method</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-muted-foreground px-3 py-2.5">Threshold method</TableCell>
+                      <TableCell className="text-right px-3 py-2.5">
                         {(inputs.thresholdMethod ?? 'derived') === 'derived'
                           ? 'Derived (modeled clinical salary ÷ CF)'
                           : (inputs.thresholdMethod ?? '') === 'annual'
@@ -138,16 +139,16 @@ export function RowCalculationModal({
                       </TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell className="text-muted-foreground">wRVUs above threshold</TableCell>
-                      <TableCell className="text-right tabular-nums">{fmt(results.wRVUsAboveThreshold, 2)}</TableCell>
+                      <TableCell className="text-muted-foreground px-3 py-2.5">wRVUs above threshold</TableCell>
+                      <TableCell className="text-right tabular-nums px-3 py-2.5">{fmt(results.wRVUsAboveThreshold, 2)}</TableCell>
                     </TableRow>
                     <TableRow>
-                      <TableCell className="text-muted-foreground">Modeled CF</TableCell>
-                      <TableCell className="text-right tabular-nums">{fmtCur(results.modeledCF)}/wRVU</TableCell>
+                      <TableCell className="text-muted-foreground px-3 py-2.5">Modeled CF</TableCell>
+                      <TableCell className="text-right tabular-nums px-3 py-2.5">{fmtCur(results.modeledCF)}/wRVU</TableCell>
                     </TableRow>
-                    <TableRow className="border-t-2 font-medium">
-                      <TableCell>Incentive</TableCell>
-                      <TableCell className="text-right tabular-nums">{fmtCur(results.annualIncentive)}</TableCell>
+                    <TableRow className="border-t-2 border-border font-medium">
+                      <TableCell className="px-3 py-2.5">Incentive</TableCell>
+                      <TableCell className="text-right tabular-nums px-3 py-2.5">{fmtCur(results.annualIncentive)}</TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>

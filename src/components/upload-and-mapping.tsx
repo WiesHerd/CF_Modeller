@@ -52,7 +52,7 @@ type RawFileState = { rows: RawRow[]; headers: string[]; fileName?: string }
 
 /** Group provider columns for Apple-style sectioned mapping UI. CART = Clinical, Admin, Research, Teaching. */
 const PROVIDER_COLUMN_GROUPS: { label: string; keys: readonly string[] }[] = [
-  { label: 'Identity', keys: ['providerName', 'specialty', 'division'] },
+  { label: 'Identity', keys: ['providerName', 'specialty', 'division', 'providerType'] },
   { label: 'FTE (CART)', keys: ['totalFTE', 'clinicalFTE', 'adminFTE', 'researchFTE', 'teachingFTE'] },
   { label: 'Compensation & wRVUs', keys: ['baseSalary', 'qualityPayments', 'otherIncentives', 'currentTCC', 'workRVUs', 'outsideWRVUs', 'currentCF', 'nonClinicalPay'] },
   { label: 'Model', keys: ['productivityModel'] },
@@ -79,8 +79,8 @@ interface UploadAndMappingProps {
   batchSynonymMap: SynonymMap
   onAddSynonym: (key: string, value: string) => void
   onRemoveSynonym: (key: string) => void
-  /** When provided, navigating to Data screen after Apply and Eye when data is loaded. */
-  onNavigateToData?: () => void
+  /** When provided, navigating to Data screen after Apply and Eye when data is loaded. Pass tab to open Provider or Market table. */
+  onNavigateToData?: (tab?: 'providers' | 'market') => void
 }
 
 export function UploadAndMapping({
@@ -109,6 +109,7 @@ export function UploadAndMapping({
     providerName: string
     specialty: string
     division: string
+    providerType: string
     totalFTE: string
     clinicalFTE: string
     adminFTE: string
@@ -127,6 +128,7 @@ export function UploadAndMapping({
     providerName: '',
     specialty: '',
     division: '',
+    providerType: '',
     totalFTE: '',
     clinicalFTE: '',
     adminFTE: '',
@@ -155,6 +157,7 @@ export function UploadAndMapping({
         providerName: toStr(editingProvider.providerName),
         specialty: toStr(editingProvider.specialty),
         division: toStr(editingProvider.division),
+        providerType: toStr(editingProvider.providerType),
         totalFTE: toStr(editingProvider.totalFTE),
         clinicalFTE: toStr(editingProvider.clinicalFTE),
         adminFTE: toStr(editingProvider.adminFTE),
@@ -272,6 +275,7 @@ export function UploadAndMapping({
     if (editForm.providerName.trim() !== '') updates.providerName = editForm.providerName.trim()
     if (editForm.specialty.trim() !== '') updates.specialty = editForm.specialty.trim()
     if (editForm.division.trim() !== '') updates.division = editForm.division.trim()
+    if (editForm.providerType.trim() !== '') updates.providerType = editForm.providerType.trim()
     const totalFTE = parseNum(editForm.totalFTE)
     if (totalFTE !== undefined) updates.totalFTE = totalFTE
     const clinicalFTE = parseNum(editForm.clinicalFTE)
@@ -356,6 +360,19 @@ export function UploadAndMapping({
                     placeholder="Division"
                     className="h-10"
                   />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="edit-providerType">Provider type / Role</Label>
+                  <Input
+                    id="edit-providerType"
+                    value={editForm.providerType}
+                    onChange={(e) => setEditForm((f) => ({ ...f, providerType: e.target.value }))}
+                    placeholder="e.g. Clinical, Division Chief, Medical Director"
+                    className="h-10"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Used in the Conversion Factor Optimizer to exclude certain roles (e.g. division chiefs, medical directors) from the run.
+                  </p>
                 </div>
               </div>
             </fieldset>
@@ -693,7 +710,7 @@ export function UploadAndMapping({
                       if (providerRaw) {
                         setExpandedCard((c) => (c === 'provider' ? null : 'provider'))
                       } else if (onNavigateToData) {
-                        onNavigateToData()
+                        onNavigateToData('providers')
                       } else {
                         setExpandedCard((c) => (c === 'provider' ? null : 'provider'))
                       }
@@ -801,7 +818,7 @@ export function UploadAndMapping({
                       if (marketRaw) {
                         setExpandedCard((c) => (c === 'market' ? null : 'market'))
                       } else if (onNavigateToData) {
-                        onNavigateToData()
+                        onNavigateToData('market')
                       } else {
                         setExpandedCard((c) => (c === 'market' ? null : 'market'))
                       }

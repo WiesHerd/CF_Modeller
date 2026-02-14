@@ -163,6 +163,7 @@ export function buildDefaultMapping(
 
 /** Aliases for provider file headers so "wRVUs", "Total FTE", "Quality payments", etc. map correctly. */
 const PROVIDER_ALIASES: Record<string, string[]> = {
+  providerType: ['providertype', 'provider type', 'role', 'job type', 'role type', 'jobtype', 'roletype'],
   workRVUs: ['workrvus', 'wrvus', 'work rvus'],
   productivityModel: ['productivitymodel', 'productivity', 'prod model'],
   totalFTE: ['totalfte', 'total fte', 'totalftes'],

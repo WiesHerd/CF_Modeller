@@ -221,6 +221,11 @@ export interface OptimizerSettings {
   gridStepPct?: number
   /** Cap: recommended CF will not exceed this market percentile (e.g. 50 = median) per specialty. */
   maxRecommendedCFPercentile?: number
+  /**
+   * Assume productivity gain: scale recorded wRVUs by (1 + this/100) for this run only.
+   * E.g. 5 = 5% higher wRVUs (budgeting for expected productivity growth). 0 or undefined = no scaling.
+   */
+  wRVUGrowthFactorPct?: number
   /** Governance thresholds for status/explanation logic. */
   governanceConfig: GovernanceConfig
 }
@@ -315,7 +320,10 @@ export interface OptimizerProviderContext {
   currentTCCBaseline: number
   currentTCC_1p0: number
   currentTCC_pctile: number
+  /** wRVU per 1.0 cFTE used for this run (scaled by wRVUGrowthFactorPct when set). */
   wRVU_1p0: number
+  /** Total wRVUs used for this run (scaled by wRVUGrowthFactorPct when set). */
+  effectiveTotalWRVUs: number
   wrvuPercentile: number
   wrvuOffScale: boolean
   /** TCC %ile − wRVU %ile at baseline. */
@@ -554,6 +562,8 @@ export interface OptimizerConfigSnapshot {
   targetMode: 'all' | 'custom'
   selectedSpecialties: string[]
   selectedDivisions: string[]
+  /** Provider types (roles) to exclude from the run, e.g. Division Chief, Medical Director. */
+  excludedProviderTypes: string[]
   settings: OptimizerSettings
   configStep: number
   /** Optional: last run result so it can be restored when returning to the screen. */
@@ -567,4 +577,91 @@ export interface SavedOptimizerConfig {
   createdAt: string
   /** Full snapshot so we can restore form and optionally last run result. */
   snapshot: OptimizerConfigSnapshot
+}
+
+// ---------------------------------------------------------------------------
+// Scenario comparison (compare two saved optimizer runs)
+// ---------------------------------------------------------------------------
+
+/** Side-by-side or diff of key assumptions between two optimizer runs. */
+export interface OptimizerAssumptionsDiff {
+  /** Productivity gain (wRVU growth) assumption: A vs B. */
+  wRVUGrowthFactorPctA: number | undefined
+  wRVUGrowthFactorPctB: number | undefined
+  /** Optimization objective: kind and params. */
+  objectiveA: OptimizationObjective
+  objectiveB: OptimizationObjective
+  /** Governance: hard/soft cap, FMV threshold, alignment tolerance. */
+  governanceA: GovernanceConfig
+  governanceB: GovernanceConfig
+  /** Scope: included/excluded counts from each run summary. */
+  providersIncludedA: number
+  providersIncludedB: number
+  providersExcludedA: number
+  providersExcludedB: number
+  /** Manual include/exclude IDs (length or summary). */
+  manualExcludeCountA: number
+  manualExcludeCountB: number
+  manualIncludeCountA: number
+  manualIncludeCountB: number
+  /** Budget constraint: kind and cap if set. */
+  budgetConstraintA: BudgetConstraint
+  budgetConstraintB: BudgetConstraint
+  /** Selected specialties (for custom target mode). */
+  selectedSpecialtiesA: string[]
+  selectedSpecialtiesB: string[]
+}
+
+/** Roll-up metrics for comparison (spend, incentive, alignment, governance). */
+export interface OptimizerComparisonRollup {
+  totalSpendImpactA: number
+  totalSpendImpactB: number
+  deltaSpendImpact: number
+  deltaSpendImpactPct: number | null
+  /** Total work RVU incentive $ (modeled) across included providers; A and B. */
+  totalIncentiveA: number
+  totalIncentiveB: number
+  deltaIncentive: number
+  /** Mean TCC percentile (roll-up from bySpecialty keyMetrics). */
+  meanTCCPercentileA: number
+  meanTCCPercentileB: number
+  /** Mean wRVU percentile. */
+  meanWRVUPercentileA: number
+  meanWRVUPercentileB: number
+  countMeetingAlignmentTargetA: number
+  countMeetingAlignmentTargetB: number
+  countCFAbovePolicyA: number
+  countCFAbovePolicyB: number
+  countEffectiveRateAbove90A: number
+  countEffectiveRateAbove90B: number
+}
+
+/** One row in the by-specialty comparison table. */
+export interface OptimizerComparisonSpecialtyRow {
+  specialty: string
+  /** Present in scenario A only, B only, or both. */
+  presence: 'both' | 'a_only' | 'b_only'
+  recommendedCFA: number | null
+  recommendedCFB: number | null
+  deltaCFPct: number | null
+  spendImpactA: number | null
+  spendImpactB: number | null
+  deltaSpendImpact: number | null
+  meanTCCPercentileA: number | null
+  meanTCCPercentileB: number | null
+  meanWRVUPercentileA: number | null
+  meanWRVUPercentileB: number | null
+}
+
+/** Full comparison result for two saved optimizer configs (both with lastRunResult). */
+export interface OptimizerScenarioComparison {
+  scenarioAName: string
+  scenarioBName: string
+  scenarioAId: string
+  scenarioBId: string
+  assumptions: OptimizerAssumptionsDiff
+  rollup: OptimizerComparisonRollup
+  bySpecialty: OptimizerComparisonSpecialtyRow[]
+  /** Narrative summary in provider-compensation terms. Array = bullets, string = single paragraph (legacy). */
+  narrativeSummary: string | string[]
 }

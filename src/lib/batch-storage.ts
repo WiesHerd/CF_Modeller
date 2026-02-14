@@ -1,6 +1,8 @@
-import type { BatchResults, SavedBatchRun, SavedBatchScenarioConfig, SynonymMap } from '@/types/batch'
+import type { BatchResults, BatchRunMode, SavedBatchRun, SavedBatchScenarioConfig, SynonymMap } from '@/types/batch'
 
 const KEY_BATCH_RESULTS = 'cf-modeler-batch-results'
+const KEY_BATCH_RESULTS_BULK = 'cf-modeler-batch-results-bulk'
+const KEY_BATCH_RESULTS_DETAILED = 'cf-modeler-batch-results-detailed'
 const KEY_SAVED_BATCH_RUNS = 'cf-modeler-saved-batch-runs'
 const KEY_SAVED_BATCH_SCENARIO_CONFIGS = 'cf-modeler-saved-batch-scenario-configs'
 const KEY_SYNONYM_MAP = 'cf-modeler-synonym-map'
@@ -9,9 +11,14 @@ const MAX_SAVED_BATCH_SCENARIO_CONFIGS = 20
 export const MAX_BATCH_RESULTS_BYTES = 4 * 1024 * 1024 // 4 MB; skip save if larger
 const MAX_SAVED_BATCH_RUNS = 20
 
-export function loadBatchResults(): BatchResults | null {
+export interface BatchResultsByMode {
+  bulk: BatchResults | null
+  detailed: BatchResults | null
+}
+
+function loadOneBatchResults(key: string): BatchResults | null {
   try {
-    const s = localStorage.getItem(KEY_BATCH_RESULTS)
+    const s = localStorage.getItem(key)
     if (!s) return null
     const data = JSON.parse(s) as unknown
     if (!data || typeof data !== 'object' || !Array.isArray((data as BatchResults).rows))
@@ -22,13 +29,31 @@ export function loadBatchResults(): BatchResults | null {
   }
 }
 
-export function saveBatchResults(results: BatchResults): boolean {
+export function loadBatchResultsByMode(): BatchResultsByMode {
+  let bulk = loadOneBatchResults(KEY_BATCH_RESULTS_BULK)
+  const detailed = loadOneBatchResults(KEY_BATCH_RESULTS_DETAILED)
+  const legacy = loadOneBatchResults(KEY_BATCH_RESULTS)
+  if (legacy != null && bulk == null) {
+    bulk = legacy
+    try {
+      localStorage.setItem(KEY_BATCH_RESULTS_BULK, JSON.stringify(legacy))
+      localStorage.removeItem(KEY_BATCH_RESULTS)
+    } catch {
+      // ignore
+    }
+  }
+  return { bulk, detailed }
+}
+
+/** Save results for a given mode. Returns false if payload too large. */
+export function saveBatchResults(results: BatchResults, mode: BatchRunMode): boolean {
   try {
     const s = JSON.stringify(results)
     if (new Blob([s]).size > MAX_BATCH_RESULTS_BYTES) {
       return false
     }
-    localStorage.setItem(KEY_BATCH_RESULTS, s)
+    const key = mode === 'bulk' ? KEY_BATCH_RESULTS_BULK : KEY_BATCH_RESULTS_DETAILED
+    localStorage.setItem(key, s)
     return true
   } catch {
     return false
@@ -53,9 +78,13 @@ export function loadSavedBatchRuns(): SavedBatchRun[] {
     if (!s) return []
     const data = JSON.parse(s) as unknown
     if (!Array.isArray(data)) return []
-    return (data as SavedBatchRun[]).filter(
-      (r) => r && r.id && r.name && r.createdAt && r.results && Array.isArray(r.results?.rows)
-    )
+    return (data as SavedBatchRun[]).filter((r) => {
+      if (!r || !r.id || !r.name || !r.createdAt || !r.results || !Array.isArray(r.results?.rows))
+        return false
+      const mode = r.mode
+      if (mode !== undefined && mode !== 'bulk' && mode !== 'detailed') return false
+      return true
+    })
   } catch {
     return []
   }

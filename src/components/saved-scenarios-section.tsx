@@ -49,7 +49,7 @@ interface SaveScenarioDialogProps {
   onSave: (name: string) => void
 }
 
-function SaveScenarioDialog({
+export function SaveScenarioDialog({
   open,
   onOpenChange,
   onSave,

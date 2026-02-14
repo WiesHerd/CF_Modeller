@@ -55,7 +55,7 @@ export function getGapInterpretation(gap: number): GapInterpretation {
 }
 
 export const GAP_INTERPRETATION_LABEL: Record<GapInterpretation, string> = {
-  overpaid: 'Overpaid vs productivity',
+  overpaid: 'Pay above productivity',
   underpaid: 'Underpaid vs productivity',
   aligned: 'Aligned',
 }

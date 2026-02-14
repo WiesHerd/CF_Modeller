@@ -463,19 +463,6 @@ function CompensationFTESection({
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-end gap-2">
-        {canEdit && onUpdateProvider && (
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            onClick={useComponents ? handleSaveComponents : handleSave}
-            title={useComponents ? 'Save component breakdown. Stays in this view.' : 'Save provider. Updates the same scenario used in Scenario planning when one is loaded or just saved.'}
-          >
-            {showSaved ? 'Saved!' : 'Save'}
-          </Button>
-        )}
-      </div>
       <div className="flex flex-col gap-4">
         {/* Panel 1: Compensation */}
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">

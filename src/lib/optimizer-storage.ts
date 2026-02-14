@@ -18,7 +18,8 @@ export function loadSavedOptimizerConfigs(): SavedOptimizerConfig[] {
         c.snapshot &&
         typeof c.snapshot === 'object' &&
         Array.isArray(c.snapshot.selectedSpecialties) &&
-        Array.isArray(c.snapshot.selectedDivisions)
+        Array.isArray(c.snapshot.selectedDivisions) &&
+        (c.snapshot.excludedProviderTypes == null || Array.isArray(c.snapshot.excludedProviderTypes))
     )
   } catch {
     return []

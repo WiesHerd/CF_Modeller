@@ -690,7 +690,7 @@ describe('buildExplanation', () => {
       marketCF
     )
     expect(expl.headline).toContain('Increase')
-    expect(expl.why.some((w) => w.toLowerCase().includes('overpaid'))).toBe(true)
+    expect(expl.why.some((w) => w.toLowerCase().includes('above productivity') || w.toLowerCase().includes('pay above'))).toBe(true)
     expect(
       expl.why.some(
         (w) =>
