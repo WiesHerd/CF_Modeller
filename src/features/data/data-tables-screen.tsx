@@ -43,10 +43,21 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { loadDataBrowserFilters, saveDataBrowserFilters, type DataBrowserFilters } from '@/lib/storage'
 import { formatCurrency, formatNumber } from '@/utils/format'
-import { ChevronLeft, ChevronRight, GripVertical, Columns3, Maximize2, Table2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, Maximize2, Pencil, Plus, Table2 } from 'lucide-react'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
+import { ProviderEditModal } from '@/features/data/provider-edit-modal'
+import { MarketEditModal } from '@/features/data/market-edit-modal'
 
 const EMPTY = '—'
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
@@ -110,6 +121,10 @@ interface DataTablesScreenProps {
   dataTab?: 'providers' | 'market'
   onDataTabChange?: (tab: 'providers' | 'market') => void
   onNavigateToUpload?: () => void
+  onUpdateProvider?: (providerId: string, updates: Partial<ProviderRow>) => void
+  onAddProvider?: (row: ProviderRow) => void
+  onUpdateMarketRow?: (existingRow: MarketRow, updates: Partial<MarketRow>) => void
+  onAddMarketRow?: (row: MarketRow) => void
 }
 
 export function DataTablesScreen({
@@ -118,7 +133,19 @@ export function DataTablesScreen({
   dataTab: controlledTab,
   onDataTabChange,
   onNavigateToUpload,
+  onUpdateProvider,
+  onAddProvider,
+  onUpdateMarketRow,
+  onAddMarketRow,
 }: DataTablesScreenProps) {
+  const defaultTab = providerRows.length > 0 ? 'providers' : 'market'
+  const [persistedFilters, setPersistedFilters] = useState(loadDataBrowserFilters)
+  useEffect(() => {
+    saveDataBrowserFilters(persistedFilters)
+  }, [persistedFilters])
+  const [internalTab, setInternalTab] = useState<'providers' | 'market'>(() =>
+    controlledTab ?? persistedFilters.dataTab ?? defaultTab
+  )
   const hasAny = providerRows.length > 0 || marketRows.length > 0
 
   if (!hasAny) {
@@ -139,11 +166,10 @@ export function DataTablesScreen({
     )
   }
 
-  const defaultTab = providerRows.length > 0 ? 'providers' : 'market'
-  const [internalTab, setInternalTab] = useState<'providers' | 'market'>(defaultTab)
   const tabValue = controlledTab ?? internalTab
   const handleTabChange = (v: string) => {
     const t = v as 'providers' | 'market'
+    setPersistedFilters((prev: DataBrowserFilters) => ({ ...prev, dataTab: t }))
     if (onDataTabChange) onDataTabChange(t)
     else setInternalTab(t)
   }
@@ -157,7 +183,17 @@ export function DataTablesScreen({
         </TabsList>
         <TabsContent value="providers" className="mt-4">
           {providerRows.length > 0 ? (
-            <ProviderDataTable rows={providerRows} />
+            <ProviderDataTable
+              rows={providerRows}
+              specialtyFilter={persistedFilters.providerSpecialty}
+              onSpecialtyFilterChange={(v) => setPersistedFilters((p: DataBrowserFilters) => ({ ...p, providerSpecialty: v }))}
+              divisionFilter={persistedFilters.providerDivision}
+              onDivisionFilterChange={(v) => setPersistedFilters((p: DataBrowserFilters) => ({ ...p, providerDivision: v }))}
+              modelFilter={persistedFilters.providerModel}
+              onModelFilterChange={(v) => setPersistedFilters((p: DataBrowserFilters) => ({ ...p, providerModel: v }))}
+              onUpdateProvider={onUpdateProvider}
+              onAddProvider={onAddProvider}
+            />
           ) : (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
@@ -173,7 +209,13 @@ export function DataTablesScreen({
         </TabsContent>
         <TabsContent value="market" className="mt-4">
           {marketRows.length > 0 ? (
-            <MarketDataTable rows={marketRows} />
+            <MarketDataTable
+              rows={marketRows}
+              specialtyFilter={persistedFilters.marketSpecialty}
+              onSpecialtyFilterChange={(v) => setPersistedFilters((p: DataBrowserFilters) => ({ ...p, marketSpecialty: v }))}
+              onUpdateMarketRow={onUpdateMarketRow}
+              onAddMarketRow={onAddMarketRow}
+            />
           ) : (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
@@ -195,7 +237,43 @@ export function DataTablesScreen({
 // ---- Provider table ----
 const providerHelper = createColumnHelper<ProviderRow>()
 
-function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
+interface ProviderDataTableProps {
+  rows: ProviderRow[]
+  specialtyFilter?: string
+  onSpecialtyFilterChange?: (value: string) => void
+  divisionFilter?: string
+  onDivisionFilterChange?: (value: string) => void
+  modelFilter?: string
+  onModelFilterChange?: (value: string) => void
+  onUpdateProvider?: (providerId: string, updates: Partial<ProviderRow>) => void
+  onAddProvider?: (row: ProviderRow) => void
+}
+
+function ProviderDataTable({
+  rows,
+  specialtyFilter: specialtyFilterProp = 'all',
+  onSpecialtyFilterChange,
+  divisionFilter: divisionFilterProp = 'all',
+  onDivisionFilterChange,
+  modelFilter: modelFilterProp = 'all',
+  onModelFilterChange,
+  onUpdateProvider,
+  onAddProvider,
+}: ProviderDataTableProps) {
+  const [internalSpecialty, setInternalSpecialty] = useState('all')
+  const [internalDivision, setInternalDivision] = useState('all')
+  const [internalModel, setInternalModel] = useState('all')
+  const specialtyFilter = specialtyFilterProp ?? internalSpecialty
+  const setSpecialtyFilter = onSpecialtyFilterChange ?? setInternalSpecialty
+  const divisionFilter = divisionFilterProp ?? internalDivision
+  const setDivisionFilter = onDivisionFilterChange ?? setInternalDivision
+  const modelFilter = modelFilterProp ?? internalModel
+  const setModelFilter = onModelFilterChange ?? setInternalModel
+
+  const [providerModalOpen, setProviderModalOpen] = useState(false)
+  const [providerModalMode, setProviderModalMode] = useState<'edit' | 'add'>('edit')
+  const [providerEditRow, setProviderEditRow] = useState<ProviderRow | null>(null)
+
   const [sorting, setSorting] = useState<SortingState>([{ id: 'providerName', desc: false }])
   const [globalFilter, setGlobalFilter] = useState('')
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
@@ -204,17 +282,13 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [draggedColId, setDraggedColId] = useState<string | null>(null)
   const [dropTargetColId, setDropTargetColId] = useState<string | null>(null)
-  const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
   const dragColIdRef = useRef<string | null>(null)
   const tableScrollRef = useRef<HTMLDivElement>(null)
-  const focusedCellRef = useRef<HTMLTableCellElement>(null)
-  const focusAfterPageChangeRef = useRef<{ rowIndex: number; columnIndex: number } | null>(null)
 
   const SCROLL_STEP = 120
   const handleTableKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     const el = tableScrollRef.current
     if (!el) return
-    if (focusedCell != null) return
     switch (e.key) {
       case 'ArrowLeft':
         el.scrollBy({ left: -SCROLL_STEP, behavior: 'smooth' })
@@ -255,12 +329,12 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
       default:
         break
     }
-  }, [focusedCell])
+  }, [])
 
-  // Filters
-  const [specialtyFilter, setSpecialtyFilter] = useState<string>('all')
-  const [divisionFilter, setDivisionFilter] = useState<string>('all')
-  const [modelFilter, setModelFilter] = useState<string>('all')
+  // Filters (state lifted to DataTablesScreen for persistence; search strings stay local)
+  const [specialtySearch, setSpecialtySearch] = useState('')
+  const [divisionSearch, setDivisionSearch] = useState('')
+  const [modelSearch, setModelSearch] = useState('')
   const [totalFTEMin, setTotalFTEMin] = useState<string>('')
   const [totalFTEMax, setTotalFTEMax] = useState<string>('')
   const [clinicalFTEMin, setClinicalFTEMin] = useState<string>('')
@@ -283,6 +357,23 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
     return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)))
   }, [rows])
 
+  const filteredSpecialties = useMemo(() => {
+    if (!specialtySearch.trim()) return specialties
+    const q = specialtySearch.toLowerCase()
+    return specialties.filter((s) => String(s).toLowerCase().includes(q))
+  }, [specialties, specialtySearch])
+  const filteredDivisions = useMemo(() => {
+    if (!divisionSearch.trim()) return divisions
+    const q = divisionSearch.toLowerCase()
+    return divisions.filter((d) => String(d).toLowerCase().includes(q))
+  }, [divisions, divisionSearch])
+  const filteredModels = useMemo(() => {
+    if (!modelSearch.trim()) return models
+    const q = modelSearch.toLowerCase()
+    return models.filter((m) => String(m).toLowerCase().includes(q))
+  }, [models, modelSearch])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack Table column value types vary per column
   const columns = useMemo<ColumnDef<ProviderRow, any>[]>(
     () => [
       providerHelper.accessor('providerName', { header: 'Name', cell: (c) => c.getValue() ?? EMPTY, meta: { wrap: true }, size: 180, minSize: 100 }),
@@ -305,8 +396,34 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
       providerHelper.accessor('otherIncentives', { header: 'Other incentives', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 130, minSize: 100 }),
       providerHelper.accessor('currentTCC', { header: 'Current TCC', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 125, minSize: 100 }),
       providerHelper.accessor('productivityModel', { header: 'Model', cell: (c) => c.getValue() ?? EMPTY, size: 110, minSize: 80 }),
+      ...(onUpdateProvider
+        ? [
+            providerHelper.display({
+              id: 'actions',
+              header: '',
+              cell: ({ row }) => (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label="Edit provider"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setProviderEditRow(row.original)
+                    setProviderModalMode('edit')
+                    setProviderModalOpen(true)
+                  }}
+                >
+                  <Pencil className="size-4" />
+                </Button>
+              ),
+              size: 52,
+              minSize: 52,
+            }),
+          ]
+        : []),
     ],
-    []
+    [onUpdateProvider]
   )
 
   const filteredRows = useMemo(() => {
@@ -397,79 +514,8 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
   const pageRows = table.getRowModel().rows
   const rowCount = pageRows.length
   const colCount = pageRows[0]?.getVisibleCells().length ?? 0
-
-  useEffect(() => {
-    if (focusedCell == null) return
-    const el = focusedCellRef.current
-    if (!el) return
-    requestAnimationFrame(() => {
-      el.focus()
-      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
-    })
-  }, [focusedCell])
-
   const { pageIndex, pageSize } = table.getState().pagination
   const pageCount = table.getPageCount()
-  useEffect(() => {
-    if (focusAfterPageChangeRef.current) {
-      setFocusedCell(focusAfterPageChangeRef.current)
-      focusAfterPageChangeRef.current = null
-    } else {
-      setFocusedCell(null)
-    }
-  }, [pageIndex, pageSize, rowCount])
-
-  const handleCellKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTableCellElement>, rowIndex: number, columnIndex: number) => {
-      if (rowCount === 0 || colCount === 0) return
-      const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
-      if (isArrow) {
-        e.preventDefault()
-        e.stopPropagation()
-      }
-      switch (e.key) {
-        case 'ArrowLeft':
-          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.max(0, columnIndex - 1) } : null))
-          break
-        case 'ArrowRight':
-          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.min(colCount - 1, columnIndex + 1) } : null))
-          break
-        case 'ArrowUp':
-          if (rowIndex === 0 && pageIndex > 0) {
-            focusAfterPageChangeRef.current = { rowIndex: rowCount - 1, columnIndex }
-            table.previousPage()
-          } else {
-            setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.max(0, rowIndex - 1) } : null))
-          }
-          break
-        case 'ArrowDown':
-          if (rowIndex === rowCount - 1 && pageIndex < pageCount - 1) {
-            focusAfterPageChangeRef.current = { rowIndex: 0, columnIndex }
-            table.nextPage()
-          } else {
-            setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.min(rowCount - 1, rowIndex + 1) } : null))
-          }
-          break
-        case 'Home':
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault()
-            e.stopPropagation()
-            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: 0 } : null))
-          }
-          break
-        case 'End':
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault()
-            e.stopPropagation()
-            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: colCount - 1 } : null))
-          }
-          break
-        default:
-          break
-      }
-    },
-    [rowCount, colCount, table, pageIndex, pageCount]
-  )
 
   const handleAutoResize = useCallback(() => {
     const cols = table.getAllLeafColumns()
@@ -514,33 +560,105 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
           className="h-9 w-full sm:max-w-[220px]"
         />
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-            <SelectTrigger className="h-9 w-[160px]">
-              <SelectValue placeholder="Specialty" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All specialties</SelectItem>
-              {specialties.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={divisionFilter} onValueChange={setDivisionFilter}>
-            <SelectTrigger className="h-9 w-[130px]">
-              <SelectValue placeholder="Division" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All divisions</SelectItem>
-              {divisions.map((d) => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={modelFilter} onValueChange={setModelFilter}>
-            <SelectTrigger className="h-9 w-[120px]">
-              <SelectValue placeholder="Model" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All models</SelectItem>
-              {models.map((m) => <SelectItem key={m} value={String(m)}>{m}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {onAddProvider && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5"
+              onClick={() => {
+                setProviderEditRow(null)
+                setProviderModalMode('add')
+                setProviderModalOpen(true)
+              }}
+            >
+              <Plus className="size-4" />
+              Add provider
+            </Button>
+          )}
+          <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 w-[160px] justify-between gap-2">
+                <span className="truncate">
+                  {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter}
+                </span>
+                <ChevronDown className="size-4 shrink-0 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
+              <Command shouldFilter={false} className="rounded-none border-0">
+                <CommandInput placeholder="Search specialties…" value={specialtySearch} onValueChange={setSpecialtySearch} className="h-9" />
+                <CommandList>
+                  <CommandEmpty>No specialty found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem value="all" onSelect={() => setSpecialtyFilter('all')}>
+                      All specialties
+                    </CommandItem>
+                    {filteredSpecialties.map((s) => (
+                      <CommandItem key={s} value={String(s)} onSelect={() => setSpecialtyFilter(String(s))}>
+                        {s}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu onOpenChange={(open) => !open && setDivisionSearch('')}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 w-[130px] justify-between gap-2">
+                <span className="truncate">
+                  {divisionFilter === 'all' ? 'All divisions' : divisionFilter}
+                </span>
+                <ChevronDown className="size-4 shrink-0 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
+              <Command shouldFilter={false} className="rounded-none border-0">
+                <CommandInput placeholder="Search divisions…" value={divisionSearch} onValueChange={setDivisionSearch} className="h-9" />
+                <CommandList>
+                  <CommandEmpty>No division found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem value="all" onSelect={() => setDivisionFilter('all')}>
+                      All divisions
+                    </CommandItem>
+                    {filteredDivisions.map((d) => (
+                      <CommandItem key={d} value={String(d)} onSelect={() => setDivisionFilter(String(d))}>
+                        {d}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu onOpenChange={(open) => !open && setModelSearch('')}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 w-[120px] justify-between gap-2">
+                <span className="truncate">
+                  {modelFilter === 'all' ? 'All models' : modelFilter}
+                </span>
+                <ChevronDown className="size-4 shrink-0 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
+              <Command shouldFilter={false} className="rounded-none border-0">
+                <CommandInput placeholder="Search models…" value={modelSearch} onValueChange={setModelSearch} className="h-9" />
+                <CommandList>
+                  <CommandEmpty>No model found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem value="all" onSelect={() => setModelFilter('all')}>
+                      All models
+                    </CommandItem>
+                    {filteredModels.map((m) => (
+                      <CommandItem key={m} value={String(m)} onSelect={() => setModelFilter(String(m))}>
+                        {m}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div className="flex items-center gap-2">
             <Label htmlFor="provider-page-size" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
             <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
@@ -583,7 +701,7 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Drag column headers to reorder; drag right edge to resize. Click a cell and use arrow keys to move between cells (Excel-style). Focus the table and use arrow keys to scroll when no cell is selected.
+        Drag column headers to reorder; drag right edge to resize. Focus the table and use arrow keys to scroll.
       </p>
       <div
         ref={tableScrollRef}
@@ -593,14 +711,7 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
         aria-colcount={colCount}
         tabIndex={0}
         className="rounded-md border flex flex-col focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        onKeyDown={(e) => {
-          if (focusedCell == null && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-            setFocusedCell({ rowIndex: 0, columnIndex: 0 })
-            e.preventDefault()
-          } else {
-            handleTableKeyDown(e)
-          }
-        }}
+        onKeyDown={handleTableKeyDown}
       >
         <div className="flex justify-end gap-0.5 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleAutoResize} title="Size columns to fit content" aria-label="Auto-resize columns">
@@ -630,11 +741,6 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
         <div
           className="rounded-md border border-border overflow-x-auto overflow-y-auto min-h-0"
           style={{ maxHeight: 'min(880px, 65vh)' }}
-          onKeyDownCapture={(e) => {
-            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && (e.target as HTMLElement).closest?.('td[role="gridcell"]')) {
-              e.preventDefault()
-            }
-          }}
         >
         <table className="w-full caption-bottom text-sm" style={{ minWidth: 'max-content' }}>
           <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
@@ -686,29 +792,21 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')} role="row">
-                {row.getVisibleCells().map((cell, colIndex) => {
-                  const isFocused = focusedCell?.rowIndex === row.index && focusedCell?.columnIndex === colIndex
-                  return (
-                    <TableCell
-                      key={cell.id}
-                      ref={isFocused ? focusedCellRef : undefined}
-                      role="gridcell"
-                      tabIndex={isFocused ? 0 : -1}
-                      aria-rowindex={row.index + 1}
-                      aria-colindex={colIndex + 1}
-                      className={cn(
-                        (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
-                        'px-3 py-2.5 cursor-cell outline-none',
-                        isFocused && 'ring-2 ring-primary ring-inset bg-primary/5'
-                      )}
-                      style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
-                      onClick={() => setFocusedCell({ rowIndex: row.index, columnIndex: colIndex })}
-                      onKeyDown={(e) => handleCellKeyDown(e, row.index, colIndex)}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  )
-                })}
+                {row.getVisibleCells().map((cell, colIndex) => (
+                  <TableCell
+                    key={cell.id}
+                    role="gridcell"
+                    aria-rowindex={row.index + 1}
+                    aria-colindex={colIndex + 1}
+                    className={cn(
+                      (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
+                      'px-3 py-2.5'
+                    )}
+                    style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
               </TableRow>
             ))}
           </tbody>
@@ -730,6 +828,16 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
           </Button>
         </div>
       </div>
+      {(onUpdateProvider ?? onAddProvider) && (
+        <ProviderEditModal
+          open={providerModalOpen}
+          onOpenChange={setProviderModalOpen}
+          mode={providerModalMode}
+          initialRow={providerModalMode === 'edit' ? providerEditRow : null}
+          onSaveEdit={onUpdateProvider ?? (() => {})}
+          onSaveAdd={onAddProvider ?? (() => {})}
+        />
+      )}
     </div>
   )
 }
@@ -737,14 +845,26 @@ function ProviderDataTable({ rows }: { rows: ProviderRow[] }) {
 // ---- Market table ----
 const marketHelper = createColumnHelper<MarketRow>()
 
-function MarketDataTable({ rows }: { rows: MarketRow[] }) {
+interface MarketDataTableProps {
+  rows: MarketRow[]
+  specialtyFilter: string
+  onSpecialtyFilterChange: (value: string) => void
+  onUpdateMarketRow?: (existingRow: MarketRow, updates: Partial<MarketRow>) => void
+  onAddMarketRow?: (row: MarketRow) => void
+}
+
+function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpdateMarketRow, onAddMarketRow }: MarketDataTableProps) {
+  const [marketModalOpen, setMarketModalOpen] = useState(false)
+  const [marketModalMode, setMarketModalMode] = useState<'edit' | 'add'>('edit')
+  const [marketEditRow, setMarketEditRow] = useState<MarketRow | null>(null)
+
   const [sorting, setSorting] = useState<SortingState>([{ id: 'specialty', desc: false }])
   const [globalFilter, setGlobalFilter] = useState('')
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
-  const [specialtyFilter, setSpecialtyFilter] = useState<string>('all')
+  const [specialtySearch, setSpecialtySearch] = useState('')
   const [draggedColId, setDraggedColId] = useState<string | null>(null)
   const [dropTargetColId, setDropTargetColId] = useState<string | null>(null)
   const dragColIdRef = useRef<string | null>(null)
@@ -800,7 +920,13 @@ function MarketDataTable({ rows }: { rows: MarketRow[] }) {
     const set = new Set(rows.map((r) => r.specialty).filter(Boolean))
     return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)))
   }, [rows])
+  const filteredSpecialties = useMemo(() => {
+    if (!specialtySearch.trim()) return specialties
+    const q = specialtySearch.toLowerCase()
+    return specialties.filter((s) => String(s).toLowerCase().includes(q))
+  }, [specialties, specialtySearch])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack Table column value types vary per column
   const columns = useMemo<ColumnDef<MarketRow, any>[]>(
     () => [
       marketHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, size: 200, minSize: 120 }),
@@ -815,8 +941,34 @@ function MarketDataTable({ rows }: { rows: MarketRow[] }) {
       ...(['CF_25', 'CF_50', 'CF_75', 'CF_90'] as const).map((k) =>
         marketHelper.accessor(k, { header: k, cell: (c) => fmtCur(c.getValue() as number, 2), meta: { align: 'right' }, size: 100, minSize: 85 })
       ),
+      ...(onUpdateMarketRow
+        ? [
+            marketHelper.display({
+              id: 'actions',
+              header: '',
+              cell: ({ row }) => (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  aria-label="Edit market line"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMarketEditRow(row.original)
+                    setMarketModalMode('edit')
+                    setMarketModalOpen(true)
+                  }}
+                >
+                  <Pencil className="size-4" />
+                </Button>
+              ),
+              size: 52,
+              minSize: 52,
+            }),
+          ]
+        : []),
     ],
-    []
+    [onUpdateMarketRow]
   )
 
   const filteredBySpecialty = useMemo(() => {
@@ -925,13 +1077,49 @@ function MarketDataTable({ rows }: { rows: MarketRow[] }) {
           className="h-9 w-full sm:max-w-[220px]"
         />
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="Specialty" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All specialties</SelectItem>
-              {specialties.map((s) => <SelectItem key={s} value={String(s)}>{s}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {onAddMarketRow && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5"
+              onClick={() => {
+                setMarketEditRow(null)
+                setMarketModalMode('add')
+                setMarketModalOpen(true)
+              }}
+            >
+              <Plus className="size-4" />
+              Add market line
+            </Button>
+          )}
+          <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 w-[160px] justify-between gap-2">
+                <span className="truncate">
+                  {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter}
+                </span>
+                <ChevronDown className="size-4 shrink-0 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
+              <Command shouldFilter={false} className="rounded-none border-0">
+                <CommandInput placeholder="Search specialties…" value={specialtySearch} onValueChange={setSpecialtySearch} className="h-9" />
+                <CommandList>
+                  <CommandEmpty>No specialty found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem value="all" onSelect={() => onSpecialtyFilterChange('all')}>
+                      All specialties
+                    </CommandItem>
+                    {filteredSpecialties.map((s) => (
+                      <CommandItem key={s} value={String(s)} onSelect={() => onSpecialtyFilterChange(String(s))}>
+                        {s}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <div className="flex items-center gap-2">
             <Label htmlFor="market-page-size" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
             <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
@@ -1059,6 +1247,16 @@ function MarketDataTable({ rows }: { rows: MarketRow[] }) {
           </Button>
         </div>
       </div>
+      {(onUpdateMarketRow ?? onAddMarketRow) && (
+        <MarketEditModal
+          open={marketModalOpen}
+          onOpenChange={setMarketModalOpen}
+          mode={marketModalMode}
+          initialRow={marketModalMode === 'edit' ? marketEditRow : null}
+          onSaveEdit={onUpdateMarketRow ?? (() => {})}
+          onSaveAdd={onAddMarketRow ?? (() => {})}
+        />
+      )}
     </div>
   )
 }

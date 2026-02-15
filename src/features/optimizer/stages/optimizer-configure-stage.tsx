@@ -334,12 +334,7 @@ export function OptimizerConfigureStage({
                       <DropdownMenuContent
                         align="start"
                         className="max-h-[320px] overflow-hidden p-0"
-                        onCloseAutoFocus={(e) => e.preventDefault()}
-                        onOpenAutoFocus={(e) => {
-                          e.preventDefault()
-                          const input = (e.currentTarget as HTMLElement).querySelector('input')
-                          if (input) requestAnimationFrame(() => (input as HTMLInputElement).focus())
-                        }}
+                        onCloseAutoFocus={(e: Event) => e.preventDefault()}
                       >
                         <Command shouldFilter={false} className="rounded-none border-0">
                           <CommandInput
@@ -386,12 +381,7 @@ export function OptimizerConfigureStage({
                       <DropdownMenuContent
                         align="start"
                         className="max-h-[320px] overflow-hidden p-0"
-                        onCloseAutoFocus={(e) => e.preventDefault()}
-                        onOpenAutoFocus={(e) => {
-                          e.preventDefault()
-                          const input = (e.currentTarget as HTMLElement).querySelector('input')
-                          if (input) requestAnimationFrame(() => (input as HTMLInputElement).focus())
-                        }}
+                        onCloseAutoFocus={(e: Event) => e.preventDefault()}
                       >
                         <Command shouldFilter={false} className="rounded-none border-0">
                           <CommandInput
@@ -452,12 +442,7 @@ export function OptimizerConfigureStage({
                   <DropdownMenuContent
                     align="start"
                     className="max-h-[320px] overflow-hidden p-0"
-                    onCloseAutoFocus={(e) => e.preventDefault()}
-                    onOpenAutoFocus={(e) => {
-                      e.preventDefault()
-                      const input = (e.currentTarget as HTMLElement).querySelector('input')
-                      if (input) requestAnimationFrame(() => (input as HTMLInputElement).focus())
-                    }}
+                    onCloseAutoFocus={(e: Event) => e.preventDefault()}
                   >
                     <Command shouldFilter={false} className="rounded-none border-0">
                       <CommandInput

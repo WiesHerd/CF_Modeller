@@ -44,13 +44,17 @@ function SheetOverlay({
 type SheetContentProps = React.ComponentProps<typeof DialogPrimitive.Content> & {
   side?: "left" | "right" | "top" | "bottom"
   showCloseButton?: boolean
+  /** Applied to the content panel (e.g. for resizable drawer width). */
+  contentStyle?: React.CSSProperties
 }
 
 function SheetContent({
   className,
   side = "right",
   showCloseButton = true,
+  contentStyle,
   children,
+  style,
   ...props
 }: SheetContentProps) {
   const slideIn = {
@@ -65,6 +69,7 @@ function SheetContent({
     top: "inset-x-0 top-0 h-auto max-h-[85vh] border-b border-border",
     bottom: "inset-x-0 bottom-0 h-auto max-h-[85vh] border-t border-border",
   }
+  const mergedStyle = { ...contentStyle, ...style }
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -77,6 +82,7 @@ function SheetContent({
           position[side],
           className
         )}
+        style={Object.keys(mergedStyle).length > 0 ? mergedStyle : undefined}
         {...props}
       >
         {children}

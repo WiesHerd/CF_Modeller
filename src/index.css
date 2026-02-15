@@ -254,4 +254,10 @@ body {
   .compare-scenarios-report section {
     break-inside: avoid;
   }
+  .report-print {
+    max-width: 100%;
+  }
+  .report-print .card {
+    break-inside: avoid;
+  }
 }

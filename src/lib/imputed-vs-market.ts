@@ -219,13 +219,14 @@ export function computeImputedVsMarketBySpecialty(
   return result
 }
 
-/** Provider-level detail for drawer drilldown (includes TCC build-up). */
+/** Provider-level detail for drawer drilldown (includes TCC build-up and percentiles). */
 export interface ImputedVsMarketProviderDetail {
   providerId: string
   providerName: string
   division: string
   providerType: string
   cFTE: number
+  totalWRVUs: number
   wRVU_1p0: number
   baselineTCC: number
   currentCFUsed: number
@@ -238,6 +239,23 @@ export interface ImputedVsMarketProviderDetail {
   otherIncentives: number
   /** Layered additional TCC (percent of base + dollar per FTE + flat). */
   additionalTCC?: number
+  /** TCC percentile (baseline TCC per 1.0 cFTE vs market TCC curve). */
+  tccPercentile: number
+  tccPercentileBelowRange?: boolean
+  tccPercentileAboveRange?: boolean
+  /** wRVU percentile (wRVU per 1.0 cFTE vs market wRVU curve). */
+  wrvuPercentile: number
+  wrvuPercentileBelowRange?: boolean
+  wrvuPercentileAboveRange?: boolean
+  /** Market curve for display in calculation drawer (per 1.0 cFTE). */
+  marketTCC_25: number
+  marketTCC_50: number
+  marketTCC_75: number
+  marketTCC_90: number
+  marketWRVU_25: number
+  marketWRVU_50: number
+  marketWRVU_75: number
+  marketWRVU_90: number
 }
 
 /**
@@ -288,12 +306,29 @@ export function getImputedVsMarketProviderDetail(
     const imputed = imputedTCCPerWRVU(baselineTCC, totalFTE, cFTE, totalWRVUs)
     if (!Number.isFinite(imputed) || imputed <= 0) continue
 
+    const baselineTCC_1p0 = cFTE > 0 ? baselineTCC / cFTE : 0
+    const tccResult = inferPercentile(
+      baselineTCC_1p0,
+      market.TCC_25,
+      market.TCC_50,
+      market.TCC_75,
+      market.TCC_90
+    )
+    const wrvuResult = inferPercentile(
+      wRVU_1p0,
+      market.WRVU_25,
+      market.WRVU_50,
+      market.WRVU_75,
+      market.WRVU_90
+    )
+
     detail.push({
       providerId: (provider.providerId ?? provider.providerName ?? '').toString(),
       providerName: (provider.providerName ?? '').toString(),
       division: (provider.division ?? '').toString().trim() || '—',
       providerType: (provider.providerType ?? '').toString().trim() || '—',
       cFTE,
+      totalWRVUs,
       wRVU_1p0,
       baselineTCC,
       currentCFUsed: currentCF,
@@ -304,6 +339,20 @@ export function getImputedVsMarketProviderDetail(
       workRVUIncentive: breakdown.workRVUIncentive,
       otherIncentives: breakdown.otherIncentives,
       additionalTCC: breakdown.additionalTCC,
+      tccPercentile: tccResult.percentile,
+      tccPercentileBelowRange: tccResult.belowRange,
+      tccPercentileAboveRange: tccResult.aboveRange,
+      wrvuPercentile: wrvuResult.percentile,
+      wrvuPercentileBelowRange: wrvuResult.belowRange,
+      wrvuPercentileAboveRange: wrvuResult.aboveRange,
+      marketTCC_25: market.TCC_25,
+      marketTCC_50: market.TCC_50,
+      marketTCC_75: market.TCC_75,
+      marketTCC_90: market.TCC_90,
+      marketWRVU_25: market.WRVU_25,
+      marketWRVU_50: market.WRVU_50,
+      marketWRVU_75: market.WRVU_75,
+      marketWRVU_90: market.WRVU_90,
     })
   }
 

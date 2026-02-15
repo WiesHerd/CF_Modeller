@@ -76,7 +76,7 @@ function GoToButton({
 }
 
 export function HelpContent({ onNavigate }: HelpContentProps) {
-  const [activeSection, setActiveSection] = useState(SECTION_IDS.overview)
+  const [activeSection, setActiveSection] = useState<string>(SECTION_IDS.overview)
 
   const handleTabChange = (value: string) => {
     setActiveSection(value)

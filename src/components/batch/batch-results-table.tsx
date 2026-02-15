@@ -10,8 +10,9 @@ import {
   type SortingState,
   type ColumnOrderState,
   type ColumnSizingState,
+  type VisibilityState,
 } from '@tanstack/react-table'
-import { useState, useMemo, useRef, useCallback, type ReactNode, type ReactElement } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect, type ReactNode, type ReactElement } from 'react'
 import {
   TableCell,
   TableHead,
@@ -30,8 +31,22 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, GripVertical } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ChevronLeft, ChevronRight, GripVertical, HelpCircle, Columns3, LayoutList } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/utils/format'
+import { getGapInterpretation } from '@/features/optimizer/components/optimizer-constants'
 import type { BatchRowResult } from '@/types/batch'
 
 const columnHelper = createColumnHelper<BatchRowResult>()
@@ -56,6 +71,10 @@ interface BatchResultsTableProps {
   maxHeight?: string
   /** When set, Incentive / TCC %tile / Modeled TCC %tile / wRVU %tile cells are clickable to open calculation details. */
   onCalculationClick?: (row: BatchRowResult, column: CalculationColumnId) => void
+  /** When set, the entire row is clickable to open provider detail in a side drawer. */
+  onRowClick?: (row: BatchRowResult) => void
+  /** When set, rows for which this returns true get a distinct background highlight (e.g. flagged for review). */
+  isRowHighlighted?: (row: BatchRowResult) => boolean
 }
 
 function CalculationCellButton({
@@ -96,18 +115,48 @@ function CalculationCellButton({
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
 
-export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick }: BatchResultsTableProps) {
+/** Default column order: Provider first (frozen), then ID, Specialty, and the rest. */
+const DEFAULT_COLUMN_ORDER: ColumnOrderState = [
+  'providerName',
+  'providerId',
+  'specialty',
+  'division',
+  'providerType',
+  'scenarioName',
+  'currentTCC',
+  'modeledTCC',
+  'currentCF',
+  'modeledCF',
+  'workRVUs',
+  'annualIncentive',
+  'psqDollars',
+  'tccPercentile',
+  'modeledTCCPercentile',
+  'wrvuPercentile',
+  'alignmentGapModeled',
+  'imputedTCCPerWRVU',
+  'matchStatus',
+  'matchedMarketSpecialty',
+  'riskLevel',
+  'warnings',
+]
+
+export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick, onRowClick, isRowHighlighted }: BatchResultsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'providerName', desc: false },
   ])
   const [globalFilter, setGlobalFilter] = useState('')
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
-  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
+  const [columnOrder, setColumnOrder] = useState<ColumnOrderState>(DEFAULT_COLUMN_ORDER)
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [draggedColId, setDraggedColId] = useState<string | null>(null)
   const [dropTargetColId, setDropTargetColId] = useState<string | null>(null)
   const dragColIdRef = useRef<string | null>(null)
+  const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
+  const focusedCellRef = useRef<HTMLTableCellElement>(null)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack Table column value types vary per column
   const columns = useMemo<ColumnDef<BatchRowResult, any>[]>(
     () => [
       columnHelper.accessor('providerName', {
@@ -298,27 +347,30 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
           const w = c.getValue() as string[]
           if (!w?.length) return '—'
           const full = w.join('; ')
+          const display = w.length > 2 ? `${w.slice(0, 2).join('; ')} (+${w.length - 2} more)` : full
           return (
-            <span className="block max-w-[220px] break-words text-left" title={full}>
-              {w.length > 2 ? `${w.slice(0, 2).join('; ')} (+${w.length - 2} more)` : full}
+            <span className="block max-w-[220px] truncate text-left" title={full}>
+              {display}
             </span>
           )
         },
-        meta: { wrap: true, minWidth: '180px' },
+        meta: { wrap: false, minWidth: '180px' },
       }),
     ],
     [onCalculationClick]
   )
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table API returns non-memoizable refs
   const table = useReactTable({
     data: rows,
     columns,
-    state: { sorting, globalFilter, pagination, columnOrder, columnSizing },
+    state: { sorting, globalFilter, pagination, columnOrder, columnSizing, columnVisibility },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -376,7 +428,99 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
     dragColIdRef.current = null
   }, [])
 
+  const handleAutoSizeColumns = useCallback(() => {
+    setColumnSizing({})
+  }, [])
+
+  const visibleRows = table.getRowModel().rows
+  const rowCount = visibleRows.length
+  const colCount = visibleRows[0]?.getVisibleCells().length ?? 0
+
+  useEffect(() => {
+    if (focusedCell == null || rowCount === 0 || colCount === 0) return
+    const el = focusedCellRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.focus()
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
+    })
+  }, [focusedCell, rowCount, colCount])
+
+  useEffect(() => {
+    if (rowCount === 0 || colCount === 0) {
+      setFocusedCell(null)
+      return
+    }
+    setFocusedCell((prev) => {
+      if (prev == null) return null
+      const r = Math.min(prev.rowIndex, Math.max(0, rowCount - 1))
+      const c = Math.min(prev.columnIndex, Math.max(0, colCount - 1))
+      return r === prev.rowIndex && c === prev.columnIndex ? prev : { rowIndex: r, columnIndex: c }
+    })
+  }, [rowCount, colCount])
+
+  const handleTableKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (focusedCell != null) return
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        setFocusedCell({ rowIndex: 0, columnIndex: 0 })
+        e.preventDefault()
+      }
+    },
+    [focusedCell]
+  )
+
+  const handleCellKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTableCellElement>, rowIndex: number, columnIndex: number) => {
+      if (rowCount === 0 || colCount === 0) return
+      const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
+      if (isArrow) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+      switch (e.key) {
+        case 'ArrowLeft':
+          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.max(0, columnIndex - 1) } : null))
+          break
+        case 'ArrowRight':
+          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.min(colCount - 1, columnIndex + 1) } : null))
+          break
+        case 'ArrowUp':
+          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.max(0, rowIndex - 1) } : null))
+          break
+        case 'ArrowDown':
+          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.min(rowCount - 1, rowIndex + 1) } : null))
+          break
+        case 'Home':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: 0 } : null))
+          }
+          break
+        case 'End':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: colCount - 1 } : null))
+          }
+          break
+        case 'Enter':
+          e.preventDefault()
+          e.stopPropagation()
+          if (onRowClick && visibleRows[rowIndex]) {
+            onRowClick(visibleRows[rowIndex].original as BatchRowResult)
+          }
+          break
+        default:
+          break
+      }
+    },
+    [rowCount, colCount, onRowClick, visibleRows]
+  )
+
   const filteredRowCount = table.getFilteredRowModel().rows.length
+  const visibleColumnCount = table.getVisibleLeafColumns().length
   const { pageIndex, pageSize } = table.getState().pagination
   const pageCount = table.getPageCount()
   const start = filteredRowCount === 0 ? 0 : pageIndex * pageSize + 1
@@ -385,15 +529,24 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-3">
-        <p className="text-xs text-muted-foreground hidden sm:block">
-          Drag column headers to reorder; drag the right edge to resize.
-        </p>
         <Input
           placeholder="Search table..."
           value={globalFilter ?? ''}
           onChange={(e) => setGlobalFilter(e.target.value)}
           className="max-w-xs"
         />
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-muted-foreground cursor-help inline-flex" aria-label="Table tips">
+                <HelpCircle className="size-4" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[280px] text-xs">
+              Drag column headers to reorder; drag the right edge to resize. Click a cell, then use arrow keys to move; Enter or double-click opens provider detail.
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Label htmlFor="batch-rows-per-page" className="text-xs whitespace-nowrap">
             Rows per page
@@ -414,10 +567,59 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
             </SelectContent>
           </Select>
         </div>
+        <div className="ml-auto flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleAutoSizeColumns}
+            title="Auto-size columns"
+            aria-label="Auto-size columns"
+          >
+            <Columns3 className="size-4" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                title="Show / hide columns"
+                aria-label="Column visibility"
+              >
+                <LayoutList className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-[70vh] overflow-y-auto">
+              <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+              {table.getAllLeafColumns().map((col) => {
+                const visible = col.getIsVisible()
+                const isOnlyVisible = visible && visibleColumnCount <= 1
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={col.id}
+                    checked={visible}
+                    disabled={isOnlyVisible}
+                    onCheckedChange={(v) => col.toggleVisibility(!!v)}
+                  >
+                    {typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id}
+                  </DropdownMenuCheckboxItem>
+                )
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       <div
-        className="rounded-md border border-border overflow-x-auto overflow-y-auto"
+        role="grid"
+        aria-rowcount={rowCount}
+        aria-colcount={colCount}
+        tabIndex={0}
+        className="rounded-md border border-border overflow-x-auto overflow-y-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         style={{ maxHeight }}
+        onKeyDown={handleTableKeyDown}
       >
         <table
           className="w-full caption-bottom text-sm min-w-max"
@@ -429,7 +631,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
                 {hg.headers.map((h) => {
                   const meta = h.column.columnDef.meta as { sticky?: boolean; minWidth?: string; wrap?: boolean } | undefined
                   const stickyClass = meta?.sticky ? 'sticky left-0 z-20 bg-muted/95 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]' : ''
-                  const wrapClass = meta?.wrap ? 'whitespace-normal' : 'whitespace-nowrap'
+                  const headerWrapClass = 'whitespace-normal break-words'
                   const colId = h.column.id
                   const isDragging = draggedColId === colId
                   const isDropTarget = dropTargetColId === colId
@@ -438,7 +640,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
                     <TableHead
                       key={h.id}
                       className={cn(
-                        wrapClass,
+                        headerWrapClass,
                         stickyClass,
                         'px-3 py-2.5 relative group',
                         isDragging && 'opacity-60',
@@ -495,28 +697,69 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
             ))}
           </TableHeader>
           <tbody className="[&_tr:last-child]:border-0">
-            {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')}>
-                {row.getVisibleCells().map((cell) => {
+            {visibleRows.map((row, rowIndex) => {
+              const original = row.original as BatchRowResult
+              const highlighted = isRowHighlighted?.(original)
+              const gap = original.results?.alignmentGapModeled
+              const alignment =
+                gap != null && Number.isFinite(gap) ? getGapInterpretation(gap) : null
+              return (
+              <TableRow
+                key={row.id}
+                className={cn(
+                  row.index % 2 === 1 && !highlighted && 'bg-muted/30',
+                  highlighted && 'bg-amber-100/70 dark:bg-amber-950/50',
+                  alignment === 'aligned' && 'border-l-4 border-l-emerald-500/70',
+                  alignment === 'overpaid' && 'border-l-4 border-l-red-500/70',
+                  alignment === 'underpaid' && 'border-l-4 border-l-blue-500/70',
+                  onRowClick &&
+                    'cursor-pointer hover:bg-muted/60 transition-colors [&:focus-within]:outline [&:focus-within]:outline-2 [&:focus-within]:outline-offset-[-2px] [&:focus-within]:outline-ring',
+                  onRowClick && highlighted && 'hover:bg-amber-200/70 dark:hover:bg-amber-900/50'
+                )}
+                role="row"
+                aria-label={onRowClick ? `View details for ${original.providerName || original.providerId || 'provider'}` : undefined}
+              >
+                {row.getVisibleCells().map((cell, columnIndex) => {
                   const meta = cell.column.columnDef.meta as { sticky?: boolean; minWidth?: string; wrap?: boolean } | undefined
-                  const stickyClass = meta?.sticky ? 'sticky left-0 z-10 bg-background shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
+                  const stickyClass = meta?.sticky ? 'sticky left-0 z-10 bg-inherit shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
                   const wrapClass = meta?.wrap ? 'whitespace-normal break-words align-top' : 'whitespace-nowrap'
                   const value = cell.getValue()
                   const titleAttr = meta?.wrap && typeof value === 'string' && value ? value : undefined
                   const size = cell.column.getSize()
+                  const isFocused = focusedCell?.rowIndex === rowIndex && focusedCell?.columnIndex === columnIndex
                   return (
                     <TableCell
                       key={cell.id}
-                      className={cn(wrapClass, stickyClass, 'px-3 py-2.5')}
+                      ref={isFocused ? focusedCellRef : undefined}
+                      role="gridcell"
+                      tabIndex={isFocused ? 0 : -1}
+                      aria-rowindex={rowIndex + 1}
+                      aria-colindex={columnIndex + 1}
+                      className={cn(
+                        wrapClass,
+                        stickyClass,
+                        'px-3 py-2.5 outline-none cursor-cell',
+                        isFocused && 'ring-2 ring-primary ring-inset bg-primary/5'
+                      )}
                       style={{ width: size, minWidth: size, maxWidth: size }}
                       title={titleAttr}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setFocusedCell({ rowIndex, columnIndex })
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation()
+                        if (onRowClick) onRowClick(original)
+                      }}
+                      onKeyDown={(e) => handleCellKeyDown(e, rowIndex, columnIndex)}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   )
                 })}
               </TableRow>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       </div>

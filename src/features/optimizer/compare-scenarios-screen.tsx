@@ -42,23 +42,21 @@ export function CompareScenariosScreen({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onBack}
-            className="gap-2"
-            aria-label="Back"
-          >
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-          <SectionTitleWithIcon icon={<GitCompare className="size-5 text-muted-foreground" />}>
-            Compare scenarios
-          </SectionTitleWithIcon>
-        </div>
+      <SectionTitleWithIcon icon={<GitCompare className="size-5 text-muted-foreground" />}>
+        Compare scenarios
+      </SectionTitleWithIcon>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onBack}
+          className="gap-2"
+          aria-label="Back"
+        >
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
         <Button
           type="button"
           variant="outline"

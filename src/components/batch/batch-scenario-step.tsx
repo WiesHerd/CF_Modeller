@@ -18,7 +18,6 @@ import {
   DropdownMenuItem,
   DropdownMenuCheckboxItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -30,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Play, Loader2, AlertCircle, Users, Target, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, Link2, Layers, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info } from 'lucide-react'
+import { Play, Loader2, AlertCircle, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, Link2, Layers, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { BatchScenarioInline } from '@/components/batch/batch-scenario-inline'
@@ -77,6 +76,7 @@ interface BatchScenarioStepProps {
   onDeleteRun?: (id: string) => void
 }
 
+/* eslint-disable @typescript-eslint/no-unused-vars -- props accepted for API, used when mode/layout changes */
 export function BatchScenarioStep({
   providerRows,
   marketRows,
@@ -102,16 +102,51 @@ export function BatchScenarioStep({
   onLoadRun,
   onDeleteRun,
 }: BatchScenarioStepProps) {
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+  void savedScenarios
+  void onClearSavedScenarios
+  void lastResults
+  void lastScenarioSnapshot
+  void savedBatchRuns
+  void onSaveRun
+  void onLoadRun
+  void onDeleteRun
   const isBulk = mode === 'bulk'
   const isDetailed = mode === 'detailed'
   const isCardView = isBulk || isDetailed
   const [isRunning, setIsRunning] = useState(false)
+  const [saveScenarioDialogOpen, setSaveScenarioDialogOpen] = useState(false)
+  const [saveScenarioName, setSaveScenarioName] = useState('')
+  /** When true, run only the base scenario (controls at top). When false, run base + all from scenario library. */
+  const [runBaseScenarioOnly, setRunBaseScenarioOnly] = useState(true)
+  const [progress, setProgress] = useState({ processed: 0, total: 1, elapsedMs: 0 })
+  const [error, setError] = useState<string | null>(null)
+  const workerRef = useRef<Worker | null>(null)
+  /** Which override row's specialty dropdown is open (null = none). */
+  const [openSpecialtyOverrideRow, setOpenSpecialtyOverrideRow] = useState<number | null>(null)
+  /** Which override row's provider dropdown is open (null = none). */
+  const [openProviderOverrideRow, setOpenProviderOverrideRow] = useState<number | null>(null)
+  /** Search filter for Overrides > By specialty dropdown. */
+  const [specialtyOverrideSearch, setSpecialtyOverrideSearch] = useState('')
+  /** Search filter for Overrides > By provider dropdown. */
+  const [providerOverrideSearch, setProviderOverrideSearch] = useState('')
+  const specialtyOverrideSearchRef = useRef<HTMLInputElement>(null)
+  const providerOverrideSearchRef = useRef<HTMLInputElement>(null)
+  /** Override rows: each row can apply to multiple specialties. */
+  const [specialtyOverrides, setSpecialtyOverrides] = useState<
+    { specialties: string[]; proposedCFPercentile: string; overrideCF: string; psqPercent: string }[]
+  >([])
+  /** Override rows: each row can apply to multiple providers. */
+  const [providerOverrides, setProviderOverrides] = useState<
+    { providerIds: string[]; proposedCFPercentile: string; overrideCF: string; psqPercent: string }[]
+  >([])
 
   useEffect(() => {
     if (!appliedBatchScenarioConfig || !onBatchScenarioConfigApplied) return
     const c = appliedBatchScenarioConfig
     const bySpec = c.overrides?.bySpecialty ?? {}
     const byProv = c.overrides?.byProviderId ?? {}
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing applied config from parent into local state
     setSpecialtyOverrides(
       Object.entries(bySpec).map(([spec, inputs]) => ({
         specialties: [spec],
@@ -131,38 +166,11 @@ export function BatchScenarioStep({
     setRunBaseScenarioOnly(c.runBaseScenarioOnly ?? true)
     onBatchScenarioConfigApplied()
   }, [appliedBatchScenarioConfig, onBatchScenarioConfigApplied])
-  const [saveScenarioDialogOpen, setSaveScenarioDialogOpen] = useState(false)
-  const [saveScenarioName, setSaveScenarioName] = useState('')
-  /** When true, run only the base scenario (controls at top). When false, run base + all from scenario library. */
-  const [runBaseScenarioOnly, setRunBaseScenarioOnly] = useState(true)
-  const [progress, setProgress] = useState({ processed: 0, total: 1, elapsedMs: 0 })
-  const [error, setError] = useState<string | null>(null)
-  const workerRef = useRef<Worker | null>(null)
 
   const providerSpecialties = useMemo(() => {
     const set = new Set(providerRows.map((r) => r.specialty).filter(Boolean))
     return Array.from(set).sort() as string[]
   }, [providerRows])
-
-  /** Which override row's specialty dropdown is open (null = none). */
-  const [openSpecialtyOverrideRow, setOpenSpecialtyOverrideRow] = useState<number | null>(null)
-  /** Which override row's provider dropdown is open (null = none). */
-  const [openProviderOverrideRow, setOpenProviderOverrideRow] = useState<number | null>(null)
-  /** Search filter for Overrides > By specialty dropdown. */
-  const [specialtyOverrideSearch, setSpecialtyOverrideSearch] = useState('')
-  /** Search filter for Overrides > By provider dropdown. */
-  const [providerOverrideSearch, setProviderOverrideSearch] = useState('')
-  const specialtyOverrideSearchRef = useRef<HTMLInputElement>(null)
-  const providerOverrideSearchRef = useRef<HTMLInputElement>(null)
-
-  /** Override rows: each row can apply to multiple specialties. */
-  const [specialtyOverrides, setSpecialtyOverrides] = useState<
-    { specialties: string[]; proposedCFPercentile: string; overrideCF: string; psqPercent: string }[]
-  >([])
-  /** Override rows: each row can apply to multiple providers. */
-  const [providerOverrides, setProviderOverrides] = useState<
-    { providerIds: string[]; proposedCFPercentile: string; overrideCF: string; psqPercent: string }[]
-  >([])
 
   /** Bulk step-through: 1 = Base scenario, 2 = Scope & guardrails, 3 = Run */
   const [bulkStep, setBulkStep] = useState<1 | 2 | 3>(1)
@@ -325,6 +333,7 @@ export function BatchScenarioStep({
     }
     worker.postMessage(payload)
   }, [
+    isBulk,
     providersToRun,
     marketRows,
     scenarioInputs,
@@ -374,112 +383,12 @@ export function BatchScenarioStep({
     <div className="space-y-6">
       {isCardView && (
         <>
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <SectionTitleWithIcon
-                icon={isBulk ? <LayoutGrid /> : <Sliders />}
-              >
-                {isBulk ? 'Create and Run Scenario' : 'Detailed scenario'}
-              </SectionTitleWithIcon>
-              <div className="flex flex-wrap items-center gap-2">
-            <TooltipProvider delayDuration={300}>
-              {onSaveScenario && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSaveScenarioName('')
-                        setSaveScenarioDialogOpen(true)
-                      }}
-                      disabled={isRunning}
-                      aria-label="Save scenario"
-                    >
-                      <Save className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Save scenario</TooltipContent>
-                </Tooltip>
-              )}
-              {onLoadBatchScenarioConfig && onDeleteBatchScenarioConfig && (
-                <DropdownMenu>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          aria-label={`Saved batch scenarios (${savedBatchScenarioConfigs.length})`}
-                        >
-                          <FolderOpen className="size-4" />
-                          <ChevronDown className="size-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      Saved batch scenarios{savedBatchScenarioConfigs.length > 0 ? ` (${savedBatchScenarioConfigs.length})` : ''}
-                    </TooltipContent>
-                  </Tooltip>
-                  <DropdownMenuContent align="end" className="w-[320px]">
-                    {savedBatchScenarioConfigs.length === 0 ? (
-                      <DropdownMenuItem disabled className="text-muted-foreground">
-                        No saved batch scenarios yet. Use &quot;Save scenario&quot; to save base inputs, overrides, and run-for selection.
-                      </DropdownMenuItem>
-                    ) : (
-                      <ScrollArea className="max-h-[280px]">
-                        <div className="p-1">
-                          {[...savedBatchScenarioConfigs].reverse().map((config) => (
-                            <div
-                              key={config.id}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
-                            >
-                              <div className="min-w-0 flex-1 text-sm">
-                                <p className="font-medium truncate" title={config.name}>
-                                  {config.name}
-                                </p>
-                                <p className="text-muted-foreground text-xs">
-                                  {new Date(config.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </p>
-                              </div>
-                              <div className="flex shrink-0 gap-0.5">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="size-8"
-                                  onClick={() => onLoadBatchScenarioConfig(config)}
-                                  title="Load this scenario"
-                                >
-                                  <FolderOpen className="size-4" />
-                                  <span className="sr-only">Load</span>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="size-8 text-destructive hover:text-destructive"
-                                  onClick={() => {
-                                    if (window.confirm(`Delete "${config.name}"?`)) {
-                                      onDeleteBatchScenarioConfig(config.id)
-                                    }
-                                  }}
-                                  title="Delete"
-                                >
-                                  <Trash2 className="size-4" />
-                                  <span className="sr-only">Delete</span>
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </TooltipProvider>
-              </div>
-            </div>
+          <SectionTitleWithIcon
+            icon={isBulk ? <LayoutGrid /> : <Sliders />}
+          >
+            {isBulk ? 'Create and Run Scenario' : 'Detailed scenario'}
+          </SectionTitleWithIcon>
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               {onBack && (
                 <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2">
@@ -493,6 +402,104 @@ export function BatchScenarioStep({
                   Back to Scope & guardrails
                 </Button>
               )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <TooltipProvider delayDuration={300}>
+                {onSaveScenario && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSaveScenarioName('')
+                          setSaveScenarioDialogOpen(true)
+                        }}
+                        disabled={isRunning}
+                        aria-label="Save scenario"
+                      >
+                        <Save className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Save scenario</TooltipContent>
+                  </Tooltip>
+                )}
+                {onLoadBatchScenarioConfig && onDeleteBatchScenarioConfig && (
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            aria-label={`Saved batch scenarios (${savedBatchScenarioConfigs.length})`}
+                          >
+                            <FolderOpen className="size-4" />
+                            <ChevronDown className="size-4 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        Saved batch scenarios{savedBatchScenarioConfigs.length > 0 ? ` (${savedBatchScenarioConfigs.length})` : ''}
+                      </TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" className="w-[320px]">
+                      {savedBatchScenarioConfigs.length === 0 ? (
+                        <DropdownMenuItem disabled className="text-muted-foreground">
+                          No saved batch scenarios yet. Use &quot;Save scenario&quot; to save base inputs, overrides, and run-for selection.
+                        </DropdownMenuItem>
+                      ) : (
+                        <ScrollArea className="max-h-[280px]">
+                          <div className="p-1">
+                            {[...savedBatchScenarioConfigs].reverse().map((config) => (
+                              <div
+                                key={config.id}
+                                className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
+                              >
+                                <div className="min-w-0 flex-1 text-sm">
+                                  <p className="font-medium truncate" title={config.name}>
+                                    {config.name}
+                                  </p>
+                                  <p className="text-muted-foreground text-xs">
+                                    {new Date(config.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </p>
+                                </div>
+                                <div className="flex shrink-0 gap-0.5">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-8"
+                                    onClick={() => onLoadBatchScenarioConfig(config)}
+                                    title="Load this scenario"
+                                  >
+                                    <FolderOpen className="size-4" />
+                                    <span className="sr-only">Load</span>
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="size-8 text-destructive hover:text-destructive"
+                                    onClick={() => {
+                                      if (window.confirm(`Delete "${config.name}"?`)) {
+                                        onDeleteBatchScenarioConfig(config.id)
+                                      }
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="size-4" />
+                                    <span className="sr-only">Delete</span>
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </TooltipProvider>
             </div>
           </div>
           {isBulk && (
@@ -556,7 +563,13 @@ export function BatchScenarioStep({
         </>
       )}
       {!isCardView && (
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <>
+        <SectionTitleWithIcon
+          icon={isBulk ? <LayoutGrid /> : <Sliders />}
+        >
+          {isBulk ? 'Create and Run Scenario' : 'Detailed scenario'}
+        </SectionTitleWithIcon>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <nav
           className="flex min-h-11 w-full min-w-0 items-center gap-0 rounded-xl border border-border/60 bg-muted/20 p-1.5"
           aria-label="Batch steps"
@@ -739,6 +752,7 @@ export function BatchScenarioStep({
           )}
         </div>
       </div>
+      </>
       )}
 
       {/* Base scenario: for Detailed mode in a collapsible; for Bulk mode step 1 */}
@@ -1366,7 +1380,7 @@ export function BatchScenarioStep({
                         overrides: batchOverrides,
                         selectedSpecialties: [],
                         selectedProviderIds: [],
-                        runBaseScenarioOnly: true,
+                        runBaseScenarioOnly,
                       })
                       setSaveScenarioName('')
                       setSaveScenarioDialogOpen(false)

@@ -92,6 +92,19 @@ export function matchMarketRow(
 }
 
 /**
+ * True if a batch row is "flagged" for review: high risk, has warnings, or governance suggests underpay/FMV check.
+ * Used for "Flagged only" filter and for highlighting rows in the results table.
+ */
+export function isBatchRowFlagged(row: BatchRowResult): boolean {
+  return (
+    row.riskLevel === 'high' ||
+    row.warnings.length > 0 ||
+    (!!row.results?.governanceFlags &&
+      (row.results.governanceFlags.underpayRisk || row.results.governanceFlags.fmvCheckSuggested))
+  )
+}
+
+/**
  * Derive a single risk level from scenario results for filtering/display.
  */
 export function deriveRiskLevel(results: ScenarioResults): BatchRiskLevel {

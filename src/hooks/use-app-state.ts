@@ -239,6 +239,41 @@ export function useAppState() {
     }))
   }, [])
 
+  const addProvider = useCallback((row: ProviderRow) => {
+    const id =
+      row.providerId ??
+      (row.providerName && String(row.providerName).trim() !== ''
+        ? String(row.providerName).trim()
+        : crypto.randomUUID())
+    const withId: ProviderRow = { ...row, providerId: id }
+    setState((s) => ({
+      ...s,
+      providerRows: [...s.providerRows, withId],
+    }))
+  }, [])
+
+  const updateMarketRow = useCallback(
+    (existingRow: MarketRow, updates: Partial<MarketRow>) => {
+      const key = (r: MarketRow) =>
+        `${r.specialty ?? ''}|${r.providerType ?? ''}|${r.region ?? ''}`
+      const existingKey = key(existingRow)
+      setState((s) => ({
+        ...s,
+        marketRows: s.marketRows.map((r) =>
+          key(r) === existingKey ? { ...r, ...updates } : r
+        ),
+      }))
+    },
+    []
+  )
+
+  const addMarketRow = useCallback((row: MarketRow) => {
+    setState((s) => ({
+      ...s,
+      marketRows: [...s.marketRows, row],
+    }))
+  }, [])
+
   const setScenarioInputs = useCallback((inputs: Partial<ScenarioInputs>) => {
     setState((s) => ({
       ...s,
@@ -567,6 +602,9 @@ export function useAppState() {
     setSelectedSpecialty,
     setSelectedProvider,
     updateProvider,
+    addProvider,
+    updateMarketRow,
+    addMarketRow,
     setScenarioInputs,
     setLastResults,
     dismissScenarioLoadWarning,

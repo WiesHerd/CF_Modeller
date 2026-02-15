@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from 'react'
+import { useCallback, useMemo, useState, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
@@ -22,31 +22,24 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { AlertTriangle, AlertCircle, MapPinOff, Gauge, Save, FolderOpen, Trash2, ChevronDown, Wallet, Coins, Target, BarChart2, Expand } from 'lucide-react'
+import { AlertTriangle, AlertCircle, MapPinOff, Gauge, Save, FolderOpen, Trash2, ChevronDown, ChevronRight, Wallet, Coins, Target, BarChart2, Expand, FileDown, FileSpreadsheet } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts'
 import { BatchResultsTable, type CalculationColumnId } from '@/components/batch/batch-results-table'
 import { RowCalculationModal, type CalculationSection } from '@/components/batch/row-calculation-modal'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
+import { isBatchRowFlagged } from '@/lib/batch'
 import { formatCurrency, formatCurrencyCompact } from '@/utils/format'
-import type { BatchResults, BatchRowResult, BatchRiskLevel, BatchScenarioSnapshot, MarketMatchStatus, SavedBatchRun } from '@/types/batch'
+import type { BatchResults, BatchRowResult, BatchRiskLevel, BatchScenarioSnapshot, MarketMatchStatus, SavedBatchRun, SynonymMap } from '@/types/batch'
 import type { MarketRow } from '@/types/market'
-import {
-  getGapInterpretation,
-  GAP_INTERPRETATION_LABEL,
-  formatPercentile,
-} from '@/features/optimizer/components/optimizer-constants'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import type { ProviderRow } from '@/types/provider'
+import { TccWrvuSummaryTable } from '@/features/reports/tcc-wrvu-summary-table'
+import { MarketPositioningCalculationDrawer } from '@/features/optimizer/components/market-positioning-calculation-drawer'
+import { getImputedVsMarketProviderDetail, DEFAULT_IMPUTED_VS_MARKET_CONFIG, type ImputedVsMarketProviderDetail } from '@/lib/imputed-vs-market'
 
 function formatRunDate(iso: string): string {
   try {
@@ -73,8 +66,14 @@ interface BatchResultsDashboardProps {
   onDeleteRun?: (id: string) => void
   onExportCSV?: () => void
   onExportXLSX?: () => void
-  /** When set, header is one row: left content (Back + title) + icon-only Save/Saved runs on the right. */
+  /** When set with headerTitle, row 1 = title, row 2 = headerLeft (e.g. Back) + Save/Saved runs. */
+  headerTitle?: React.ReactNode
+  /** Left side of action row (e.g. Back button). Used with headerTitle for two-row layout. */
   headerLeft?: React.ReactNode
+  /** When set with marketRows, table rows are clickable to open TCC/wRVU detail in a side drawer. */
+  providerRows?: ProviderRow[]
+  /** Synonym map for market matching; required for row-click drawer when providerRows is set. */
+  synonymMap?: SynonymMap
 }
 
 const RISK_LEVELS: BatchRiskLevel[] = ['high', 'medium', 'low']
@@ -91,14 +90,21 @@ export function BatchResultsDashboard({
   results,
   marketRows = [],
   savedBatchRuns = [],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- passed for future scope display
   scenarioSnapshot = null,
   onSaveRun,
   onLoadRun,
   onDeleteRun,
   onExportCSV,
   onExportXLSX,
+  headerTitle,
   headerLeft,
+  providerRows = [],
+  synonymMap = {},
 }: BatchResultsDashboardProps) {
+  void scenarioSnapshot
+  const [drawerProvider, setDrawerProvider] = useState<ImputedVsMarketProviderDetail | null>(null)
+  const [drawerSpecialtyLabel, setDrawerSpecialtyLabel] = useState<string | undefined>(undefined)
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('all')
   const [divisionFilter, setDivisionFilter] = useState<string>('all')
   const [providerTypeFilter, setProviderTypeFilter] = useState<string>('all')
@@ -113,6 +119,7 @@ export function BatchResultsDashboard({
   type ExpandedChartId = 'gap' | 'incentive' | 'tccWrvu' | 'flagged' | null
   const [expandedChartId, setExpandedChartId] = useState<ExpandedChartId>(null)
   const [showVisualsSection, setShowVisualsSection] = useState(false)
+  const [showCardsSection, setShowCardsSection] = useState(true)
   const gapChartRef = useRef<HTMLDivElement>(null)
 
   const defaultSaveRunName = useMemo(
@@ -136,12 +143,39 @@ export function BatchResultsDashboard({
           (m.specialty ?? '').toLowerCase() === (calculationRow.matchedMarketSpecialty ?? '').toLowerCase()
       ) ?? null
     )
-  }, [calculationRow?.matchedMarketSpecialty, marketRows])
+  }, [calculationRow, marketRows])
 
   const handleCalculationClick = (row: BatchRowResult, column: CalculationColumnId) => {
     setCalculationRow(row)
     setCalculationSection(columnToSection(column))
   }
+
+  const handleRowClickForDrawer = useCallback(
+    (row: BatchRowResult) => {
+      const specialty = (row.specialty ?? '').trim()
+      if (!specialty || providerRows.length === 0 || marketRows.length === 0) return
+      const details = getImputedVsMarketProviderDetail(
+        specialty,
+        providerRows,
+        marketRows,
+        synonymMap,
+        DEFAULT_IMPUTED_VS_MARKET_CONFIG
+      )
+      const match = details.find(
+        (p) =>
+          String(p.providerId) === String(row.providerId) ||
+          (p.providerName && row.providerName && p.providerName === row.providerName)
+      )
+      setDrawerProvider(match ?? null)
+      setDrawerSpecialtyLabel(match ? specialty : undefined)
+    },
+    [providerRows, marketRows, synonymMap]
+  )
+
+  const canOpenDrawer = providerRows.length > 0 && marketRows.length > 0
+
+  /** Rows flagged for review (high risk, warnings, or governance flags); used to highlight in table. */
+  const isRowFlagged = isBatchRowFlagged
 
   const specialties = useMemo(() => {
     const set = new Set(rows.map((r) => r.specialty).filter(Boolean))
@@ -163,14 +197,7 @@ export function BatchResultsDashboard({
     if (providerTypeFilter !== 'all') out = out.filter((r) => (r.providerType ?? '') === providerTypeFilter)
     if (riskFilter !== 'all') out = out.filter((r) => r.riskLevel === riskFilter)
     if (matchStatusFilter !== 'all') out = out.filter((r) => r.matchStatus === matchStatusFilter)
-    if (showFlaggedOnly)
-      out = out.filter(
-        (r) =>
-          r.riskLevel === 'high' ||
-          r.warnings.length > 0 ||
-          (r.results?.governanceFlags &&
-            (r.results.governanceFlags.underpayRisk || r.results.governanceFlags.fmvCheckSuggested))
-      )
+    if (showFlaggedOnly) out = out.filter(isBatchRowFlagged)
     if (showMissingOnly) out = out.filter((r) => r.matchStatus === 'Missing')
     return out
   }, [
@@ -195,7 +222,7 @@ export function BatchResultsDashboard({
     let tccPctCount = 0
     let wrvuPctSum = 0
     let wrvuPctCount = 0
-    for (const r of rows) {
+    for (const r of filteredRows) {
       byRisk[r.riskLevel]++
       if (r.matchStatus === 'Missing') missingMarket++
       if (r.results?.alignmentGapModeled != null && Number.isFinite(r.results.alignmentGapModeled)) {
@@ -226,7 +253,7 @@ export function BatchResultsDashboard({
       avgTccPercentile: tccPctCount > 0 ? tccPctSum / tccPctCount : null,
       avgWrvuPercentile: wrvuPctCount > 0 ? wrvuPctSum / wrvuPctCount : null,
     }
-  }, [rows])
+  }, [filteredRows])
 
   const gapBySpecialty = useMemo(() => {
     const sumBySpec = new Map<string, number>()
@@ -302,15 +329,25 @@ export function BatchResultsDashboard({
 
   const showTccSummary = uniqueProviderCount > 0 && uniqueProviderCount <= SHOW_TCC_SUMMARY_MAX_PROVIDERS
 
+  const hasAnyChart =
+    gapBySpecialty.length > 0 ||
+    incentiveByDivision.length > 0 ||
+    tccWrvuGapBySpecialty.length > 0 ||
+    flaggedByDivision.length > 0
+
+  const hasHeaderRow = headerTitle != null || headerLeft != null
+  const useTwoRowLayout = headerTitle != null && headerLeft != null
+
   return (
-    <div className="space-y-8">
-      <div className={headerLeft ? 'flex flex-wrap items-center justify-between gap-2' : 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end'}>
-        {headerLeft ? (
+    <div className="space-y-4">
+      {useTwoRowLayout && <>{headerTitle}</>}
+      <div className={hasHeaderRow ? 'flex flex-wrap items-center justify-between gap-2' : 'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end'}>
+        {headerLeft != null ? (
           <div className="flex flex-wrap items-center gap-2">{headerLeft}</div>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
           {onSaveRun && (
-            headerLeft ? (
+            hasHeaderRow ? (
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -318,7 +355,7 @@ export function BatchResultsDashboard({
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        setSaveRunName(defaultSaveRunName)
+                        setSaveRunName('')
                         setSaveDialogOpen(true)
                       }}
                       aria-label="Save this run"
@@ -334,8 +371,8 @@ export function BatchResultsDashboard({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setSaveRunName(defaultSaveRunName)
-                  setSaveDialogOpen(true)
+setSaveRunName('')
+                setSaveDialogOpen(true)
                 }}
                 className="gap-2"
               >
@@ -345,7 +382,7 @@ export function BatchResultsDashboard({
             )
           )}
           {onLoadRun && onDeleteRun && (
-            headerLeft ? (
+            hasHeaderRow ? (
               <TooltipProvider delayDuration={300}>
                 <DropdownMenu>
                   <Tooltip>
@@ -501,6 +538,48 @@ export function BatchResultsDashboard({
               </DropdownMenu>
             )
           )}
+          <Button
+            variant={showCardsSection ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={() => setShowCardsSection((v) => !v)}
+            className="shrink-0 gap-2"
+          >
+            <Gauge className="size-4" aria-hidden />
+            {showCardsSection ? 'Hide summary cards' : 'Summary cards'}
+            {showCardsSection ? <ChevronDown className="size-4 opacity-50" aria-hidden /> : <ChevronRight className="size-4 opacity-50" aria-hidden />}
+          </Button>
+          {hasAnyChart && (
+            <Button
+              variant={showVisualsSection ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setShowVisualsSection((v) => !v)}
+              className="shrink-0 gap-2"
+            >
+              <BarChart2 className="size-4" aria-hidden />
+              {showVisualsSection ? 'Hide visuals' : 'View visuals'}
+              {showVisualsSection ? <ChevronDown className="size-4 opacity-50" aria-hidden /> : <ChevronRight className="size-4 opacity-50" aria-hidden />}
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2" aria-label="Export results">
+                <FileDown className="size-4" />
+                Export
+                <ChevronDown className="size-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Download format</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => (onExportCSV ?? (() => downloadBatchResultsCSV(results)))()} className="gap-2">
+                <FileDown className="size-4" />
+                CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => (onExportXLSX ?? (() => exportBatchResultsXLSX(results)))()} className="gap-2">
+                <FileSpreadsheet className="size-4" />
+                Excel (.xlsx)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -509,7 +588,7 @@ export function BatchResultsDashboard({
           <DialogHeader>
             <DialogTitle>Save this run</DialogTitle>
             <DialogDescription id="save-run-desc">
-              Give this batch run a name so you can load it later from Saved runs.
+              Enter a name for this run so you can find it later (e.g. &quot;FY26 CF 50th rollout&quot;, &quot;Q1 baseline&quot;).
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-2">
@@ -520,8 +599,8 @@ export function BatchResultsDashboard({
               onChange={(e) => setSaveRunName(e.target.value)}
               placeholder={defaultSaveRunName}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  onSaveRun?.(saveRunName.trim() || undefined)
+                if (e.key === 'Enter' && saveRunName.trim()) {
+                  onSaveRun?.(saveRunName.trim())
                   setSaveDialogOpen(false)
                 }
               }}
@@ -532,9 +611,12 @@ export function BatchResultsDashboard({
               Cancel
             </Button>
             <Button
+              disabled={!saveRunName.trim()}
               onClick={() => {
-                onSaveRun?.(saveRunName.trim() || undefined)
-                setSaveDialogOpen(false)
+                if (saveRunName.trim()) {
+                  onSaveRun?.(saveRunName.trim())
+                  setSaveDialogOpen(false)
+                }
               }}
             >
               Save
@@ -543,6 +625,9 @@ export function BatchResultsDashboard({
         </DialogContent>
       </Dialog>
 
+      <Card>
+        <CardContent className="space-y-6 pt-6">
+      {showCardsSection && (
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <Card className="overflow-hidden border-l-4 border-l-destructive/80 bg-destructive/5 dark:bg-destructive/10 transition-all hover:shadow-md p-0 gap-0">
           <button
@@ -705,37 +790,7 @@ export function BatchResultsDashboard({
           </CardContent>
         </Card>
       </div>
-
-      {(() => {
-        const hasAnyChart =
-          gapBySpecialty.length > 0 ||
-          incentiveByDivision.length > 0 ||
-          tccWrvuGapBySpecialty.length > 0 ||
-          flaggedByDivision.length > 0
-        const chartCount = [gapBySpecialty, incentiveByDivision, tccWrvuGapBySpecialty, flaggedByDivision].filter(
-          (d) => d.length > 0
-        ).length
-        return (
-          <div className="flex flex-wrap items-center gap-3">
-            {hasAnyChart && (
-              <Button
-                variant={showVisualsSection ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={() => setShowVisualsSection((v) => !v)}
-                className="shrink-0"
-              >
-                <BarChart2 className="size-4 mr-2" aria-hidden />
-                {showVisualsSection ? 'Hide visuals' : 'View visuals'}
-                {!showVisualsSection && chartCount > 0 && (
-                  <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    {chartCount} chart{chartCount !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </Button>
-            )}
-          </div>
-        )
-      })()}
+      )}
 
       <Dialog open={expandedChartId != null} onOpenChange={(open) => !open && setExpandedChartId(null)}>
         <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-auto" aria-describedby={undefined}>
@@ -1023,7 +1078,7 @@ export function BatchResultsDashboard({
       </div>
       )}
 
-      <div className="rounded-lg border border-border/70 bg-background/95 p-4">
+      <div className="rounded-lg border border-border/70 bg-background/95 p-4 backdrop-blur-sm">
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1.5 min-w-[140px] max-w-[200px]">
             <Label className="text-xs text-muted-foreground">Specialty</Label>
@@ -1136,96 +1191,33 @@ export function BatchResultsDashboard({
             </p>
           </CardHeader>
           <CardContent>
-            <div className="w-full overflow-auto rounded-md border border-border">
-              <Table className="w-full caption-bottom text-sm">
-                <TableHeader className="sticky top-0 z-10 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
-                  <TableRow>
-                    <TableHead className="min-w-[120px] px-3 py-2.5">Provider</TableHead>
-                    <TableHead className="min-w-[100px] px-3 py-2.5">Specialty</TableHead>
-                    <TableHead className="min-w-[90px] px-3 py-2.5">Model name</TableHead>
-                    <TableHead className="text-right min-w-[80px] px-3 py-2.5">Current TCC</TableHead>
-                    <TableHead className="text-right min-w-[80px] px-3 py-2.5">Modeled TCC</TableHead>
-                    <TableHead className="text-right min-w-[70px] px-3 py-2.5">TCC %ile</TableHead>
-                    <TableHead className="text-right min-w-[70px] px-3 py-2.5">wRVU %ile</TableHead>
-                    <TableHead className="min-w-[120px] px-3 py-2.5">Pay vs productivity</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row, index) => {
-                    const res = row.results
-                    const gap = res?.alignmentGapModeled
-                    const gapInterpretation =
-                      gap != null && Number.isFinite(gap) ? getGapInterpretation(gap) : null
-                    const gapColor =
-                      gapInterpretation === 'overpaid'
-                        ? 'text-red-600 dark:text-red-400'
-                        : gapInterpretation === 'underpaid'
-                          ? 'text-emerald-600 dark:text-emerald-400'
-                          : 'text-muted-foreground'
-                    return (
-                      <TableRow key={`${row.providerId}-${row.scenarioId}-${index}`} className={index % 2 === 1 ? 'bg-muted/30' : undefined}>
-                        <TableCell className="px-3 py-2.5 font-medium">{row.providerName || row.providerId || '—'}</TableCell>
-                        <TableCell className="px-3 py-2.5 text-muted-foreground">{row.specialty || '—'}</TableCell>
-                        <TableCell className="px-3 py-2.5">{row.scenarioName || '—'}</TableCell>
-                        <TableCell className="text-right tabular-nums px-3 py-2.5">
-                          {res?.currentTCC != null && Number.isFinite(res.currentTCC)
-                            ? formatCurrency(res.currentTCC, { decimals: 0 })
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums px-3 py-2.5">
-                          {res?.modeledTCC != null && Number.isFinite(res.modeledTCC)
-                            ? formatCurrency(res.modeledTCC, { decimals: 0 })
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums px-3 py-2.5">
-                          {res?.modeledTCCPercentile != null && Number.isFinite(res.modeledTCCPercentile)
-                            ? formatPercentile(res.modeledTCCPercentile)
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums px-3 py-2.5">
-                          {res?.wrvuPercentile != null && Number.isFinite(res.wrvuPercentile)
-                            ? formatPercentile(res.wrvuPercentile)
-                            : '—'}
-                        </TableCell>
-                        <TableCell className={`px-3 py-2.5 ${gapColor}`}>
-                          {gapInterpretation != null ? GAP_INTERPRETATION_LABEL[gapInterpretation] : '—'}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+            <TccWrvuSummaryTable rows={rows} showScenarioName={true} />
           </CardContent>
         </Card>
       )}
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>Results table ({filteredRows.length} rows)</CardTitle>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExportCSV ?? (() => downloadBatchResultsCSV(results))}
-            >
-              Export CSV
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExportXLSX ?? (() => exportBatchResultsXLSX(results))}
-            >
-              Export XLSX
-            </Button>
-          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Row color bar (pay vs productivity):{' '}
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">Green</span> = Aligned ·{' '}
+            <span className="font-medium text-red-600 dark:text-red-400">Red</span> = Pay above productivity ·{' '}
+            <span className="font-medium text-blue-600 dark:text-blue-400">Blue</span> = Underpaid vs productivity.
+            {' '}
+            <span className="font-medium text-amber-700 dark:text-amber-400">Yellow</span> row = Flagged for review (high risk, warnings, or FMV/underpay suggested).
+          </p>
         </CardHeader>
         <CardContent>
           <BatchResultsTable
             rows={filteredRows}
             maxHeight="60vh"
             onCalculationClick={handleCalculationClick}
+            onRowClick={canOpenDrawer ? handleRowClickForDrawer : undefined}
+            isRowHighlighted={isRowFlagged}
           />
+        </CardContent>
+      </Card>
         </CardContent>
       </Card>
 
@@ -1235,6 +1227,18 @@ export function BatchResultsDashboard({
         row={calculationRow}
         marketRow={calculationMarketRow}
         scrollToSection={calculationSection}
+      />
+
+      <MarketPositioningCalculationDrawer
+        open={drawerProvider != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDrawerProvider(null)
+            setDrawerSpecialtyLabel(undefined)
+          }
+        }}
+        provider={drawerProvider}
+        specialtyLabel={drawerSpecialtyLabel}
       />
     </div>
   )

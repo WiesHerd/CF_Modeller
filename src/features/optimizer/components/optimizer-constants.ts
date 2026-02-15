@@ -59,3 +59,35 @@ export const GAP_INTERPRETATION_LABEL: Record<GapInterpretation, string> = {
   underpaid: 'Underpaid vs productivity',
   aligned: 'Aligned',
 }
+
+/** TCC at or above this percentile may warrant Fair Market Value (FMV) review. */
+export const FMV_RED_FLAG_PERCENTILE = 75
+
+/** Threshold above which FMV risk is considered "high" (e.g. >90th). */
+export const FMV_HIGH_RISK_PERCENTILE = 90
+
+export type FmvRiskLevel = 'low' | 'elevated' | 'high'
+
+/**
+ * FMV risk from TCC percentiles. Uses worst case of current and modeled TCC %ile.
+ * - Low: both < 75th
+ * - Elevated: at least one ≥ 75th and both ≤ 90th
+ * - High: at least one > 90th
+ */
+export function getFmvRiskLevel(
+  currentTccPercentile: number | null | undefined,
+  modeledTccPercentile: number | null | undefined
+): FmvRiskLevel {
+  const cur = currentTccPercentile != null && Number.isFinite(currentTccPercentile) ? currentTccPercentile : 0
+  const mod = modeledTccPercentile != null && Number.isFinite(modeledTccPercentile) ? modeledTccPercentile : 0
+  const worst = Math.max(cur, mod)
+  if (worst > FMV_HIGH_RISK_PERCENTILE) return 'high'
+  if (worst >= FMV_RED_FLAG_PERCENTILE) return 'elevated'
+  return 'low'
+}
+
+export const FMV_RISK_LABEL: Record<FmvRiskLevel, string> = {
+  low: 'Low',
+  elevated: 'Elevated',
+  high: 'High',
+}

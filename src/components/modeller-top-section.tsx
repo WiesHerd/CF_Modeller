@@ -363,12 +363,10 @@ function CompensationFTESection({
   teachingFTE,
   canEdit,
   basePayComponents,
-  provider,
+  provider: _provider,
   onUpdateProvider,
-  onSaveComplete,
+  onSaveComplete: _onSaveComplete,
 }: CompensationFTESectionProps) {
-  const [showSaved, setShowSaved] = useState(false)
-
   const inputClass =
     'h-8 w-full touch-manipulation rounded-md border border-border bg-muted/40 px-2 tabular-nums text-right text-sm shadow-sm focus-visible:bg-card'
 
@@ -382,30 +380,6 @@ function CompensationFTESection({
   const handleCalculateNonClinical = () => {
     if (!totalFTEValid || calculatedNonClinical == null || !onUpdateProvider) return
     onUpdateProvider({ nonClinicalPay: round2(calculatedNonClinical) })
-  }
-
-  const handleSave = () => {
-    if (!onUpdateProvider) return
-    const updates: Partial<ProviderRow> = {
-      baseSalary: baseSalary ?? 0,
-      nonClinicalPay: nonClinicalPay ?? 0,
-      qualityPayments: qualityPayments ?? 0,
-      otherIncentives: otherIncentives ?? 0,
-      totalFTE: totalFTE ?? 0,
-      adminFTE: adminFTE ?? 0,
-      clinicalFTE: clinicalFTE ?? 0,
-      researchFTE: researchFTE ?? 0,
-      teachingFTE: teachingFTE ?? 0,
-      totalWRVUs: round2(totalWRVUs ?? 0),
-      workRVUs: Math.max(0, round2((totalWRVUs ?? 0) - (otherWRVUs ?? 0))),
-      outsideWRVUs: round2(otherWRVUs ?? 0),
-    }
-    onUpdateProvider(updates)
-    if (provider && onSaveComplete) {
-      onSaveComplete({ ...provider, ...updates })
-    }
-    setShowSaved(true)
-    window.setTimeout(() => setShowSaved(false), 2000)
   }
 
   const addComponents = () => {
@@ -449,16 +423,6 @@ function CompensationFTESection({
       baseSalary: round2(total),
       nonClinicalPay: nonClinicalPay ?? 0,
     })
-  }
-
-  const handleSaveComponents = () => {
-    if (!onUpdateProvider) return
-    onUpdateProvider({ basePayComponents: components })
-    if (provider && onSaveComplete) {
-      onSaveComplete({ ...provider, basePayComponents: components })
-    }
-    setShowSaved(true)
-    window.setTimeout(() => setShowSaved(false), 2000)
   }
 
   return (

@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -592,12 +592,6 @@ export function ImputedVsMarketScreen({
       </div>
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary [&_svg]:size-5">
-              <BarChart2 />
-            </div>
-            <CardTitle className="leading-tight">Market positioning (imputed)</CardTitle>
-          </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <p className="text-muted-foreground">
               Compare your effective $/wRVU (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) to market

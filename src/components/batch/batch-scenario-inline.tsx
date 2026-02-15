@@ -129,7 +129,7 @@ export function BatchScenarioInline({
                       step={0.5}
                       value={inputs.haircutPct ?? 5}
                       onChange={(e) =>
-                        onChange({ haircutPct: Number(e.target.value) ?? 5 })
+                        onChange({ haircutPct: Number(e.target.value) || 5 })
                       }
                       disabled={disabled}
                       className={inputClass}

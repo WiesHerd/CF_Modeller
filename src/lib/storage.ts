@@ -8,6 +8,7 @@ const KEY_MARKET = 'cf-modeler-market'
 const KEY_PROVIDER_MAPPING = 'cf-modeler-provider-mapping'
 const KEY_MARKET_MAPPING = 'cf-modeler-market-mapping'
 const KEY_SAVED_SCENARIOS = 'cf-modeler-saved-scenarios'
+const KEY_DATA_BROWSER_FILTERS = 'cf-modeler-data-browser-filters'
 
 const MAX_SAVED_SCENARIOS = 50
 
@@ -100,4 +101,43 @@ export function saveSavedScenarios(scenarios: SavedScenario[]): void {
       ? sorted.slice(-MAX_SAVED_SCENARIOS)
       : sorted
   localStorage.setItem(KEY_SAVED_SCENARIOS, JSON.stringify(trimmed))
+}
+
+export interface DataBrowserFilters {
+  providerSpecialty: string
+  providerDivision: string
+  providerModel: string
+  marketSpecialty: string
+  dataTab: 'providers' | 'market'
+}
+
+const defaultDataBrowserFilters: DataBrowserFilters = {
+  providerSpecialty: 'all',
+  providerDivision: 'all',
+  providerModel: 'all',
+  marketSpecialty: 'all',
+  dataTab: 'providers',
+}
+
+export function loadDataBrowserFilters(): DataBrowserFilters {
+  try {
+    const s = localStorage.getItem(KEY_DATA_BROWSER_FILTERS)
+    if (!s) return defaultDataBrowserFilters
+    const data = JSON.parse(s) as unknown
+    if (!data || typeof data !== 'object') return defaultDataBrowserFilters
+    const d = data as Record<string, unknown>
+    return {
+      providerSpecialty: typeof d.providerSpecialty === 'string' ? d.providerSpecialty : defaultDataBrowserFilters.providerSpecialty,
+      providerDivision: typeof d.providerDivision === 'string' ? d.providerDivision : defaultDataBrowserFilters.providerDivision,
+      providerModel: typeof d.providerModel === 'string' ? d.providerModel : defaultDataBrowserFilters.providerModel,
+      marketSpecialty: typeof d.marketSpecialty === 'string' ? d.marketSpecialty : defaultDataBrowserFilters.marketSpecialty,
+      dataTab: d.dataTab === 'market' ? 'market' : 'providers',
+    }
+  } catch {
+    return defaultDataBrowserFilters
+  }
+}
+
+export function saveDataBrowserFilters(filters: DataBrowserFilters): void {
+  localStorage.setItem(KEY_DATA_BROWSER_FILTERS, JSON.stringify(filters))
 }

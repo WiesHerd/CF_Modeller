@@ -98,18 +98,14 @@ export function TCCWaterfallChart({ segments, height: heightProp, calloutText }:
   }, [heightProp])
   const chartHeight = heightProp ?? responsiveHeight
 
-  // Stacked bar: offset (transparent) + value (visible). First row: offset=0, value=start. Then each delta: offset=running, value=delta; running+=delta. Last row: offset=0, value=end.
-  let running = 0
-  const data = segments.map((seg) => {
-    if (seg.type === 'start') {
-      running = seg.value
-      return { name: seg.name, offset: 0, value: seg.value, segment: seg }
-    }
-    if (seg.type === 'delta') {
-      const row = { name: seg.name, offset: running, value: seg.value, segment: seg }
-      running += seg.value
-      return row
-    }
+  // Stacked bar: offset (transparent) + value (visible). First row: offset=0, value=start. Then each delta: offset=sum of prior segment values (start + previous deltas), value=delta. Last row: offset=0, value=end.
+  const data = segments.map((seg, i) => {
+    const offset =
+      seg.type === 'delta'
+        ? segments.slice(0, i).reduce((sum, s) => sum + (s.type === 'start' || s.type === 'delta' ? s.value : 0), 0)
+        : 0
+    if (seg.type === 'start') return { name: seg.name, offset: 0, value: seg.value, segment: seg }
+    if (seg.type === 'delta') return { name: seg.name, offset, value: seg.value, segment: seg }
     return { name: seg.name, offset: 0, value: seg.value, segment: seg }
   })
 

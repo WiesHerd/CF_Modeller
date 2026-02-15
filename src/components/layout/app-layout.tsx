@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Menu, Plus, PanelLeftClose, PanelLeft, FileUp, User, Users, Gauge, BarChart2, Sliders, Table2, GitCompare, HelpCircle } from 'lucide-react'
+import { Menu, Plus, PanelLeftClose, PanelLeft, FileUp, User, Users, Gauge, BarChart2, Sliders, Table2, GitCompare, HelpCircle, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import type { BatchCardId } from '@/components/batch/batch-card-picker'
 
-export type AppStep = 'upload' | 'data' | 'modeller' | 'batch-scenario' | 'batch-results' | 'compare-scenarios' | 'help'
+export type AppStep = 'upload' | 'data' | 'modeller' | 'batch-scenario' | 'batch-results' | 'compare-scenarios' | 'reports' | 'help'
 export type AppMode = 'single' | 'batch'
 
 /** When collapsed, only this rail width is reserved — content keeps max width. */
@@ -114,6 +114,7 @@ export function AppLayout({
   const isModellerActive = step === 'modeller'
   const isBatchScenarioActive = step === 'batch-scenario'
   const isCompareScenariosActive = step === 'compare-scenarios'
+  const isReportsActive = step === 'reports'
   const isHelpActive = step === 'help'
 
   const handleNav = (s: AppStep) => {
@@ -209,6 +210,15 @@ export function AppLayout({
             active={isCompareScenariosActive}
             disabled={false}
             onClick={() => handleNav('compare-scenarios')}
+            collapsed={true}
+          />
+          <NavButton
+            icon={<FileText className="size-5 shrink-0" />}
+            label="Reports"
+            tooltip="Report library — TCC, wRVU, batch runs, impact"
+            active={isReportsActive}
+            disabled={false}
+            onClick={() => handleNav('reports')}
             collapsed={true}
           />
           <NavButton
@@ -327,6 +337,15 @@ export function AppLayout({
             active={isCompareScenariosActive}
             disabled={false}
             onClick={() => handleNav('compare-scenarios')}
+            collapsed={false}
+          />
+          <NavButton
+            icon={<FileText className="size-5 shrink-0" />}
+            label="Reports"
+            tooltip="Report library — TCC, wRVU, batch runs, impact"
+            active={isReportsActive}
+            disabled={false}
+            onClick={() => handleNav('reports')}
             collapsed={false}
           />
         </SidebarSection>
@@ -464,6 +483,15 @@ export function AppLayout({
                     active={isCompareScenariosActive}
                     disabled={false}
                     onClick={() => handleNav('compare-scenarios')}
+                    collapsed={false}
+                  />
+                  <NavButton
+                    icon={<FileText className="size-5 shrink-0" />}
+                    label="Reports"
+                    tooltip="Report library — TCC, wRVU, batch runs, impact"
+                    active={isReportsActive}
+                    disabled={false}
+                    onClick={() => handleNav('reports')}
                     collapsed={false}
                   />
                 </SidebarSection>

@@ -8,7 +8,7 @@ import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs } from '@/types/scenario'
 import { inferPercentile, interpPercentile } from '@/lib/interpolation'
-import { matchMarketRow } from '@/lib/batch'
+import { matchMarketRow, normalizeSpecialtyKey } from '@/lib/batch'
 import {
   getBaselineTCCNormalizedForOptimizer,
   getClinicalBase,
@@ -1134,15 +1134,6 @@ export function optimizeCFForSpecialty(
 // ---------------------------------------------------------------------------
 // 8) Run all specialties + audit
 // ---------------------------------------------------------------------------
-
-function normalizeSpecialtyKey(s: string): string {
-  return (s ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^\w\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
 
 export function runOptimizerAllSpecialties(
   providerRows: ProviderRow[],

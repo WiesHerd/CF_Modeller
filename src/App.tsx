@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '@/hooks/use-app-state'
 import { computeScenario } from '@/lib/compute'
-import { AppLayout, type AppStep, type AppMode } from '@/components/layout/app-layout'
+import { AppLayout, type AppStep } from '@/components/layout/app-layout'
 import { UploadAndMapping } from '@/components/upload-and-mapping'
 import { MarketDataCard, ProviderStatisticsContent } from '@/components/modeller-top-section'
 import { SpecialtySelect } from '@/components/specialty-select'
@@ -30,6 +30,7 @@ import { CompareScenariosScreen } from '@/features/optimizer/compare-scenarios-s
 import { ImputedVsMarketScreen } from '@/features/optimizer/imputed-vs-market-screen'
 import { DataTablesScreen } from '@/features/data/data-tables-screen'
 import { HelpScreen } from '@/features/help/help-screen'
+import { ReportsScreen } from '@/features/reports/reports-screen'
 import { LegalPage } from '@/components/legal-page'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { ArrowLeft, ChevronDown, ChevronRight, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
@@ -85,6 +86,9 @@ export default function App() {
     setSelectedSpecialty,
     setSelectedProvider,
     updateProvider,
+    addProvider,
+    updateMarketRow,
+    addMarketRow,
     setScenarioInputs,
     setLastResults,
     dismissScenarioLoadWarning,
@@ -92,7 +96,7 @@ export default function App() {
     loadScenario,
     deleteScenario,
     clearAllScenarios,
-    duplicateScenario,
+    duplicateScenario: _duplicateScenario,
     updateCurrentScenarioProviderSnapshot,
     setBatchResults,
     saveCurrentBatchRun,
@@ -110,9 +114,9 @@ export default function App() {
     loadOptimizerConfig,
     deleteSavedOptimizerConfig,
   } = useAppState()
+  void _duplicateScenario
 
   const [step, setStep] = useState<AppStep>('upload')
-  const [, setAppMode] = useState<AppMode>('single')
   const [modelMode, setModelMode] = useState<ModelMode>('existing')
   const [modellerStep, setModellerStep] = useState<ModellerStep>('provider')
   const [newProviderForm, setNewProviderForm] = useState<NewProviderFormValues>(DEFAULT_NEW_PROVIDER)
@@ -124,8 +128,6 @@ export default function App() {
   const handleStepChange = (newStep: AppStep, dataTabOption?: 'providers' | 'market') => {
     setStep(newStep)
     if (newStep === 'data' && dataTabOption) setDataTab(dataTabOption)
-    if (newStep === 'modeller') setAppMode('single')
-    else if (newStep === 'batch-scenario' || newStep === 'batch-results') setAppMode('batch')
     if (newStep !== 'batch-scenario' && newStep !== 'batch-results') setBatchCard(null)
   }
 
@@ -138,10 +140,6 @@ export default function App() {
     setBatchResults(mode, results, snapshotWithMode ?? null)
     setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
     setStep('batch-results')
-    setAppMode('batch')
-    const runAt = new Date(results.runAt)
-    const scenarioName = `Batch run – ${runAt.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`
-    saveCurrentScenario(scenarioName)
   }
 
   const marketRow = useMemo(() => {
@@ -318,94 +316,91 @@ export default function App() {
     >
       {step === 'upload' && (
         <div className="space-y-6">
-          {/* Top bar: same position and style as CF optimizer — Save, Folder (saved scenarios), Refresh */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <SectionTitleWithIcon icon={<FileUp />}>Import data</SectionTitleWithIcon>
-            <div className="flex flex-wrap items-center gap-2">
-              <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setUploadSaveDialogOpen(true)}
-                      aria-label="Save scenario"
-                    >
-                      <Save className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Save scenario</TooltipContent>
-                </Tooltip>
-                {state.savedScenarios.length > 0 && (
-                  <DropdownMenu>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            aria-label={`Saved scenarios (${state.savedScenarios.length})`}
-                          >
-                            <FolderOpen className="size-4" />
-                            <ChevronDown className="size-4 opacity-50" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        Saved scenarios ({state.savedScenarios.length})
-                      </TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto">
-                      {[...state.savedScenarios].reverse().map((sc) => (
-                        <DropdownMenuItem
-                          key={sc.id}
-                          onSelect={(e) => {
-                            e.preventDefault()
-                            loadScenario(sc.id)
-                          }}
-                          className="flex items-center justify-between gap-2"
+          <SectionTitleWithIcon icon={<FileUp />}>Import data</SectionTitleWithIcon>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setUploadSaveDialogOpen(true)}
+                    aria-label="Save scenario"
+                  >
+                    <Save className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Save scenario</TooltipContent>
+              </Tooltip>
+              {state.savedScenarios.length > 0 && (
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`Saved scenarios (${state.savedScenarios.length})`}
                         >
-                          <span className="truncate">{sc.name}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              deleteScenario(sc.id)
-                            }}
-                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            aria-label={`Delete ${sc.name}`}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        if (window.confirm('Clear all provider and market data and start over? This cannot be undone.')) {
-                          setProviderData([], null)
-                          setMarketData([], null)
-                        }
-                      }}
-                      className="text-muted-foreground hover:text-foreground"
-                      aria-label="Reset data"
-                    >
-                      <RotateCcw className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Reset data</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+                          <FolderOpen className="size-4" />
+                          <ChevronDown className="size-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Saved scenarios ({state.savedScenarios.length})
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto">
+                    {[...state.savedScenarios].reverse().map((sc) => (
+                      <DropdownMenuItem
+                        key={sc.id}
+                        onSelect={(e) => {
+                          e.preventDefault()
+                          loadScenario(sc.id)
+                        }}
+                        className="flex items-center justify-between gap-2"
+                      >
+                        <span className="truncate">{sc.name}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            deleteScenario(sc.id)
+                          }}
+                          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={`Delete ${sc.name}`}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (window.confirm('Clear all provider and market data and start over? This cannot be undone.')) {
+                        setProviderData([], null)
+                        setMarketData([], null)
+                      }
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Reset data"
+                  >
+                    <RotateCcw className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Reset data</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           <UploadAndMapping
@@ -439,12 +434,18 @@ export default function App() {
           dataTab={dataTab}
           onDataTabChange={setDataTab}
           onNavigateToUpload={() => handleStepChange('upload')}
+          onUpdateProvider={updateProvider}
+          onAddProvider={addProvider}
+          onUpdateMarketRow={updateMarketRow}
+          onAddMarketRow={addMarketRow}
         />
       )}
 
       {step === 'modeller' && (
         <div className="space-y-8">
-          {/* Top bar: same as CF optimizer — Back (left), Save + Folder + Refresh (right) */}
+          <SectionTitleWithIcon icon={<User />}>
+            Single scenario
+          </SectionTitleWithIcon>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Button
               type="button"
@@ -543,10 +544,6 @@ export default function App() {
               </TooltipProvider>
             </div>
           </div>
-
-          <SectionTitleWithIcon icon={<User />}>
-            Single scenario
-          </SectionTitleWithIcon>
           <ModellerStepper
             currentStep={modellerStep}
             onStepChange={setModellerStep}
@@ -814,6 +811,23 @@ export default function App() {
         />
       )}
 
+      {step === 'reports' && (
+        <ReportsScreen
+          providerRows={state.providerRows}
+          marketRows={state.marketRows}
+          scenarioInputs={state.scenarioInputs}
+          savedScenarios={state.savedScenarios}
+          savedBatchRuns={state.savedBatchRuns}
+          batchSynonymMap={state.batchSynonymMap}
+          onBack={() => handleStepChange('upload')}
+          onNavigateToCompareScenarios={() => handleStepChange('compare-scenarios')}
+          onNavigateToBatchCard={(id) => {
+            handleStepChange('batch-scenario')
+            setBatchCard(id)
+          }}
+        />
+      )}
+
       {step === 'help' && (
         <HelpScreen
           onNavigate={(s, batchCard) => {
@@ -913,7 +927,6 @@ export default function App() {
         const isDetailed = batchCard === 'detailed-scenario'
         const results = isDetailed ? state.batchResultsDetailed : state.batchResultsBulk
         const scenarioSnapshot = isDetailed ? state.lastBatchScenarioSnapshotDetailed : state.lastBatchScenarioSnapshotBulk
-        const backLabel = isDetailed ? 'Back to Detailed scenarios' : 'Back to Create and Run Scenario'
         const handleBack = () => {
           setStep('batch-scenario')
           setBatchCard(isDetailed ? 'detailed-scenario' : 'bulk-scenario')
@@ -921,30 +934,30 @@ export default function App() {
         if (!results) {
           return (
             <div className="space-y-6">
-              <div className="flex flex-wrap items-center gap-2">
+              <SectionTitleWithIcon icon={<Layers className="size-5" />}>
+                Scenario results
+              </SectionTitleWithIcon>
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={handleBack} className="gap-2" aria-label="Back">
                   <ArrowLeft className="size-4" />
                   Back
                 </Button>
-                <SectionTitleWithIcon icon={<Layers className="size-5" />}>
-                  Scenario results
-                </SectionTitleWithIcon>
               </div>
               <p className="text-muted-foreground">No results for this run. Run a scenario to see results here.</p>
             </div>
           )
         }
         const scopedResults = scopeResultsBySnapshot(results, scenarioSnapshot ?? null)
+        const headerTitle = (
+          <SectionTitleWithIcon icon={<Layers className="size-5" />}>
+            Scenario results
+          </SectionTitleWithIcon>
+        )
         const headerLeft = (
-          <>
-            <Button type="button" variant="outline" size="sm" onClick={handleBack} className="gap-2" aria-label="Back">
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
-            <SectionTitleWithIcon icon={<Layers className="size-5" />}>
-              Scenario results
-            </SectionTitleWithIcon>
-          </>
+          <Button type="button" variant="outline" size="sm" onClick={handleBack} className="gap-2" aria-label="Back">
+            <ArrowLeft className="size-4" />
+            Back
+          </Button>
         )
         return (
           <div className="space-y-6">
@@ -959,7 +972,10 @@ export default function App() {
                 setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
               })}
               onDeleteRun={deleteSavedBatchRun}
+              headerTitle={headerTitle}
               headerLeft={headerLeft}
+              providerRows={state.providerRows}
+              synonymMap={state.batchSynonymMap}
             />
           </div>
         )

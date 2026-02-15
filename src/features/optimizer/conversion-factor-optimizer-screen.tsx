@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { ArrowLeft, ChevronDown, FolderOpen, GitCompare, RotateCcw, Save, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FolderOpen, Gauge, GitCompare, RotateCcw, Save, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs } from '@/types/scenario'
@@ -427,6 +428,9 @@ export function ConversionFactorOptimizerScreen({
 
   return (
     <div className="space-y-6">
+      <SectionTitleWithIcon icon={<Gauge className="size-5 text-muted-foreground" />}>
+        CF Optimizer
+      </SectionTitleWithIcon>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Button

@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx'
 import type { BatchResults, BatchRowResult } from '@/types/batch'
+import { getFmvRiskLevel, FMV_RISK_LABEL } from '@/features/optimizer/components/optimizer-constants'
 
 const EMPTY = '—'
 
@@ -8,6 +9,7 @@ const EMPTY = '—'
  */
 function rowToWideRecord(r: BatchRowResult): Record<string, string | number> {
   const res = r.results
+  const fmvRisk = getFmvRiskLevel(res?.tccPercentile, res?.modeledTCCPercentile)
   return {
     providerId: r.providerId,
     providerName: r.providerName,
@@ -41,6 +43,7 @@ function rowToWideRecord(r: BatchRowResult): Record<string, string | number> {
     cfBelow25: res?.governanceFlags?.cfBelow25 ? 'Y' : 'N',
     modeledInPolicyBand: res?.governanceFlags?.modeledInPolicyBand ? 'Y' : 'N',
     fmvCheckSuggested: res?.governanceFlags?.fmvCheckSuggested ? 'Y' : 'N',
+    fmvRisk: FMV_RISK_LABEL[fmvRisk],
   }
 }
 

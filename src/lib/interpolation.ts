@@ -136,7 +136,7 @@ export function runInterpolationSelfCheck(): void {
   const above = inferPercentile(300, p25, p50, p75, p90)
   if (!above.aboveRange) throw new Error('Value 300 > p90 should set aboveRange')
 
-  if (typeof console !== 'undefined' && console.log) {
+  if (import.meta.env.DEV && typeof console !== 'undefined' && console.log) {
     console.log('Interpolation self-check passed.')
   }
 }

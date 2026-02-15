@@ -96,6 +96,7 @@ export function SynonymEditor({
       }
       return changed ? next : prev
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- providerListKey/marketListKey/synonymMapKey encode the relevant deps to avoid unnecessary resyncs
   }, [providerListKey, marketListKey, synonymMapKey])
 
   const bulkAddCount = useMemo(() => {
@@ -294,8 +295,8 @@ export function SynonymEditor({
               <table className="w-full caption-bottom text-sm border-collapse">
                 <thead className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
                   <tr>
-                    <th className="text-left px-3 py-2.5 font-medium">Provider specialty</th>
-                    <th className="text-left px-3 py-2.5 font-medium min-w-[320px]">→ Market specialty</th>
+                    <th className="text-left px-3 py-2.5 font-medium whitespace-normal break-words">Provider specialty</th>
+                    <th className="text-left px-3 py-2.5 font-medium min-w-[320px] whitespace-normal break-words">→ Market specialty</th>
                   </tr>
                 </thead>
                 <tbody className="[&_tr:last-child]:border-0">

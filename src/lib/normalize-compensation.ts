@@ -212,10 +212,11 @@ export function getLayeredTCCAmount(
         case 'flat_dollar':
           sum += layer.value != null && Number.isFinite(layer.value) ? layer.value : 0
           break
-        case 'from_file':
+        case 'from_file': {
           const raw = num(prov[layer.sourceColumn ?? ''] as unknown)
           sum += layer.normalizeForFTE && cFTE > 0 ? raw * cFTE : raw
           break
+        }
       }
     }
     return sum
