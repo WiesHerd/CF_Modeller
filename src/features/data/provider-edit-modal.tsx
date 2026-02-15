@@ -106,7 +106,7 @@ export function ProviderEditModal({
           outsideWRVUs: toStr(initialRow.outsideWRVUs),
           currentCF: toStr(initialRow.currentCF),
           nonClinicalPay: toStr(initialRow.nonClinicalPay),
-          qualityPayments: toStr(initialRow.qualityPayments ?? initialRow.currentTCC),
+          qualityPayments: toStr(initialRow.qualityPayments),
           otherIncentives: toStr(initialRow.otherIncentives),
           productivityModel: toStr(initialRow.productivityModel),
         })

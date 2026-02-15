@@ -93,7 +93,7 @@ export function matchMarketRow(
 
 /**
  * True if a batch row is "flagged" for review: high risk, has warnings, or governance suggests underpay/FMV check.
- * Used for "Flagged only" filter and for highlighting rows in the results table.
+ * Used for "Flagged only" filter.
  */
 export function isBatchRowFlagged(row: BatchRowResult): boolean {
   return (
@@ -101,6 +101,24 @@ export function isBatchRowFlagged(row: BatchRowResult): boolean {
     row.warnings.length > 0 ||
     (!!row.results?.governanceFlags &&
       (row.results.governanceFlags.underpayRisk || row.results.governanceFlags.fmvCheckSuggested))
+  )
+}
+
+/** Data-quality warnings added in batch (missing market/specialty, zero FTE). Used for yellow row highlight only. */
+const DATA_QUALITY_WARNING_PREFIXES = [
+  'Missing specialty',
+  'Clinical FTE = 0',
+  'Market missing',
+]
+
+/**
+ * True if the row has only data-quality type warnings (missing market, missing specialty, zero FTE).
+ * Used to highlight rows in yellow; excludes computation warnings (off-scale percentiles, low wRVU).
+ */
+export function hasDataQualityWarning(row: BatchRowResult): boolean {
+  if (row.warnings.length === 0) return false
+  return row.warnings.some((w) =>
+    DATA_QUALITY_WARNING_PREFIXES.some((prefix) => w.startsWith(prefix))
   )
 }
 

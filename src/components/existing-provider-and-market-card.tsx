@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Users, Target, X } from 'lucide-react'
+import { Users, BarChart3, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import {
@@ -173,7 +173,7 @@ export function ExistingProviderAndMarketCard({
           </div>
           <div className="flex min-h-[4.5rem] flex-col justify-end gap-2">
             <Label className="text-muted-foreground flex h-5 min-h-5 items-center gap-2 text-xs font-medium">
-              <Target className="size-3.5 shrink-0" />
+              <BarChart3 className="size-3.5 shrink-0" />
               <span>Market</span>
             </Label>
             <Select

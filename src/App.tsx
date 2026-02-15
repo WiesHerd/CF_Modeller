@@ -443,26 +443,26 @@ export default function App() {
 
       {step === 'modeller' && (
         <div className="space-y-8">
-          <SectionTitleWithIcon icon={<User />}>
-            Single scenario
-          </SectionTitleWithIcon>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (modellerStep === 'scenario') setModellerStep('provider')
-                else if (modellerStep === 'market') setModellerStep('scenario')
-                else if (modellerStep === 'results') setModellerStep('market')
-                else handleStepChange('data')
-              }}
-              className="gap-2"
-            >
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
+            <SectionTitleWithIcon icon={<User />}>
+              Single scenario
+            </SectionTitleWithIcon>
             <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (modellerStep === 'scenario') setModellerStep('provider')
+                  else if (modellerStep === 'market') setModellerStep('scenario')
+                  else if (modellerStep === 'results') setModellerStep('market')
+                  else handleStepChange('data')
+                }}
+                className="gap-2"
+              >
+                <ArrowLeft className="size-4" />
+                Back
+              </Button>
               <TooltipProvider delayDuration={300}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -544,14 +544,31 @@ export default function App() {
               </TooltipProvider>
             </div>
           </div>
-          <ModellerStepper
-            currentStep={modellerStep}
-            onStepChange={setModellerStep}
-            canAdvanceFromProvider={!!canShowScenario}
-            canAdvanceFromScenario={!!canShowScenario}
-            canAdvanceFromMarket={!!canShowScenario}
-            showNavButtons={false}
-          />
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            {modellerStep === 'provider' && (
+              <Tabs
+                value={modelMode}
+                onValueChange={(v) => {
+                  const mode = v as ModelMode
+                  setModelMode(mode)
+                  if (mode === 'new') setSelectedProvider(null)
+                }}
+              >
+                <TabsList className="w-auto sm:grid sm:grid-cols-2">
+                  <TabsTrigger value="existing">Uploaded</TabsTrigger>
+                  <TabsTrigger value="new">Custom</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+            <ModellerStepper
+              currentStep={modellerStep}
+              onStepChange={setModellerStep}
+              canAdvanceFromProvider={!!canShowScenario}
+              canAdvanceFromScenario={!!canShowScenario}
+              canAdvanceFromMarket={!!canShowScenario}
+              showNavButtons={false}
+            />
+          </div>
 
           {/* Step content: keyed so transition runs when step changes */}
           <div key={modellerStep} className="animate-in fade-in-0 duration-200">
@@ -567,15 +584,6 @@ export default function App() {
                 }}
                 className="w-full"
               >
-                <TabsList className="mb-4 w-full max-w-md sm:grid sm:grid-cols-2">
-                  <TabsTrigger value="existing" className="w-full">
-                    From uploaded data
-                  </TabsTrigger>
-                  <TabsTrigger value="new" className="w-full">
-                    Custom data
-                  </TabsTrigger>
-                </TabsList>
-
                 <TabsContent value="existing" className="mt-0">
                   {hasData ? (
                     <ExistingProviderAndMarketCard

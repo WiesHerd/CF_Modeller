@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { User, BarChart3, ChevronDown, ChevronUp, Calculator, Plus, Trash2, LayoutList } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { User, BarChart3, ChevronDown, ChevronUp, Calculator, Plus, Trash2, LayoutList, RotateCcw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -301,21 +301,25 @@ function Section({
 function InlineField({
   label,
   labelHint,
+  labelIcon,
   children,
   className,
 }: {
   label: string
   labelHint?: string
+  /** Optional icon (e.g. Calculator) to show calculated/derived field. */
+  labelIcon?: React.ReactNode
   children: React.ReactNode
   className?: string
 }) {
   return (
     <div className={cn('grid min-w-0 grid-rows-[1.25rem_2rem] gap-1', className)}>
-      <div className="text-muted-foreground flex min-h-5 items-center text-xs font-medium line-clamp-2">
+      <div className="text-muted-foreground flex min-h-5 items-center gap-1.5 text-xs font-medium line-clamp-2">
         {label}
         {labelHint != null && labelHint !== '' && (
-          <span className="text-muted-foreground/80 ml-1 font-normal">{labelHint}</span>
+          <span className="text-muted-foreground/80 font-normal">{labelHint}</span>
         )}
+        {labelIcon != null && <span className="shrink-0 text-muted-foreground/70">{labelIcon}</span>}
       </div>
       <div className="min-h-8 [&_input]:h-8 [&_input]:w-full [&_input]:text-right">
         {children}
@@ -377,9 +381,50 @@ function CompensationFTESection({
   const totalFromComponents = components.reduce((s, c) => s + (Number(c?.amount) || 0), 0)
   const useComponents = canEdit && components.length > 0
 
+  type OriginalCompensation = {
+    baseSalary: number
+    nonClinicalPay: number
+    clinicalFTESalary: number | undefined
+    qualityPayments: number
+    otherIncentives: number
+  }
+  const originalCompensationRef = useRef<OriginalCompensation | null>(null)
+  const prevProviderIdRef = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    const id = _provider?.providerId?.toString()
+    if (id != null && id !== prevProviderIdRef.current) {
+      prevProviderIdRef.current = id
+      const p = _provider
+      const num = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0) as number
+      originalCompensationRef.current = {
+        baseSalary: num(p?.baseSalary),
+        nonClinicalPay: num(p?.nonClinicalPay),
+        clinicalFTESalary:
+          typeof p?.clinicalFTESalary === 'number' && Number.isFinite(p.clinicalFTESalary)
+            ? p.clinicalFTESalary
+            : undefined,
+        qualityPayments: num(p?.qualityPayments),
+        otherIncentives: num(p?.otherIncentives),
+      }
+    }
+  }, [_provider?.providerId])
+
   const handleCalculateNonClinical = () => {
     if (!totalFTEValid || calculatedNonClinical == null || !onUpdateProvider) return
     onUpdateProvider({ nonClinicalPay: round2(calculatedNonClinical) })
+  }
+
+  const handleResetSection = () => {
+    if (!onUpdateProvider || !originalCompensationRef.current) return
+    const orig = originalCompensationRef.current
+    onUpdateProvider({
+      baseSalary: orig.baseSalary,
+      nonClinicalPay: orig.nonClinicalPay,
+      clinicalFTESalary: orig.clinicalFTESalary,
+      qualityPayments: orig.qualityPayments,
+      otherIncentives: orig.otherIncentives,
+      basePayComponents: undefined,
+    })
   }
 
   const addComponents = () => {
@@ -430,9 +475,28 @@ function CompensationFTESection({
       <div className="flex flex-col gap-4">
         {/* Panel 1: Compensation */}
         <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <h4 className="text-muted-foreground mb-3 text-xs font-semibold uppercase tracking-wide">
-            Compensation
-          </h4>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+              Compensation
+            </h4>
+            {canEdit && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
+                onClick={handleResetSection}
+                title="Reset all compensation fields to original values"
+                aria-label="Reset compensation section to original"
+              >
+                <RotateCcw className="size-3.5" />
+                Reset to original
+              </Button>
+            )}
+          </div>
+          <p className="text-muted-foreground mb-3 text-xs">
+            Base salary is total salary (includes non-clinical). Non-Clinical is a breakout only; it does not change TCC.
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-8 gap-y-4">
         {useComponents ? (
           <>
@@ -558,11 +622,20 @@ function CompensationFTESection({
               {canEdit ? (
                 <CurrencyField
                   value={baseSalary ?? 0}
-                  onChange={(v) =>
-                    onUpdateProvider?.({
-                      baseSalary: Number.isFinite(v) ? v : 0,
-                    })
-                  }
+                  onChange={(v) => {
+                    const newBase = Number.isFinite(v) ? v : 0
+                    if (totalFTE > 0 && newBase >= 0) {
+                      const derivedCFTE = round2(newBase * (clinicalFTE / totalFTE))
+                      const derivedNonClinical = round2(newBase - derivedCFTE)
+                      onUpdateProvider?.({
+                        baseSalary: newBase,
+                        clinicalFTESalary: undefined,
+                        nonClinicalPay: derivedNonClinical,
+                      })
+                    } else {
+                      onUpdateProvider?.({ baseSalary: newBase })
+                    }
+                  }}
                   placeholder="$0.00"
                   className={`${inputClass} text-right`}
                 />
@@ -572,16 +645,20 @@ function CompensationFTESection({
                 </span>
               )}
             </InlineField>
-            <InlineField label="Non-Clinical">
+            <InlineField label="Non-Clinical" labelHint="(breakout)">
               {canEdit ? (
                 <div className="flex items-center gap-1.5">
                   <CurrencyField
                     value={nonClinicalPay ?? 0}
-                    onChange={(v) =>
+                    onChange={(v) => {
+                      const val = Number.isFinite(v) ? v : 0
+                      const newBase = round2((cFTESalary ?? 0) + val)
                       onUpdateProvider?.({
-                        nonClinicalPay: Number.isFinite(v) ? v : 0,
+                        nonClinicalPay: val,
+                        baseSalary: newBase,
+                        clinicalFTESalary: cFTESalary,
                       })
-                    }
+                    }}
                     placeholder="$0.00"
                     className={`${inputClass} text-right flex-1 min-w-0`}
                   />
@@ -607,6 +684,24 @@ function CompensationFTESection({
                   {nonClinicalPay != null && nonClinicalPay > 0
                     ? fmtMoney(nonClinicalPay)
                     : '—'}
+                </span>
+              )}
+            </InlineField>
+            <InlineField label="cFTE Salary">
+              {canEdit ? (
+                <CurrencyField
+                  value={cFTESalary ?? 0}
+                  onChange={(v) => {
+                    const val = Number.isFinite(v) ? v : 0
+                    const newBase = round2(val + (nonClinicalPay ?? 0))
+                    onUpdateProvider?.({ clinicalFTESalary: val, baseSalary: newBase })
+                  }}
+                  placeholder="$0.00"
+                  className={`${inputClass} text-right`}
+                />
+              ) : (
+                <span className="tabular-nums text-sm text-right">
+                  {cFTESalary > 0 ? fmtMoney(cFTESalary) : '—'}
                 </span>
               )}
             </InlineField>
@@ -640,11 +735,16 @@ function CompensationFTESection({
                 </span>
               )}
             </InlineField>
-            <InlineField label="Clinical FTE salary" labelHint="(derived)">
+            <InlineField label="TCC" labelIcon={<Calculator className="size-3.5" />}>
               <Input
                 readOnly
-                value={cFTESalary > 0 ? fmtMoney(cFTESalary) : '—'}
-                className={`${inputClass} bg-muted/40 cursor-default`}
+                title="Base salary (total) + quality payments + other incentives. Non-Clinical is not added—it is part of base. Full TCC also includes wRVU incentive and PSQ from the Scenario step."
+                value={
+                  (baseSalary ?? 0) + (qualityPayments ?? 0) + (otherIncentives ?? 0) > 0
+                    ? fmtMoney((baseSalary ?? 0) + (qualityPayments ?? 0) + (otherIncentives ?? 0))
+                    : '—'
+                }
+                className={`${inputClass} bg-muted/40 cursor-default font-medium`}
               />
             </InlineField>
             {canEdit && (
@@ -893,7 +993,7 @@ export function ProviderStatisticsContent({
   const teachingFTE = provider.teachingFTE ?? 0
   const baseSalary = provider.baseSalary ?? 0
   const nonClinicalPay = provider.nonClinicalPay ?? 0
-  const qualityPayments = provider.qualityPayments ?? provider.currentTCC ?? 0
+  const qualityPayments = provider.qualityPayments ?? 0
   const otherIncentives = provider.otherIncentives ?? 0
   const otherWRVUs = provider.outsideWRVUs ?? 0
   const totalWRVUs =
@@ -952,7 +1052,7 @@ export function ModellerTopSection({
   const teachingFTE = provider?.teachingFTE ?? 0
   const baseSalary = provider?.baseSalary ?? 0
   const nonClinicalPay = provider?.nonClinicalPay ?? 0
-  const qualityPayments = provider?.qualityPayments ?? provider?.currentTCC ?? 0
+  const qualityPayments = provider?.qualityPayments ?? 0
   const otherIncentives = provider?.otherIncentives ?? 0
   const otherWRVUs = provider?.outsideWRVUs ?? 0
   const totalWRVUs =

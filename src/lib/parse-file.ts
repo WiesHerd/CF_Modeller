@@ -171,7 +171,7 @@ const PROVIDER_ALIASES: Record<string, string[]> = {
   adminFTE: ['adminfte', 'admin fte', 'adminftes'],
   researchFTE: ['researchfte', 'research fte', 'researchftes'],
   teachingFTE: ['teachingfte', 'teaching fte', 'teachingftes'],
-  qualityPayments: ['qualitypayments', 'quality payments', 'currenttcc', 'current tcc'],
+  qualityPayments: ['qualitypayments', 'quality payments'],
   otherIncentives: ['otherincentives', 'other incentives'],
 }
 
@@ -223,7 +223,7 @@ export function buildDefaultProviderMapping(
           base.teachingFTE = header
           break
         }
-        if (exp === 'qualityPayments' && (headerLower.includes('quality') || headerLower.includes('currenttcc'))) {
+        if (exp === 'qualityPayments' && headerLower.includes('quality')) {
           base.qualityPayments = header
           break
         }

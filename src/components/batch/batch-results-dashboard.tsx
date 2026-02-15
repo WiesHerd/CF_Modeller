@@ -32,7 +32,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 import { BatchResultsTable, type CalculationColumnId } from '@/components/batch/batch-results-table'
 import { RowCalculationModal, type CalculationSection } from '@/components/batch/row-calculation-modal'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
-import { isBatchRowFlagged } from '@/lib/batch'
+import { isBatchRowFlagged, hasDataQualityWarning } from '@/lib/batch'
 import { formatCurrency, formatCurrencyCompact } from '@/utils/format'
 import type { BatchResults, BatchRowResult, BatchRiskLevel, BatchScenarioSnapshot, MarketMatchStatus, SavedBatchRun, SynonymMap } from '@/types/batch'
 import type { MarketRow } from '@/types/market'
@@ -174,8 +174,10 @@ export function BatchResultsDashboard({
 
   const canOpenDrawer = providerRows.length > 0 && marketRows.length > 0
 
-  /** Rows flagged for review (high risk, warnings, or governance flags); used to highlight in table. */
+  /** Rows that are in the "Flagged only" filter set (high risk, warnings, or governance flags). */
   const isRowFlagged = isBatchRowFlagged
+  /** Yellow highlight only for rows with data-quality warnings (missing market, missing specialty, zero FTE), not off-scale or low-wRVU. */
+  const isRowHighlightedForWarnings = hasDataQualityWarning
 
   const specialties = useMemo(() => {
     const set = new Set(rows.map((r) => r.specialty).filter(Boolean))
@@ -1205,7 +1207,7 @@ setSaveRunName('')
             <span className="font-medium text-red-600 dark:text-red-400">Red</span> = Pay above productivity ·{' '}
             <span className="font-medium text-blue-600 dark:text-blue-400">Blue</span> = Underpaid vs productivity.
             {' '}
-            <span className="font-medium text-amber-700 dark:text-amber-400">Yellow</span> row = Flagged for review (high risk, warnings, or FMV/underpay suggested).
+            <span className="font-medium text-amber-700 dark:text-amber-400">Yellow</span> row = Data-quality warning (missing market, missing specialty, or zero FTE). Use &quot;Flagged only&quot; filter for full list.
           </p>
         </CardHeader>
         <CardContent>
@@ -1214,7 +1216,8 @@ setSaveRunName('')
             maxHeight="60vh"
             onCalculationClick={handleCalculationClick}
             onRowClick={canOpenDrawer ? handleRowClickForDrawer : undefined}
-            isRowHighlighted={isRowFlagged}
+            isRowHighlighted={isRowHighlightedForWarnings}
+            enableCellFocus={false}
           />
         </CardContent>
       </Card>

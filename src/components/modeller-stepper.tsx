@@ -1,14 +1,14 @@
-import { ChevronLeft, ChevronRight, Check, User, Sliders, BarChart3, FileCheck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 export type ModellerStep = 'provider' | 'scenario' | 'market' | 'results'
 
-const STEPS: { id: ModellerStep; num: number; label: string; icon: React.ReactNode }[] = [
-  { id: 'provider', num: 1, label: 'Provider', icon: <User className="size-4" /> },
-  { id: 'scenario', num: 2, label: 'Scenario', icon: <Sliders className="size-4" /> },
-  { id: 'market', num: 3, label: 'Market data', icon: <BarChart3 className="size-4" /> },
-  { id: 'results', num: 4, label: 'Results', icon: <FileCheck className="size-4" /> },
+const STEPS: { id: ModellerStep; num: number; label: string }[] = [
+  { id: 'provider', num: 1, label: 'Provider' },
+  { id: 'scenario', num: 2, label: 'Scenario' },
+  { id: 'market', num: 3, label: 'Market data' },
+  { id: 'results', num: 4, label: 'Results' },
 ]
 
 interface ModellerStepperProps {
@@ -107,9 +107,6 @@ export function ModellerStepper({
                   {isComplete && !isActive ? <Check className="size-4" /> : step.num}
                 </span>
                 <span className="hidden truncate sm:inline">{step.label}</span>
-                <span className="hidden shrink-0 text-muted-foreground/70 sm:inline [&_svg]:size-4">
-                  {step.icon}
-                </span>
               </button>
             </div>
           )

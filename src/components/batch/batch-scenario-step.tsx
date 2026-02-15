@@ -178,7 +178,10 @@ export function BatchScenarioStep({
   const [minBasisFTE, setMinBasisFTE] = useState(0.5)
   const [minWRVUPer1p0CFTE, setMinWRVUPer1p0CFTE] = useState(1000)
 
-  /** In detailed mode with overrides: run only providers that match the override scope (selected specialties or provider IDs). Otherwise all providers. */
+  /** In detailed mode with overrides: run only providers that match the override scope.
+   * - Only specialty overrides: run all providers in those specialties.
+   * - Only provider overrides: run only those providers.
+   * - Both: run only providers in the provider override list (so one provider like Wei Wei runs alone even if their specialty is also in overrides). */
   const providersAfterSpecialtyFilter = useMemo(() => {
     if (isBulk) return providerRows
     const specialtySet = new Set(
@@ -191,6 +194,9 @@ export function BatchScenarioStep({
     return providerRows.filter((p) => {
       const pid = String(p.providerId ?? p.providerName ?? '').trim()
       const spec = (p.specialty ?? '').trim()
+      if (providerIdSet.size > 0 && specialtySet.size > 0) {
+        return providerIdSet.has(pid) && specialtySet.has(spec)
+      }
       if (providerIdSet.size > 0 && providerIdSet.has(pid)) return true
       if (specialtySet.size > 0 && specialtySet.has(spec)) return true
       return false

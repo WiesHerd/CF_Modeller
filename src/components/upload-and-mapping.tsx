@@ -168,7 +168,7 @@ export function UploadAndMapping({
         outsideWRVUs: toStr(editingProvider.outsideWRVUs),
         currentCF: toStr(editingProvider.currentCF),
         nonClinicalPay: toStr(editingProvider.nonClinicalPay),
-        qualityPayments: toStr(editingProvider.qualityPayments ?? editingProvider.currentTCC),
+        qualityPayments: toStr(editingProvider.qualityPayments),
         otherIncentives: toStr(editingProvider.otherIncentives),
         productivityModel: toStr(editingProvider.productivityModel),
       })

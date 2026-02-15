@@ -146,8 +146,8 @@ export function computeScenario(
   // TCC = base salary (total) + wRVU incentives (if positive) + PSQ + quality payments + other incentives.
   const currentIncentiveForTCC = currentIncentive > 0 ? currentIncentive : 0
   const annualIncentiveForTCC = annualIncentive > 0 ? annualIncentive : 0
-  // Quality payments: use qualityPayments column, or legacy currentTCC when file has that column.
-  const qualityPayments = num(provider.qualityPayments) || num(provider.currentTCC) || 0
+  // Quality payments: use qualityPayments column only. Do not use currentTCC as fallback (file Current TCC is total, not a component).
+  const qualityPayments = num(provider.qualityPayments) || 0
   const otherIncentives = num(provider.otherIncentives) || 0
 
   // PSQ dollars: current uses currentPsqPercent, modeled uses psqPercent. Same basis for both.
@@ -165,8 +165,11 @@ export function computeScenario(
     psqDollars = modeledPsqBase * (psqPercent / 100)
   }
 
-  // TCC = base + incentive + PSQ + quality payments + other incentives. Non-clinical is part of base.
-  const currentTCC = baseSalary + currentIncentiveForTCC + currentPsqDollars + qualityPayments + otherIncentives
+  // When the file supplies Current TCC, use it as the total. Otherwise compute from components.
+  const computedCurrentTCC = baseSalary + currentIncentiveForTCC + currentPsqDollars + qualityPayments + otherIncentives
+  const fileCurrentTCCVal = num(provider.currentTCC)
+  const fileCurrentTCC = fileCurrentTCCVal > 0 ? fileCurrentTCCVal : null
+  const currentTCC = fileCurrentTCC ?? computedCurrentTCC
   const modeledTCC = modeledBase + annualIncentiveForTCC + psqDollars
   const changeInTCC = modeledTCC - currentTCC
 

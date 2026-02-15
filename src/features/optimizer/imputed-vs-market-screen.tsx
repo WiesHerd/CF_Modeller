@@ -324,8 +324,8 @@ export function ImputedVsMarketScreen({
     const startW = firstDrawerWidth
     const onMove = (ev: MouseEvent) => {
       const delta = startX - ev.clientX
-      setFirstDrawerWidth((w) =>
-        Math.min(FIRST_DRAWER_WIDTH_MAX, Math.max(FIRST_DRAWER_WIDTH_MIN, w + delta))
+      setFirstDrawerWidth(
+        Math.min(FIRST_DRAWER_WIDTH_MAX, Math.max(FIRST_DRAWER_WIDTH_MIN, startW + delta))
       )
     }
     const onUp = () => {

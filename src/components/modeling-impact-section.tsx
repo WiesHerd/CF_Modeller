@@ -55,7 +55,7 @@ export function buildWaterfallSegments(
   const annualIncentiveForTCC = results.annualIncentive > 0 ? results.annualIncentive : 0
   const currentPsqDollars = results.currentPsqDollars ?? results.psqDollars ?? 0
   const psqDollars = results.psqDollars
-  const qualityPayments = num(provider?.qualityPayments) || num(provider?.currentTCC) || 0
+  const qualityPayments = num(provider?.qualityPayments) || 0
   const otherIncentives = num(provider?.otherIncentives) || 0
 
   const deltaBase = modeledBase - baseSalary

@@ -75,6 +75,8 @@ interface BatchResultsTableProps {
   onRowClick?: (row: BatchRowResult) => void
   /** When set, rows for which this returns true get a distinct background highlight (e.g. flagged for review). */
   isRowHighlighted?: (row: BatchRowResult) => boolean
+  /** When false, disables grid-style cell focus (click cell + arrow keys). Improves performance with large tables. Default true for backward compatibility. */
+  enableCellFocus?: boolean
 }
 
 function CalculationCellButton({
@@ -115,10 +117,9 @@ function CalculationCellButton({
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
 
-/** Default column order: Provider first (frozen), then ID, Specialty, and the rest. */
+/** Default column order: Provider first (frozen), then Specialty, and the rest. ID is internal-only (not in upload mapping). */
 const DEFAULT_COLUMN_ORDER: ColumnOrderState = [
   'providerName',
-  'providerId',
   'specialty',
   'division',
   'providerType',
@@ -141,7 +142,7 @@ const DEFAULT_COLUMN_ORDER: ColumnOrderState = [
   'warnings',
 ]
 
-export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick, onRowClick, isRowHighlighted }: BatchResultsTableProps) {
+export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick, onRowClick, isRowHighlighted, enableCellFocus = true }: BatchResultsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'providerName', desc: false },
   ])
@@ -155,6 +156,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
   const dragColIdRef = useRef<string | null>(null)
   const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
   const focusedCellRef = useRef<HTMLTableCellElement>(null)
+  const cellFocusEnabled = enableCellFocus === true
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack Table column value types vary per column
   const columns = useMemo<ColumnDef<BatchRowResult, any>[]>(
@@ -163,11 +165,6 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
         header: 'Provider',
         cell: (c) => c.getValue() || EMPTY,
         meta: { wrap: true, sticky: true, minWidth: '140px' },
-      }),
-      columnHelper.accessor('providerId', {
-        header: 'ID',
-        cell: (c) => c.getValue() || EMPTY,
-        meta: { wrap: true, minWidth: '80px' },
       }),
       columnHelper.accessor('specialty', {
         header: 'Specialty',
@@ -437,16 +434,17 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
   const colCount = visibleRows[0]?.getVisibleCells().length ?? 0
 
   useEffect(() => {
-    if (focusedCell == null || rowCount === 0 || colCount === 0) return
+    if (!cellFocusEnabled || focusedCell == null || rowCount === 0 || colCount === 0) return
     const el = focusedCellRef.current
     if (!el) return
     requestAnimationFrame(() => {
       el.focus()
       el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
     })
-  }, [focusedCell, rowCount, colCount])
+  }, [cellFocusEnabled, focusedCell, rowCount, colCount])
 
   useEffect(() => {
+    if (!cellFocusEnabled) return
     if (rowCount === 0 || colCount === 0) {
       setFocusedCell(null)
       return
@@ -457,17 +455,17 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
       const c = Math.min(prev.columnIndex, Math.max(0, colCount - 1))
       return r === prev.rowIndex && c === prev.columnIndex ? prev : { rowIndex: r, columnIndex: c }
     })
-  }, [rowCount, colCount])
+  }, [cellFocusEnabled, rowCount, colCount])
 
   const handleTableKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (focusedCell != null) return
+      if (!cellFocusEnabled || focusedCell != null) return
       if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
         setFocusedCell({ rowIndex: 0, columnIndex: 0 })
         e.preventDefault()
       }
     },
-    [focusedCell]
+    [cellFocusEnabled, focusedCell]
   )
 
   const handleCellKeyDown = useCallback(
@@ -543,7 +541,8 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
               </span>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-[280px] text-xs">
-              Drag column headers to reorder; drag the right edge to resize. Click a cell, then use arrow keys to move; Enter or double-click opens provider detail.
+              Drag column headers to reorder; drag the right edge to resize.
+              {cellFocusEnabled ? ' Click a cell, then use arrow keys to move; Enter or double-click opens provider detail.' : ' Double-click a row to open provider detail.'}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -616,21 +615,26 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
         role="grid"
         aria-rowcount={rowCount}
         aria-colcount={colCount}
-        tabIndex={0}
+        tabIndex={cellFocusEnabled ? 0 : undefined}
         className="rounded-md border border-border overflow-x-auto overflow-y-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         style={{ maxHeight }}
-        onKeyDown={handleTableKeyDown}
+        onKeyDown={cellFocusEnabled ? handleTableKeyDown : undefined}
       >
         <table
           className="w-full caption-bottom text-sm min-w-max"
           style={{ minWidth: 'max-content' }}
         >
-          <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
-            {table.getHeaderGroups().map((hg) => (
+          <TableHeader className="border-b border-border [&_th]:text-foreground">
+            {table.getHeaderGroups().map((hg) => {
+              const visibleHeaders = hg.headers.filter((h) => h.column.getIsVisible())
+              return (
               <TableRow key={hg.id}>
-                {hg.headers.map((h) => {
+                {visibleHeaders.map((h) => {
                   const meta = h.column.columnDef.meta as { sticky?: boolean; minWidth?: string; wrap?: boolean } | undefined
-                  const stickyClass = meta?.sticky ? 'sticky left-0 z-20 bg-muted/95 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]' : ''
+                  const isStickyColumn = meta?.sticky === true || h.column.id === 'providerName'
+                  const stickyClass = isStickyColumn
+                    ? 'sticky left-0 top-0 z-30 bg-muted shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+                    : 'sticky top-0 z-20 bg-muted'
                   const headerWrapClass = 'whitespace-normal break-words'
                   const colId = h.column.id
                   const isDragging = draggedColId === colId
@@ -694,7 +698,8 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
                   )
                 })}
               </TableRow>
-            ))}
+              )
+            })}
           </TableHeader>
           <tbody className="[&_tr:last-child]:border-0">
             {visibleRows.map((row, rowIndex) => {
@@ -721,37 +726,55 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
               >
                 {row.getVisibleCells().map((cell, columnIndex) => {
                   const meta = cell.column.columnDef.meta as { sticky?: boolean; minWidth?: string; wrap?: boolean } | undefined
-                  const stickyClass = meta?.sticky ? 'sticky left-0 z-10 bg-inherit shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]' : ''
+                  const isStickyColumn = meta?.sticky === true || cell.column.id === 'providerName'
+                  const stickyBg =
+                    isStickyColumn && highlighted
+                      ? 'bg-amber-100 dark:bg-amber-950'
+                      : isStickyColumn && row.index % 2 === 1
+                        ? 'bg-muted'
+                        : isStickyColumn
+                          ? 'bg-background'
+                          : ''
+                  const stickyClass = isStickyColumn
+                    ? `sticky left-0 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)] ${stickyBg}`
+                    : ''
                   const wrapClass = meta?.wrap ? 'whitespace-normal break-words align-top' : 'whitespace-nowrap'
                   const value = cell.getValue()
                   const titleAttr = meta?.wrap && typeof value === 'string' && value ? value : undefined
                   const size = cell.column.getSize()
-                  const isFocused = focusedCell?.rowIndex === rowIndex && focusedCell?.columnIndex === columnIndex
+                  const isFocused = cellFocusEnabled && focusedCell?.rowIndex === rowIndex && focusedCell?.columnIndex === columnIndex
+                  const isCalculationColumn =
+                    onCalculationClick &&
+                    ['annualIncentive', 'tccPercentile', 'modeledTCCPercentile', 'wrvuPercentile'].includes(
+                      cell.column.id
+                    )
+                  const isClickable = onRowClick || isCalculationColumn
                   return (
                     <TableCell
                       key={cell.id}
                       ref={isFocused ? focusedCellRef : undefined}
                       role="gridcell"
-                      tabIndex={isFocused ? 0 : -1}
+                      tabIndex={cellFocusEnabled ? (isFocused ? 0 : -1) : undefined}
                       aria-rowindex={rowIndex + 1}
                       aria-colindex={columnIndex + 1}
                       className={cn(
                         wrapClass,
                         stickyClass,
-                        'px-3 py-2.5 outline-none cursor-cell',
+                        'px-3 py-2.5 outline-none',
+                        isClickable ? 'cursor-pointer' : 'cursor-cell',
                         isFocused && 'ring-2 ring-primary ring-inset bg-primary/5'
                       )}
                       style={{ width: size, minWidth: size, maxWidth: size }}
                       title={titleAttr}
                       onClick={(e) => {
                         e.stopPropagation()
-                        setFocusedCell({ rowIndex, columnIndex })
+                        if (cellFocusEnabled) setFocusedCell({ rowIndex, columnIndex })
                       }}
                       onDoubleClick={(e) => {
                         e.stopPropagation()
                         if (onRowClick) onRowClick(original)
                       }}
-                      onKeyDown={(e) => handleCellKeyDown(e, rowIndex, columnIndex)}
+                      onKeyDown={cellFocusEnabled ? (e) => handleCellKeyDown(e, rowIndex, columnIndex) : undefined}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>

@@ -201,7 +201,7 @@ function TCCBreakdownDialog({
   const annualIncentiveForTCC = Math.max(0, results?.annualIncentive ?? 0)
   const currentPsq = results?.currentPsqDollars ?? results?.psqDollars ?? 0
   const modeledPsq = results?.psqDollars ?? 0
-  const qualityPayments = n(provider?.qualityPayments) || n(provider?.currentTCC) || 0
+  const qualityPayments = n(provider?.qualityPayments) || 0
   const otherIncentives = n(provider?.otherIncentives) || 0
   const modeledBase =
     scenarioInputs.modeledBasePay != null && Number.isFinite(scenarioInputs.modeledBasePay)
@@ -295,9 +295,7 @@ export function BaselineVsModeledSection({
   const qualityPaymentsFromProvider =
     typeof provider?.qualityPayments === 'number' && Number.isFinite(provider.qualityPayments)
       ? provider.qualityPayments
-      : typeof provider?.currentTCC === 'number' && Number.isFinite(provider.currentTCC)
-        ? provider.currentTCC
-        : 0
+      : 0
   const currentQualityPaymentsDisplay =
     qualityPaymentsFromProvider > 0 ? qualityPaymentsFromProvider : currentPsqDollars
 
