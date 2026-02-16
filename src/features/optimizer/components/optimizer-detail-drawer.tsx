@@ -419,7 +419,15 @@ function ProviderDrilldownTable({
             onClick={onSelectProvider ? () => onSelectProvider(ctx) : undefined}
           >
             <TableCell className="min-w-[140px] font-medium px-3 py-2.5">
-              {ctx.provider.providerName ?? ctx.providerId}
+              <span
+                className={
+                  onSelectProvider
+                    ? 'text-primary cursor-pointer hover:underline hover:text-primary/90'
+                    : ''
+                }
+              >
+                {ctx.provider.providerName ?? ctx.providerId}
+              </span>
             </TableCell>
             <TableCell className="min-w-[100px] text-muted-foreground px-3 py-2.5">
               {ctx.provider.division ?? '—'}

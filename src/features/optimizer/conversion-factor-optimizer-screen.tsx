@@ -48,7 +48,9 @@ interface ConversionFactorOptimizerScreenProps {
   onOptimizerConfigChange: (snapshot: OptimizerConfigSnapshot) => void
   onClearOptimizerConfig?: () => void
   savedOptimizerConfigs?: SavedOptimizerConfig[]
-  onSaveOptimizerConfig?: (name: string) => void
+  /** When set, save dialog can offer "Update current" to overwrite this config. */
+  loadedOptimizerConfigId?: string | null
+  onSaveOptimizerConfig?: (name: string, updateId?: string) => void
   onLoadOptimizerConfig?: (id: string) => void
   onDeleteSavedOptimizerConfig?: (id: string) => void
   /** Navigate to the Compare scenarios full screen. */
@@ -110,6 +112,7 @@ export function ConversionFactorOptimizerScreen({
   onOptimizerConfigChange,
   onClearOptimizerConfig,
   savedOptimizerConfigs = [],
+  loadedOptimizerConfigId = null,
   onSaveOptimizerConfig,
   onLoadOptimizerConfig,
   onDeleteSavedOptimizerConfig,
@@ -141,6 +144,13 @@ export function ConversionFactorOptimizerScreen({
   const [saveScenarioDialogOpen, setSaveScenarioDialogOpen] = useState(false)
   const [saveScenarioName, setSaveScenarioName] = useState('')
   const [cfSweepDrawerOpen, setCfSweepDrawerOpen] = useState(false)
+  useEffect(() => {
+    if (saveScenarioDialogOpen && loadedOptimizerConfigId && savedOptimizerConfigs.length > 0) {
+      const loaded = savedOptimizerConfigs.find((c) => c.id === loadedOptimizerConfigId)
+      if (loaded?.name) setSaveScenarioName(loaded.name)
+    }
+    if (!saveScenarioDialogOpen) setSaveScenarioName('')
+  }, [saveScenarioDialogOpen, loadedOptimizerConfigId, savedOptimizerConfigs])
   const workerRef = useRef<Worker | null>(null)
 
   /** Ref to avoid rehydrating when optimizerConfig is the snapshot we just pushed. */
@@ -580,6 +590,11 @@ export function ConversionFactorOptimizerScreen({
             <DialogTitle>Save optimizer scenario</DialogTitle>
             <DialogDescription>
               Save the current target population, objective, governance, and TCC settings so you can recall them later.
+              {loadedOptimizerConfigId && (
+                <span className="mt-1 block text-foreground/80">
+                  You have a scenario loaded — update it or save as a new one.
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
@@ -591,26 +606,44 @@ export function ConversionFactorOptimizerScreen({
               placeholder="e.g. Q1 Productivity run"
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2 sm:justify-between">
             <Button
               variant="outline"
               onClick={() => setSaveScenarioDialogOpen(false)}
             >
               Cancel
             </Button>
-            <Button
-              onClick={() => {
-                const name = saveScenarioName.trim()
-                if (name && onSaveOptimizerConfig) {
-                  onSaveOptimizerConfig(name)
-                  setSaveScenarioName('')
-                  setSaveScenarioDialogOpen(false)
-                }
-              }}
-              disabled={!saveScenarioName.trim()}
-            >
-              Save
-            </Button>
+            <div className="flex gap-2">
+              {loadedOptimizerConfigId && (
+                <Button
+                  variant="secondary"
+                  disabled={!saveScenarioName.trim()}
+                  onClick={() => {
+                    const name = saveScenarioName.trim()
+                    if (name && onSaveOptimizerConfig) {
+                      onSaveOptimizerConfig(name, loadedOptimizerConfigId)
+                      setSaveScenarioName('')
+                      setSaveScenarioDialogOpen(false)
+                    }
+                  }}
+                >
+                  Update current
+                </Button>
+              )}
+              <Button
+                onClick={() => {
+                  const name = saveScenarioName.trim()
+                  if (name && onSaveOptimizerConfig) {
+                    onSaveOptimizerConfig(name)
+                    setSaveScenarioName('')
+                    setSaveScenarioDialogOpen(false)
+                  }
+                }}
+                disabled={!saveScenarioName.trim()}
+              >
+                {loadedOptimizerConfigId ? 'Save as new' : 'Save'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

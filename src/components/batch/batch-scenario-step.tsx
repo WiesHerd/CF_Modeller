@@ -50,8 +50,8 @@ interface BatchScenarioStepProps {
   onRunComplete: (results: BatchResults, scenarioSnapshot?: BatchScenarioSnapshot) => void
   /** When provided, show a link to edit synonyms on the Upload screen. */
   onNavigateToUpload?: () => void
-  /** When provided, Save scenario button is shown and this is called with current config. */
-  onSaveScenario?: (config: Omit<SavedBatchScenarioConfig, 'id' | 'createdAt'>) => void
+  /** When provided, Save scenario button is shown. Pass updateId to overwrite that config; otherwise saves as new. */
+  onSaveScenario?: (config: Omit<SavedBatchScenarioConfig, 'id' | 'createdAt'>, updateId?: string) => void
   /** When provided, Start fresh is shown to clear all saved scenarios from the library. */
   onClearSavedScenarios?: () => void
   /** When 'bulk', show only base scenario + run. When 'detailed', show only overrides + run. Default 'full' shows all. */
@@ -117,6 +117,11 @@ export function BatchScenarioStep({
   const [isRunning, setIsRunning] = useState(false)
   const [saveScenarioDialogOpen, setSaveScenarioDialogOpen] = useState(false)
   const [saveScenarioName, setSaveScenarioName] = useState('')
+  useEffect(() => {
+    if (saveScenarioDialogOpen && appliedBatchScenarioConfig?.name)
+      setSaveScenarioName(appliedBatchScenarioConfig.name)
+    if (!saveScenarioDialogOpen) setSaveScenarioName('')
+  }, [saveScenarioDialogOpen, appliedBatchScenarioConfig?.name])
   /** When true, run only the base scenario (controls at top). When false, run base + all from scenario library. */
   const [runBaseScenarioOnly, setRunBaseScenarioOnly] = useState(true)
   const [progress, setProgress] = useState({ processed: 0, total: 1, elapsedMs: 0 })
@@ -1214,6 +1219,11 @@ export function BatchScenarioStep({
                   <DialogTitle>Save scenario</DialogTitle>
                   <DialogDescription>
                     Save this batch scenario (base inputs and overrides) in this browser. Load it later from the Saved batch scenarios menu.
+                    {appliedBatchScenarioConfig && (
+                      <span className="mt-1 block text-foreground/80">
+                        You have a scenario loaded — update it or save as a new one.
+                      </span>
+                    )}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-2 py-2">
@@ -1222,34 +1232,61 @@ export function BatchScenarioStep({
                     id="batch-scenario-name"
                     value={saveScenarioName}
                     onChange={(e) => setSaveScenarioName(e.target.value)}
-                    placeholder="e.g. Pediatrics CF 50th"
+                    placeholder={appliedBatchScenarioConfig?.name ?? 'e.g. Pediatrics CF 50th'}
                     onKeyDown={(e) => e.key === 'Enter' && (document.getElementById('batch-scenario-save-btn') as HTMLButtonElement)?.click()}
                   />
                 </div>
-                <DialogFooter>
+                <DialogFooter className="flex-wrap gap-2 sm:justify-between">
                   <Button variant="outline" onClick={() => setSaveScenarioDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button
-                    id="batch-scenario-save-btn"
-                    onClick={() => {
-                      const name = saveScenarioName.trim()
-                      if (!name) return
-                      onSaveScenario({
-                        name,
-                        scenarioInputs: { ...scenarioInputs },
-                        overrides: batchOverrides,
-                        selectedSpecialties: [],
-                        selectedProviderIds: [],
-                        runBaseScenarioOnly,
-                      })
-                      setSaveScenarioName('')
-                      setSaveScenarioDialogOpen(false)
-                    }}
-                    disabled={!saveScenarioName.trim()}
-                  >
-                    Save
-                  </Button>
+                  <div className="flex gap-2">
+                    {appliedBatchScenarioConfig && (
+                      <Button
+                        variant="secondary"
+                        disabled={!saveScenarioName.trim()}
+                        onClick={() => {
+                          const name = saveScenarioName.trim()
+                          if (!name) return
+                          onSaveScenario(
+                            {
+                              name,
+                              scenarioInputs: { ...scenarioInputs },
+                              overrides: batchOverrides,
+                              selectedSpecialties: [],
+                              selectedProviderIds: [],
+                              runBaseScenarioOnly,
+                            },
+                            appliedBatchScenarioConfig.id
+                          )
+                          setSaveScenarioName('')
+                          setSaveScenarioDialogOpen(false)
+                        }}
+                      >
+                        Update current
+                      </Button>
+                    )}
+                    <Button
+                      id="batch-scenario-save-btn"
+                      onClick={() => {
+                        const name = saveScenarioName.trim()
+                        if (!name) return
+                        onSaveScenario({
+                          name,
+                          scenarioInputs: { ...scenarioInputs },
+                          overrides: batchOverrides,
+                          selectedSpecialties: [],
+                          selectedProviderIds: [],
+                          runBaseScenarioOnly,
+                        })
+                        setSaveScenarioName('')
+                        setSaveScenarioDialogOpen(false)
+                      }}
+                      disabled={!saveScenarioName.trim()}
+                    >
+                      {appliedBatchScenarioConfig ? 'Save as new' : 'Save'}
+                    </Button>
+                  </div>
                 </DialogFooter>
               </DialogContent>
             </Dialog>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Save, Copy, Trash2, FolderOpen, ChevronDown, Settings2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -46,19 +46,39 @@ function sortedScenarios(scenarios: SavedScenario[]): SavedScenario[] {
 interface SaveScenarioDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (name: string) => void
+  /** Called with (name, updateId?). When updateId is set, update that scenario; otherwise save as new. */
+  onSave: (name: string, updateId?: string) => void
+  /** When set, show "Update current" so the user can overwrite this scenario instead of creating a new one. */
+  currentScenarioId?: string | null
+  /** Name of the current scenario (when currentScenarioId is set), for the Update button label. */
+  currentScenarioName?: string | null
 }
 
 export function SaveScenarioDialog({
   open,
   onOpenChange,
   onSave,
+  currentScenarioId,
+  currentScenarioName,
 }: SaveScenarioDialogProps) {
   const [name, setName] = useState('')
-  const handleSave = () => {
+  useEffect(() => {
+    if (open && currentScenarioName) setName(currentScenarioName)
+    if (!open) setName('')
+  }, [open, currentScenarioName])
+  const canUpdate = Boolean(currentScenarioId && name.trim())
+  const handleSaveAsNew = () => {
     const trimmed = name.trim()
     if (trimmed) {
       onSave(trimmed)
+      setName('')
+      onOpenChange(false)
+    }
+  }
+  const handleUpdate = () => {
+    const trimmed = name.trim()
+    if (trimmed && currentScenarioId) {
+      onSave(trimmed, currentScenarioId)
       setName('')
       onOpenChange(false)
     }
@@ -70,6 +90,11 @@ export function SaveScenarioDialog({
           <DialogTitle>Save scenario</DialogTitle>
           <DialogDescription>
             Give this model scenario a name so you can load it later.
+            {currentScenarioId && (
+              <span className="mt-1 block text-foreground/80">
+                You have a scenario loaded — update it or save as a new one.
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2 py-2">
@@ -78,17 +103,24 @@ export function SaveScenarioDialog({
             id="scenario-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. 40th %ile + 5% carve-out"
-            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+            placeholder={currentScenarioName ?? 'e.g. 40th %ile + 5% carve-out'}
+            onKeyDown={(e) => e.key === 'Enter' && handleSaveAsNew()}
           />
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-wrap gap-2 sm:justify-between">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!name.trim()}>
-            Save
-          </Button>
+          <div className="flex gap-2">
+            {currentScenarioId && (
+              <Button onClick={handleUpdate} disabled={!canUpdate} variant="secondary">
+                Update current
+              </Button>
+            )}
+            <Button onClick={handleSaveAsNew} disabled={!name.trim()}>
+              {currentScenarioId ? 'Save as new' : 'Save'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

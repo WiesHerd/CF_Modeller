@@ -46,6 +46,8 @@ export interface AppState {
   usedSampleDataOnLoad: boolean
   /** CF Optimizer form state (in-memory; persists when switching to Results and back until user clears). */
   optimizerConfig: OptimizerConfigSnapshot | null
+  /** When set, the current optimizer config was loaded from this saved config (so Save can offer Update). */
+  loadedOptimizerConfigId: string | null
   /** Saved optimizer scenarios for save/recall (persisted). */
   savedOptimizerConfigs: SavedOptimizerConfig[]
 }
@@ -88,6 +90,7 @@ const initialState: AppState = {
   batchUploadedAt: null,
   usedSampleDataOnLoad: false,
   optimizerConfig: null,
+  loadedOptimizerConfigId: null,
   savedOptimizerConfigs: [],
 }
 
@@ -290,11 +293,27 @@ export function useAppState() {
   }, [])
 
   const saveCurrentScenario = useCallback(
-    (name: string, providerSnapshot?: ProviderRow | null) => {
+    (name: string, providerSnapshot?: ProviderRow | null, updateId?: string) => {
       setState((s) => {
+        const isUpdate = updateId && s.savedScenarios.some((sc) => sc.id === updateId)
+        if (isUpdate) {
+          const next = s.savedScenarios.map((sc) =>
+            sc.id === updateId
+              ? {
+                  ...sc,
+                  name: name.trim(),
+                  scenarioInputs: { ...s.scenarioInputs },
+                  selectedProviderId: s.selectedProviderId,
+                  selectedSpecialty: s.selectedSpecialty,
+                  ...(providerSnapshot && { providerSnapshot: { ...providerSnapshot } }),
+                }
+              : sc
+          )
+          return { ...s, savedScenarios: next, lastScenarioLoadWarning: null }
+        }
         const saved: SavedScenario = {
           id: crypto.randomUUID(),
-          name,
+          name: name.trim(),
           createdAt: new Date().toISOString(),
           scenarioInputs: { ...s.scenarioInputs },
           selectedProviderId: s.selectedProviderId,
@@ -489,20 +508,35 @@ export function useAppState() {
     setState((s) => ({ ...s, savedBatchRuns: [] }))
   }, [])
 
-  const saveBatchScenarioConfig = useCallback((config: Omit<SavedBatchScenarioConfig, 'id' | 'createdAt'>) => {
-    setState((s) => {
-      const saved: SavedBatchScenarioConfig = {
-        ...config,
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-      }
-      const list = [...s.savedBatchScenarioConfigs, saved].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      )
-      const trimmed = list.length > 20 ? list.slice(-20) : list
-      return { ...s, savedBatchScenarioConfigs: trimmed }
-    })
-  }, [])
+  const saveBatchScenarioConfig = useCallback(
+    (config: Omit<SavedBatchScenarioConfig, 'id' | 'createdAt'>, updateId?: string) => {
+      setState((s) => {
+        const existing = updateId ? s.savedBatchScenarioConfigs.find((c) => c.id === updateId) : null
+        if (existing) {
+          const updated: SavedBatchScenarioConfig = {
+            ...config,
+            id: existing.id,
+            createdAt: existing.createdAt,
+          }
+          const list = s.savedBatchScenarioConfigs
+            .map((c) => (c.id === updateId ? updated : c))
+            .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+          return { ...s, savedBatchScenarioConfigs: list }
+        }
+        const saved: SavedBatchScenarioConfig = {
+          ...config,
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        }
+        const list = [...s.savedBatchScenarioConfigs, saved].sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        )
+        const trimmed = list.length > 20 ? list.slice(-20) : list
+        return { ...s, savedBatchScenarioConfigs: trimmed }
+      })
+    },
+    []
+  )
 
   const loadBatchScenarioConfig = useCallback((config: SavedBatchScenarioConfig) => {
     setState((s) => ({
@@ -568,12 +602,24 @@ export function useAppState() {
   }, [])
 
   const clearOptimizerConfig = useCallback(() => {
-    setState((s) => ({ ...s, optimizerConfig: null }))
+    setState((s) => ({ ...s, optimizerConfig: null, loadedOptimizerConfigId: null }))
   }, [])
 
-  const saveOptimizerConfig = useCallback((name: string) => {
+  const saveOptimizerConfig = useCallback((name: string, updateId?: string) => {
     setState((s) => {
       if (!s.optimizerConfig) return s
+      const existing = updateId ? s.savedOptimizerConfigs.find((c) => c.id === updateId) : null
+      if (existing) {
+        const updated: SavedOptimizerConfig = {
+          ...existing,
+          name: name.trim(),
+          snapshot: s.optimizerConfig,
+        }
+        const list = s.savedOptimizerConfigs
+          .map((c) => (c.id === updateId ? updated : c))
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        return { ...s, savedOptimizerConfigs: list }
+      }
       const saved: SavedOptimizerConfig = {
         id: crypto.randomUUID(),
         name: name.trim(),
@@ -592,7 +638,7 @@ export function useAppState() {
     setState((s) => {
       const found = s.savedOptimizerConfigs.find((c) => c.id === id)
       if (!found) return s
-      return { ...s, optimizerConfig: found.snapshot }
+      return { ...s, optimizerConfig: found.snapshot, loadedOptimizerConfigId: id }
     })
   }, [])
 

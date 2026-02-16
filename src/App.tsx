@@ -800,7 +800,15 @@ export default function App() {
           <SaveScenarioDialog
             open={modellerSaveDialogOpen}
             onOpenChange={setModellerSaveDialogOpen}
-            onSave={(name) => saveCurrentScenario(name, effectiveProvider ?? undefined)}
+            onSave={(name, updateId) =>
+              saveCurrentScenario(name, effectiveProvider ?? undefined, updateId)
+            }
+            currentScenarioId={state.currentScenarioId}
+            currentScenarioName={
+              state.currentScenarioId
+                ? state.savedScenarios.find((s) => s.id === state.currentScenarioId)?.name ?? null
+                : null
+            }
           />
         </div>
       )}
@@ -872,7 +880,8 @@ export default function App() {
           onOptimizerConfigChange={setOptimizerConfig}
           onClearOptimizerConfig={clearOptimizerConfig}
           savedOptimizerConfigs={state.savedOptimizerConfigs}
-          onSaveOptimizerConfig={saveOptimizerConfig}
+          loadedOptimizerConfigId={state.loadedOptimizerConfigId}
+          onSaveOptimizerConfig={(name, updateId) => saveOptimizerConfig(name, updateId)}
           onLoadOptimizerConfig={loadOptimizerConfig}
           onDeleteSavedOptimizerConfig={deleteSavedOptimizerConfig}
           onNavigateToCompareScenarios={() => handleStepChange('compare-scenarios')}

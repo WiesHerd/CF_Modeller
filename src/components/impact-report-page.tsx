@@ -6,6 +6,7 @@ import { PercentilePositionChart } from '@/components/charts/percentile-position
 import { TCCWaterfallChart } from '@/components/charts/tcc-waterfall-chart'
 import { PercentileComparisonChart } from '@/components/charts/percentile-comparison-chart'
 import { CFComparisonTable } from '@/components/cf-comparison-table'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   buildWaterfallSegments,
   buildImpactSummary,
@@ -108,14 +109,7 @@ export function ImpactReportPage({
                 {formatCurrency(results.modeledTCC, { decimals: 0 })}
               </p>
             </div>
-            <div
-              className={cn(
-                'flex w-[8.75rem] flex-col items-center gap-2 rounded-xl border px-3 py-3 shadow-sm',
-                isPositiveDelta && 'border-emerald-500/40 bg-emerald-500/10 dark:border-emerald-400/50 dark:bg-emerald-500/15',
-                isNegativeDelta && 'border-rose-500/40 bg-rose-500/10 dark:border-rose-400/50 dark:bg-rose-500/15',
-                !isPositiveDelta && !isNegativeDelta && 'border-border bg-card'
-              )}
-            >
+            <div className="flex w-[8.75rem] flex-col items-center gap-2 rounded-xl border border-border bg-card px-3 py-3 shadow-sm">
               <div className="flex items-center justify-center gap-2 text-muted-foreground">
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
                   <TrendingUp className="size-4" />
@@ -126,16 +120,16 @@ export function ImpactReportPage({
                 className={cn(
                   'tabular-nums text-center text-base font-semibold tracking-tight',
                   isPositiveDelta && 'text-emerald-700 dark:text-emerald-400',
-                  isNegativeDelta && 'text-rose-700 dark:text-rose-400',
+                  isNegativeDelta && 'text-muted-foreground dark:text-muted-foreground',
                   !isPositiveDelta && !isNegativeDelta && 'text-foreground'
                 )}
               >
                 {results.changeInTCC >= 0 ? '+' : ''}{formatCurrency(results.changeInTCC, { decimals: 0 })}
               </p>
             </div>
-            <div className="flex w-[8.75rem] flex-col items-center gap-2 rounded-xl border border-primary/40 bg-primary/5 px-3 py-3 shadow-sm dark:border-primary/50 dark:bg-primary/10">
+            <div className="flex w-[8.75rem] flex-col items-center gap-2 rounded-xl border border-border bg-card px-3 py-3 shadow-sm">
               <div className="flex items-center justify-center gap-2 text-muted-foreground">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
                   <ArrowRightLeft className="size-4" />
                 </span>
                 <p className="text-xs font-medium uppercase tracking-wider">TCC %ile</p>
@@ -144,14 +138,7 @@ export function ImpactReportPage({
                 {formatOrdinal(results.tccPercentile)} → {formatOrdinal(results.modeledTCCPercentile)}
               </p>
             </div>
-            <div
-              className={cn(
-                'flex w-[8.75rem] flex-col items-center gap-2 rounded-xl border px-3 py-3 shadow-sm',
-                isPositiveDelta && 'border-emerald-500/40 bg-emerald-500/10 dark:border-emerald-400/50 dark:bg-emerald-500/15',
-                isNegativeDelta && 'border-rose-500/40 bg-rose-500/10 dark:border-rose-400/50 dark:bg-rose-500/15',
-                !isPositiveDelta && !isNegativeDelta && 'border-border bg-card'
-              )}
-            >
+            <div className="flex w-[8.75rem] flex-col items-center gap-2 rounded-xl border border-border bg-card px-3 py-3 shadow-sm">
               <div className="flex items-center justify-center gap-2 text-muted-foreground">
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
                   <Percent className="size-4" />
@@ -162,7 +149,7 @@ export function ImpactReportPage({
                 className={cn(
                   'tabular-nums text-center text-base font-semibold tracking-tight',
                   isPositiveDelta && 'text-emerald-700 dark:text-emerald-400',
-                  isNegativeDelta && 'text-rose-700 dark:text-rose-400',
+                  isNegativeDelta && 'text-muted-foreground dark:text-muted-foreground',
                   !isPositiveDelta && !isNegativeDelta && 'text-foreground'
                 )}
               >
@@ -175,13 +162,6 @@ export function ImpactReportPage({
           </div>
         </div>
       </header>
-
-      <section className="space-y-2">
-        <h2 className="text-foreground text-sm font-semibold tracking-tight">
-          Benchmark comparison
-        </h2>
-        <ImpactComparisonTable results={results} />
-      </section>
 
       {takeaway && (
         <div
@@ -271,6 +251,17 @@ export function ImpactReportPage({
           </div>
         </div>
       </section>
+
+      <Card className="overflow-hidden rounded-2xl border-2 border-border shadow-sm">
+        <CardHeader className="pb-0 pt-6">
+          <CardTitle className="text-base font-semibold tracking-tight text-foreground">
+            Benchmark comparison
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 md:px-6">
+          <ImpactComparisonTable results={results} />
+        </CardContent>
+      </Card>
 
       {onBackToModeller && (
         <footer className="border-border/60 border-t pt-8">
