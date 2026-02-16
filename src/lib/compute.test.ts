@@ -38,8 +38,7 @@ describe('computeScenario', () => {
       totalWRVUs: 4000,
       currentCF: 50,
       currentThreshold: 5000, // above wRVUs so currentIncentive = 0
-      currentPsqPercent: 5,
-      // no qualityPayments, no otherIncentives
+      // no qualityPayments, no otherIncentives; PSQ comes from scenario
     }
     const scenario = {
       ...DEFAULT_SCENARIO_INPUTS,

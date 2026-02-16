@@ -174,8 +174,6 @@ export function BatchResultsDashboard({
 
   const canOpenDrawer = providerRows.length > 0 && marketRows.length > 0
 
-  /** Rows that are in the "Flagged only" filter set (high risk, warnings, or governance flags). */
-  const isRowFlagged = isBatchRowFlagged
   /** Yellow highlight only for rows with data-quality warnings (missing market, missing specialty, zero FTE), not off-scale or low-wRVU. */
   const isRowHighlightedForWarnings = hasDataQualityWarning
 

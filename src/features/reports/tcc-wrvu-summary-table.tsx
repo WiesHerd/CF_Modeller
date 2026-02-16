@@ -10,8 +10,10 @@ import {
   type ColumnOrderState,
   type ColumnSizingState,
   type VisibilityState,
+  type ColumnPinningState,
+  type Updater,
 } from '@tanstack/react-table'
-import { useState, useMemo, useRef, useCallback, useEffect, type ReactNode } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import {
   TableCell,
   TableHead,
@@ -172,8 +174,8 @@ export function TccWrvuSummaryTable({
   const measureRef = useRef<HTMLSpanElement>(null)
   const didAutoSizeOnOpenRef = useRef(false)
 
-  const columns = useMemo<ColumnDef<BatchRowResult, unknown>[]>(() => {
-    const base: ColumnDef<BatchRowResult, unknown>[] = [
+  const columns = useMemo((): ColumnDef<BatchRowResult, unknown>[] => {
+    const base = [
       columnHelper.accessor((r) => r.providerName || r.providerId, {
         id: 'providerName',
         header: 'Provider',
@@ -306,9 +308,16 @@ export function TccWrvuSummaryTable({
           meta: { minWidth: 88 },
         }
       ),
-    ]
+    ] as ColumnDef<BatchRowResult, unknown>[]
     return showScenarioName ? base : base.filter((col) => col.id !== 'scenarioName')
   }, [showScenarioName, onProviderClick])
+
+  const handleColumnPinningChange = useCallback((updaterOrValue: Updater<ColumnPinningState>) => {
+    setColumnPinning((prev) => {
+      const next = typeof updaterOrValue === 'function' ? updaterOrValue(prev) : updaterOrValue
+      return { left: next?.left ?? [], right: next?.right ?? [] }
+    })
+  }, [])
 
   const table = useReactTable({
     data: rows,
@@ -319,7 +328,7 @@ export function TccWrvuSummaryTable({
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
-    onColumnPinningChange: setColumnPinning,
+    onColumnPinningChange: handleColumnPinningChange,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),

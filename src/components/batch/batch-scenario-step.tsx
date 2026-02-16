@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Play, Loader2, AlertCircle, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, Link2, Layers, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info } from 'lucide-react'
+import { Play, Loader2, AlertCircle, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, Link2, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { BatchScenarioInline } from '@/components/batch/batch-scenario-inline'
@@ -356,34 +356,7 @@ export function BatchScenarioStep({
   /** Base scenario uses Override CF ($); when false, only CF %ile is used in overrides. */
   const baseUsesOverrideCF = scenarioInputs.cfSource === 'override'
 
-  const [activeStep, setActiveStep] = useState<'scenario' | 'overrides' | 'run'>('scenario')
-
-  const scrollToSection = (id: 'batch-scenario' | 'batch-overrides' | 'batch-run') => {
-    const el = document.getElementById(id)
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    if (id === 'batch-scenario') setActiveStep('scenario')
-    else if (id === 'batch-overrides') setActiveStep('overrides')
-    else if (id === 'batch-run') setActiveStep('run')
-  }
-
-  const scenarioComplete = true
-  const overridesComplete = overrideCount > 0
   const synonymCount = Object.keys(batchSynonymMap).length
-
-  type BatchStepId = 'batch-scenario' | 'batch-overrides' | 'batch-run'
-  const steps: {
-    id: 'scenario' | 'overrides' | 'run'
-    num: number
-    label: string
-    icon: React.ReactNode
-    sectionId: BatchStepId
-    complete: boolean
-    optional?: boolean
-  }[] = [
-    { id: 'scenario', num: 1, label: 'Scenario', icon: <Sliders className="size-4" />, sectionId: 'batch-scenario', complete: scenarioComplete },
-    { id: 'overrides', num: 2, label: `Overrides${overrideCount > 0 ? ` (${overrideCount})` : ''}`, icon: <Layers className="size-4" />, sectionId: 'batch-overrides', complete: overridesComplete, optional: true },
-    { id: 'run', num: 3, label: 'Run', icon: <Play className="size-4" />, sectionId: 'batch-run', complete: false },
-  ]
 
   return (
     <div className="space-y-6">
