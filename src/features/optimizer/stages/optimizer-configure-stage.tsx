@@ -63,11 +63,8 @@ function getRecommendedErrorMetric(
   }
 }
 import {
-  TCC_BUILTIN_COMPONENTS,
   DEFAULT_TCC_COMPONENT_INCLUSION,
-  TCC_DEFINITION_PRESETS,
   type TCCComponentInclusion,
-  type TCCDefinitionPresetId,
   type TCCLayerConfig,
   type TCCLayerType,
 } from '@/lib/tcc-components'
@@ -880,212 +877,318 @@ export function OptimizerConfigureStage({
 
               {/* Step 4: Total cash compensation */}
               {configStep === 4 ? (
-                <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="space-y-5 rounded-lg border border-border/60 bg-muted/20 p-4">
                   <div>
                     <SectionHeaderWithTooltip
                       title="C. Total cash compensation"
-                      tooltip="Select which pay components count toward baseline and modeled TCC when aligning to productivity. Only checked components are included. Use a preset or choose components and optional layers below."
+                      tooltip="Build your TCC by turning components on or off. Base is always included. Each component has a single data source: upload column, computed, or override. Leave optional pills off if you don't have that column."
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Choose which components to include in baseline and modeled TCC. Use the preset dropdown for quick scenarios, or set components and layers manually.
-                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">TCC definition</Label>
-                    <Select
-                      value={(() => {
-                        const inc = settings.tccComponentInclusion ?? {
-                          quality: { included: settings.includeQualityPaymentsInBaselineAndModeled },
-                          workRVUIncentive: { included: settings.includeWorkRVUIncentiveInTCC },
-                          otherIncentives: { included: settings.includeOtherIncentivesInBaselineAndModeled ?? false },
-                          stipend: { included: settings.includeStipendInBaselineAndModeled ?? false },
-                        }
-                        const match = TCC_DEFINITION_PRESETS.find(
-                          (p) => p.id !== 'custom' && Object.keys(p.inclusion).length > 0 && Object.entries(p.inclusion).every(([k, v]) => (inc[k]?.included ?? DEFAULT_TCC_COMPONENT_INCLUSION[k]?.included ?? false) === v?.included)
-                        )
-                        return match?.id ?? 'custom'
-                      })()}
-                      onValueChange={(value: TCCDefinitionPresetId) => {
-                        if (value === 'custom') return
-                        const preset = TCC_DEFINITION_PRESETS.find((p) => p.id === value)
-                        if (!preset || !Object.keys(preset.inclusion).length) return
+
+                  <div className="space-y-3 rounded-lg border border-border/40 bg-background/60 p-3">
+                    <Label className="text-xs font-medium text-muted-foreground">What’s in your TCC</Label>
+                    {(() => {
+                      const inc = settings.tccComponentInclusion ?? {
+                        quality: { included: settings.includeQualityPaymentsInBaselineAndModeled },
+                        workRVUIncentive: { included: settings.includeWorkRVUIncentiveInTCC },
+                        otherIncentives: { included: settings.includeOtherIncentivesInBaselineAndModeled ?? false },
+                        stipend: { included: settings.includeStipendInBaselineAndModeled ?? false },
+                      }
+                      const toggle = (componentId: keyof TCCComponentInclusion, included: boolean) => {
+                        onSetSettings((prev) => {
+                          const current = prev.tccComponentInclusion ?? {
+                            quality: { included: prev.includeQualityPaymentsInBaselineAndModeled },
+                            workRVUIncentive: { included: prev.includeWorkRVUIncentiveInTCC },
+                            otherIncentives: { included: prev.includeOtherIncentivesInBaselineAndModeled ?? false },
+                            stipend: { included: prev.includeStipendInBaselineAndModeled ?? false },
+                          }
+                          const nextInclusion: TCCComponentInclusion = {
+                            ...current,
+                            [componentId]: { ...(current[componentId] ?? {}), included },
+                          }
+                          return {
+                            ...prev,
+                            tccComponentInclusion: nextInclusion,
+                            includeQualityPaymentsInBaselineAndModeled: nextInclusion.quality?.included ?? false,
+                            includeWorkRVUIncentiveInTCC: nextInclusion.workRVUIncentive?.included ?? false,
+                            includeOtherIncentivesInBaselineAndModeled: nextInclusion.otherIncentives?.included ?? false,
+                            includeStipendInBaselineAndModeled: nextInclusion.stipend?.included ?? false,
+                          }
+                        })
+                      }
+                      const optionalComponents: { id: keyof TCCComponentInclusion; label: string }[] = [
+                        { id: 'workRVUIncentive', label: 'Productivity' },
+                        { id: 'quality', label: 'Quality' },
+                        { id: 'otherIncentives', label: 'Other incentives' },
+                        { id: 'stipend', label: 'Stipend' },
+                      ]
+                      return (
+                        <div className="flex flex-col gap-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-border bg-muted/50 px-3 py-1.5 text-sm font-medium text-muted-foreground" aria-hidden>
+                              Base
+                            </span>
+                            {optionalComponents.map(({ id, label }) => {
+                              const isOn = inc[id]?.included ?? DEFAULT_TCC_COMPONENT_INCLUSION[id]?.included ?? false
+                              return (
+                                <button
+                                  key={id}
+                                  type="button"
+                                  onClick={() => toggle(id, !isOn)}
+                                  aria-pressed={isOn}
+                                  aria-label={`${isOn ? 'Remove' : 'Add'} ${label}`}
+                                  className={cn(
+                                    'rounded-full px-3 py-1.5 text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                    isOn
+                                      ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
+                                      : 'border border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted/50 hover:text-foreground'
+                                  )}
+                                >
+                                  {label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-xs text-muted-foreground">
+                              Included: Base
+                              {optionalComponents
+                                .filter(({ id }) => inc[id]?.included ?? false)
+                                .map(({ label }) => ` + ${label}`)
+                                .join('')}
+                            </p>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  aria-label="Data sources"
+                                >
+                                  <Info className="size-4" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="max-w-[280px] text-xs">
+                                Base = Base salary (upload). Productivity = computed from Work RVUs + CF. Quality = column Quality Payments or override %. Other incentives = column Other incentives. Stipend = column Non-clinical pay (optional; leave off if not in your upload).
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+
+                  <div className="space-y-3 rounded-lg border border-border/40 bg-background/60 p-3">
+                    <Label className="text-xs font-medium text-muted-foreground">Options</Label>
+                    {(() => {
+                      const inc = settings.tccComponentInclusion ?? {
+                        quality: { included: settings.includeQualityPaymentsInBaselineAndModeled },
+                        otherIncentives: { included: settings.includeOtherIncentivesInBaselineAndModeled ?? false },
+                        stipend: { included: settings.includeStipendInBaselineAndModeled ?? false },
+                      }
+                      const qualityIncluded = inc.quality?.included ?? settings.includeQualityPaymentsInBaselineAndModeled
+                      const overridePct = settings.qualityPaymentsSource === 'override_pct_of_base' ? (settings.qualityPaymentsOverridePct ?? 0) : 0
+                      const baseScenarioPct = settings.includePsqInBaselineAndModeled ? (settings.baseScenarioInputs?.psqPercent ?? 0) : 0
+                      const addingQualityTwice = qualityIncluded && overridePct > 0 && baseScenarioPct > 0
+                      return (
+                    <>
+                    {qualityIncluded && (
+                      <p className="text-xs text-muted-foreground">
+                        Quality %: use <strong>one</strong> source — either &quot;Quality from&quot; override below or &quot;Add base scenario quality %&quot; — not both, or you add it twice.
+                      </p>
+                    )}
+                    {addingQualityTwice && (
+                      <div className="rounded-md border border-amber-500/60 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                        You&apos;re adding quality twice: {overridePct}% from Override + {baseScenarioPct}% from base scenario = {overridePct + baseScenarioPct}% of base total. Turn off one or set one to 0%.
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
                         onSetSettings((prev) => ({
                           ...prev,
-                          tccComponentInclusion: { ...DEFAULT_TCC_COMPONENT_INCLUSION, ...preset.inclusion },
-                          includeQualityPaymentsInBaselineAndModeled: !!preset.inclusion.quality?.included,
-                          includeWorkRVUIncentiveInTCC: !!preset.inclusion.workRVUIncentive?.included,
-                          includeOtherIncentivesInBaselineAndModeled: !!preset.inclusion.otherIncentives?.included,
-                          includeStipendInBaselineAndModeled: !!preset.inclusion.stipend?.included,
+                          includePsqInBaselineAndModeled: !prev.includePsqInBaselineAndModeled,
+                        }))
+                      }
+                      aria-pressed={settings.includePsqInBaselineAndModeled ?? false}
+                      className={cn(
+                        'rounded-full px-3 py-1.5 text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        settings.includePsqInBaselineAndModeled
+                          ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90'
+                          : 'border border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-muted/50 hover:text-foreground'
+                      )}
+                    >
+                      Add base scenario quality %
+                    </button>
+                    <span className="text-sm text-muted-foreground">at</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={50}
+                      step={0.5}
+                      value={settings.baseScenarioInputs?.psqPercent ?? 0}
+                      onChange={(e) => {
+                        const raw = Number(e.target.value)
+                        const val = Number.isNaN(raw) ? 0 : Math.min(50, Math.max(0, raw))
+                        onSetSettings((prev) => ({
+                          ...prev,
+                          baseScenarioInputs: {
+                            ...prev.baseScenarioInputs,
+                            psqPercent: val,
+                          },
                         }))
                       }}
-                    >
-                      <SelectTrigger className="w-full max-w-[320px]">
-                        <SelectValue placeholder="Select TCC definition" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TCC_DEFINITION_PRESETS.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.label} — {p.description}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 dark:bg-background">
-                    <input
-                      type="checkbox"
-                      id="tcc-include-psq"
-                      checked={settings.includePsqInBaselineAndModeled ?? false}
-                      onChange={(e) =>
-                        onSetSettings((prev) => ({ ...prev, includePsqInBaselineAndModeled: e.target.checked }))
+                      className="h-8 w-20"
+                      aria-label="Base scenario quality percent"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="About this option">
+                          <Info className="size-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[280px] text-xs">
+                        Adds this % of base to TCC when Quality is included. Use this <strong>or</strong> &quot;Quality from → Override % of base&quot; below, not both (or you add quality twice).
+                      </TooltipContent>
+                    </Tooltip>
+                    </div>
+                    {(() => {
+                      const setNormalizeForFTE = (componentId: 'quality' | 'otherIncentives' | 'stipend', normalizeForFTE: boolean) => {
+                        onSetSettings((prev) => {
+                          const current = prev.tccComponentInclusion ?? {
+                            quality: { included: prev.includeQualityPaymentsInBaselineAndModeled },
+                            workRVUIncentive: { included: prev.includeWorkRVUIncentiveInTCC },
+                            otherIncentives: { included: prev.includeOtherIncentivesInBaselineAndModeled ?? false },
+                            stipend: { included: prev.includeStipendInBaselineAndModeled ?? false },
+                          }
+                          const nextInclusion: TCCComponentInclusion = {
+                            ...current,
+                            [componentId]: { ...(current[componentId] ?? {}), normalizeForFTE },
+                          }
+                          return { ...prev, tccComponentInclusion: nextInclusion }
+                        })
                       }
-                      className="mt-1 size-4 rounded border-input"
-                    />
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <Label htmlFor="tcc-include-psq" className="cursor-pointer font-medium">
-                        Include quality / value-based payment (from base scenario)
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Add the base scenario quality payment percentage to baseline and modeled TCC
-                        ({(settings.baseScenarioInputs?.psqPercent ?? 0)}% of base). Turn on when your single-provider or batch TCC definition includes this component.
-                      </p>
-                    </div>
-                  </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {TCC_BUILTIN_COMPONENTS.map((def) => {
-              const inclusion = settings.tccComponentInclusion ?? {
-                quality: { included: settings.includeQualityPaymentsInBaselineAndModeled },
-                workRVUIncentive: { included: settings.includeWorkRVUIncentiveInTCC },
-                otherIncentives: { included: settings.includeOtherIncentivesInBaselineAndModeled ?? false },
-                stipend: { included: settings.includeStipendInBaselineAndModeled ?? false },
-              }
-              const entry = inclusion[def.id] ?? DEFAULT_TCC_COMPONENT_INCLUSION[def.id] ?? { included: false }
-              const checked = entry.included
-              const setIncluded = (included: boolean) => {
-                onSetSettings((prev) => {
-                  const nextInclusion: TCCComponentInclusion = {
-                    ...(prev.tccComponentInclusion ?? {
-                      quality: { included: prev.includeQualityPaymentsInBaselineAndModeled },
-                      workRVUIncentive: { included: prev.includeWorkRVUIncentiveInTCC },
-                      otherIncentives: { included: prev.includeOtherIncentivesInBaselineAndModeled ?? false },
-                      stipend: { included: prev.includeStipendInBaselineAndModeled ?? false },
-                    }),
-                    [def.id]: { ...entry, included },
-                  }
-                  return {
-                    ...prev,
-                    tccComponentInclusion: nextInclusion,
-                    includeQualityPaymentsInBaselineAndModeled: nextInclusion.quality?.included ?? prev.includeQualityPaymentsInBaselineAndModeled,
-                    includeWorkRVUIncentiveInTCC: nextInclusion.workRVUIncentive?.included ?? prev.includeWorkRVUIncentiveInTCC,
-                    includeOtherIncentivesInBaselineAndModeled: nextInclusion.otherIncentives?.included ?? prev.includeOtherIncentivesInBaselineAndModeled,
-                    includeStipendInBaselineAndModeled: nextInclusion.stipend?.included ?? prev.includeStipendInBaselineAndModeled,
-                  }
-                })
-              }
-              const setNormalizeForFTE = (normalizeForFTE: boolean) => {
-                onSetSettings((prev) => {
-                  const current = prev.tccComponentInclusion ?? {
-                    quality: { included: prev.includeQualityPaymentsInBaselineAndModeled },
-                    workRVUIncentive: { included: prev.includeWorkRVUIncentiveInTCC },
-                    otherIncentives: { included: prev.includeOtherIncentivesInBaselineAndModeled ?? false },
-                    stipend: { included: prev.includeStipendInBaselineAndModeled ?? false },
-                  }
-                  const nextInclusion: TCCComponentInclusion = {
-                    ...current,
-                    [def.id]: { ...(current[def.id] ?? { included: false }), normalizeForFTE },
-                  }
-                  return { ...prev, tccComponentInclusion: nextInclusion }
-                })
-              }
-              return (
-                <div
-                  key={def.id}
-                  className="flex flex-col gap-2 rounded-lg border border-border bg-white p-3 dark:bg-background"
-                >
-                  <div className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      id={`tcc-${def.id}`}
-                      checked={checked}
-                      onChange={(e) => setIncluded(e.target.checked)}
-                      className="mt-1 size-4 rounded border-input"
-                    />
-                    <div className="min-w-0 flex-1 space-y-0.5">
-                      <Label htmlFor={`tcc-${def.id}`} className="cursor-pointer font-medium">
-                        {def.label}
-                      </Label>
-                      <p className="text-xs text-muted-foreground">{def.description}</p>
-                    </div>
-                  </div>
-                  {def.id === 'quality' && checked && (
-                    <div className="space-y-2 border-t border-border/40 pt-3">
-                      <Label className="text-xs font-medium">Quality payments source</Label>
-                      <Select
-                        value={settings.qualityPaymentsSource ?? 'from_file'}
-                        onValueChange={(value: 'from_file' | 'override_pct_of_base') =>
-                          onSetSettings((prev) => ({
-                            ...prev,
-                            qualityPaymentsSource: value,
-                            qualityPaymentsOverridePct:
-                              value === 'override_pct_of_base'
-                                ? prev.qualityPaymentsOverridePct ?? 5
-                                : undefined,
-                          }))
-                        }
-                      >
-                        <SelectTrigger className="w-full max-w-[220px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="from_file">From upload (provider file)</SelectItem>
-                          <SelectItem value="override_pct_of_base">Override: % of base salary</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {settings.qualityPaymentsSource === 'override_pct_of_base' && (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={30}
-                            step={0.5}
-                            value={settings.qualityPaymentsOverridePct ?? ''}
-                            onChange={(e) => {
-                              const raw = e.target.value
-                              const num = raw === '' ? 0 : Number(raw)
-                              const val = Number.isNaN(num) ? 0 : Math.max(0, Math.min(30, num))
-                              onSetSettings((prev) => ({ ...prev, qualityPaymentsOverridePct: val }))
-                            }}
-                            placeholder="5"
-                            className="h-9 w-20"
-                          />
-                          <span className="text-xs text-muted-foreground">% of clinical base</span>
+                      return (
+                        <div className="flex flex-col gap-3 pt-2 border-t border-border/50">
+                          {qualityIncluded && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Label className="text-xs text-muted-foreground">Quality from</Label>
+                              <Select
+                                value={settings.qualityPaymentsSource ?? 'from_file'}
+                                onValueChange={(value: 'from_file' | 'override_pct_of_base') =>
+                                  onSetSettings((prev) => ({
+                                    ...prev,
+                                    qualityPaymentsSource: value,
+                                    qualityPaymentsOverridePct:
+                                      value === 'override_pct_of_base'
+                                        ? prev.qualityPaymentsOverridePct ?? 5
+                                        : undefined,
+                                  }))
+                                }
+                              >
+                                <SelectTrigger className="h-8 w-[200px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="from_file">From upload (provider file)</SelectItem>
+                                  <SelectItem value="override_pct_of_base">Override: % of base salary</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {settings.qualityPaymentsSource === 'override_pct_of_base' && (
+                                <>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={30}
+                                    step={0.5}
+                                    value={settings.qualityPaymentsOverridePct ?? ''}
+                                    onChange={(e) => {
+                                      const raw = e.target.value
+                                      const num = raw === '' ? 0 : Number(raw)
+                                      const val = Number.isNaN(num) ? 0 : Math.max(0, Math.min(30, num))
+                                      onSetSettings((prev) => ({ ...prev, qualityPaymentsOverridePct: val }))
+                                    }}
+                                    placeholder="5"
+                                    className="h-8 w-16"
+                                  />
+                                  <span className="text-xs text-muted-foreground">% of base</span>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {(qualityIncluded || inc.otherIncentives?.included || inc.stipend?.included) && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Label className="text-xs text-muted-foreground">Per 1.0 FTE</Label>
+                              {qualityIncluded && (
+                                <button
+                                  type="button"
+                                  onClick={() => setNormalizeForFTE('quality', !(inc.quality?.normalizeForFTE ?? false))}
+                                  aria-pressed={inc.quality?.normalizeForFTE ?? false}
+                                  className={cn(
+                                    'rounded-full px-2.5 py-1 text-xs font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                    inc.quality?.normalizeForFTE
+                                      ? 'bg-primary/20 text-primary hover:bg-primary/30'
+                                      : 'border border-border bg-background text-muted-foreground hover:bg-muted/50'
+                                  )}
+                                >
+                                  Quality
+                                </button>
+                              )}
+                              {inc.otherIncentives?.included && (
+                                <button
+                                  type="button"
+                                  onClick={() => setNormalizeForFTE('otherIncentives', !(inc.otherIncentives?.normalizeForFTE ?? false))}
+                                  aria-pressed={inc.otherIncentives?.normalizeForFTE ?? false}
+                                  className={cn(
+                                    'rounded-full px-2.5 py-1 text-xs font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                    inc.otherIncentives?.normalizeForFTE
+                                      ? 'bg-primary/20 text-primary hover:bg-primary/30'
+                                      : 'border border-border bg-background text-muted-foreground hover:bg-muted/50'
+                                  )}
+                                >
+                                  Other incentives
+                                </button>
+                              )}
+                              {inc.stipend?.included && (
+                                <button
+                                  type="button"
+                                  onClick={() => setNormalizeForFTE('stipend', !(inc.stipend?.normalizeForFTE ?? false))}
+                                  aria-pressed={inc.stipend?.normalizeForFTE ?? false}
+                                  className={cn(
+                                    'rounded-full px-2.5 py-1 text-xs font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                    inc.stipend?.normalizeForFTE
+                                      ? 'bg-primary/20 text-primary hover:bg-primary/30'
+                                      : 'border border-border bg-background text-muted-foreground hover:bg-muted/50'
+                                  )}
+                                >
+                                  Stipend
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  )}
-                  {def.supportsNormalizeForFTE && checked && (
-                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={!!entry.normalizeForFTE}
-                        onChange={(e) => setNormalizeForFTE(e.target.checked)}
-                        className="size-3.5 rounded border-input"
-                      />
-                      <span>Value is per 1.0 FTE (multiply by clinical FTE for raw TCC)</span>
-                    </label>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                      )
+                    })()}
+                    </>
+                      )
+                    })()}
+                  </div>
 
-          <div className="mt-4 space-y-3 rounded-lg border border-border bg-white p-3 dark:bg-background">
-            <h4 className="text-sm font-medium">Additional TCC (layered)</h4>
-            <p className="text-xs text-muted-foreground">
-              Add named layers on top of the selected components for both baseline and modeled. Each layer can be
-              percent of base, dollar per 1.0 FTE, flat dollar, or From provider file (choose source column:
-              otherIncentives or nonClinicalPay for stipend).
-            </p>
+          <div className="mt-5 space-y-3 rounded-lg border border-border/40 bg-background/60 p-3">
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-medium">Additional TCC (layered)</h4>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="About additional TCC layers">
+                    <Info className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px] text-xs">
+                  Add named layers on top of the selected components. Each layer can be percent of base, dollar per 1.0 FTE, flat dollar, or From provider file (e.g. otherIncentives or nonClinicalPay).
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <div className="space-y-3">
               {(settings.additionalTCCLayers ?? []).map((layer) => (
                 <div
