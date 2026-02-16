@@ -10,7 +10,7 @@ import { NewProviderForm, DEFAULT_NEW_PROVIDER, deriveBasePayFromComponents, typ
 import { BaselineVsModeledSection } from '@/components/baseline-vs-modeled-section'
 import { ImpactReportPage } from '@/components/impact-report-page'
 import { MarketPositionTable } from '@/components/market-position-table'
-import { ModellerStepper, type ModellerStep } from '@/components/modeller-stepper'
+import type { ModellerStep } from '@/components/modeller-stepper'
 import { GovernanceFlags } from '@/components/governance-flags'
 import { SaveScenarioDialog } from '@/components/saved-scenarios-section'
 import { Card, CardContent } from '@/components/ui/card'
@@ -33,7 +33,7 @@ import { HelpScreen } from '@/features/help/help-screen'
 import { ReportsScreen } from '@/features/reports/reports-screen'
 import { LegalPage } from '@/components/legal-page'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
-import { ArrowLeft, ChevronDown, ChevronRight, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
+import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { BatchResults, BatchRowResult, BatchScenarioSnapshot } from '@/types/batch'
 import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
@@ -96,16 +96,18 @@ export default function App() {
     loadScenario,
     deleteScenario,
     clearAllScenarios,
-    duplicateScenario: _duplicateScenario,
+    duplicateScenario,
     updateCurrentScenarioProviderSnapshot,
     setBatchResults,
     saveCurrentBatchRun,
     loadSavedBatchRun,
     deleteSavedBatchRun,
+    clearAllSavedBatchRuns,
     saveBatchScenarioConfig,
     loadBatchScenarioConfig,
     clearAppliedBatchScenarioConfig,
     deleteSavedBatchScenarioConfig,
+    clearAllSavedBatchScenarioConfigs,
     updateBatchSynonymMap,
     removeBatchSynonym,
     setOptimizerConfig,
@@ -114,7 +116,6 @@ export default function App() {
     loadOptimizerConfig,
     deleteSavedOptimizerConfig,
   } = useAppState()
-  void _duplicateScenario
 
   const [step, setStep] = useState<AppStep>('upload')
   const [modelMode, setModelMode] = useState<ModelMode>('existing')
@@ -124,6 +125,7 @@ export default function App() {
   const [dataTab, setDataTab] = useState<'providers' | 'market'>('providers')
   const [modellerSaveDialogOpen, setModellerSaveDialogOpen] = useState(false)
   const [uploadSaveDialogOpen, setUploadSaveDialogOpen] = useState(false)
+  const [reportLibraryFocusKey, setReportLibraryFocusKey] = useState(0)
 
   const handleStepChange = (newStep: AppStep, dataTabOption?: 'providers' | 'market') => {
     setStep(newStep)
@@ -313,6 +315,7 @@ export default function App() {
       onStepChange={handleStepChange}
       currentBatchCard={batchCard}
       onBatchCardSelect={(id) => setBatchCard(id)}
+      onReportsNavClick={() => setReportLibraryFocusKey((k) => k + 1)}
     >
       {step === 'upload' && (
         <div className="space-y-6">
@@ -560,14 +563,6 @@ export default function App() {
                 </TabsList>
               </Tabs>
             )}
-            <ModellerStepper
-              currentStep={modellerStep}
-              onStepChange={setModellerStep}
-              canAdvanceFromProvider={!!canShowScenario}
-              canAdvanceFromScenario={!!canShowScenario}
-              canAdvanceFromMarket={!!canShowScenario}
-              showNavButtons={false}
-            />
           </div>
 
           {/* Step content: keyed so transition runs when step changes */}
@@ -699,7 +694,9 @@ export default function App() {
           {/* Screen 3: Market data */}
           {modellerStep === 'market' && (
             <section>
-              <h2 className="section-title">Market data</h2>
+              <SectionTitleWithIcon icon={<BarChart2 className="size-5 text-muted-foreground" />}>
+                Market data
+              </SectionTitleWithIcon>
               <p className="section-subtitle mb-4">
                 TCC, wRVU, and CF percentiles for the selected specialty.
               </p>
@@ -734,7 +731,9 @@ export default function App() {
                     }
                   />
                   <section className="border-border/60 border-t pt-8">
-                    <h2 className="section-title mb-4">Market position & governance</h2>
+                    <SectionTitleWithIcon icon={<Layers className="size-5 text-muted-foreground" />} className="mb-4">
+                      Market position & governance
+                    </SectionTitleWithIcon>
                     <div className="grid gap-6 md:grid-cols-1">
                       <MarketPositionTable results={state.lastResults} />
                       <GovernanceFlags results={state.lastResults} />
@@ -821,11 +820,13 @@ export default function App() {
 
       {step === 'reports' && (
         <ReportsScreen
+          reportLibraryFocusKey={reportLibraryFocusKey}
           providerRows={state.providerRows}
           marketRows={state.marketRows}
           scenarioInputs={state.scenarioInputs}
           savedScenarios={state.savedScenarios}
           savedBatchRuns={state.savedBatchRuns}
+          savedBatchScenarioConfigs={state.savedBatchScenarioConfigs}
           batchSynonymMap={state.batchSynonymMap}
           onBack={() => handleStepChange('upload')}
           onNavigateToCompareScenarios={() => handleStepChange('compare-scenarios')}
@@ -833,6 +834,21 @@ export default function App() {
             handleStepChange('batch-scenario')
             setBatchCard(id)
           }}
+          onLoadScenario={loadScenario}
+          onDeleteScenario={deleteScenario}
+          onClearAllScenarios={clearAllScenarios}
+          onDuplicateScenario={duplicateScenario}
+          onLoadBatchRun={(id) => {
+            loadSavedBatchRun(id, (mode) => {
+              setStep('batch-results')
+              setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
+            })
+          }}
+          onDeleteBatchRun={deleteSavedBatchRun}
+          onClearAllBatchRuns={clearAllSavedBatchRuns}
+          onLoadBatchScenarioConfig={loadBatchScenarioConfig}
+          onDeleteBatchScenarioConfig={deleteSavedBatchScenarioConfig}
+          onClearAllBatchScenarioConfigs={clearAllSavedBatchScenarioConfigs}
         />
       )}
 

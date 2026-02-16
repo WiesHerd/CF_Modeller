@@ -357,7 +357,7 @@ export function BatchResultsDashboard({
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        setSaveRunName('')
+                        setSaveRunName(defaultSaveRunName)
                         setSaveDialogOpen(true)
                       }}
                       aria-label="Save this run"
@@ -373,8 +373,8 @@ export function BatchResultsDashboard({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-setSaveRunName('')
-                setSaveDialogOpen(true)
+                  setSaveRunName(defaultSaveRunName)
+                  setSaveDialogOpen(true)
                 }}
                 className="gap-2"
               >

@@ -38,9 +38,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { Command, CommandInput } from '@/components/ui/command'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ArrowLeft, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, FileDown, FileSpreadsheet } from 'lucide-react'
+import { ArrowLeft, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, X } from 'lucide-react'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
@@ -262,16 +269,23 @@ export function ImputedVsMarketScreen({
     [includeQualityPayments, includeWorkRVUIncentive]
   )
 
-  const [providerTypeFilter, setProviderTypeFilter] = useState<string>('all')
+  const [selectedProviderTypes, setSelectedProviderTypes] = useState<string[]>([])
+  const [providerTypeSearch, setProviderTypeSearch] = useState('')
   const providerTypes = useMemo(() => {
     const set = new Set(providerRows.map((r) => (r.providerType ?? '').trim()).filter(Boolean))
     return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   }, [providerRows])
+  const filteredProviderTypes = useMemo(() => {
+    if (!providerTypeSearch.trim()) return providerTypes
+    const q = providerTypeSearch.toLowerCase()
+    return providerTypes.filter((pt) => pt.toLowerCase().includes(q))
+  }, [providerTypes, providerTypeSearch])
 
   const providersForCompute = useMemo(() => {
-    if (providerTypeFilter === 'all') return providerRows
-    return providerRows.filter((p) => (p.providerType ?? '').trim() === providerTypeFilter)
-  }, [providerRows, providerTypeFilter])
+    if (selectedProviderTypes.length === 0) return providerRows
+    const set = new Set(selectedProviderTypes)
+    return providerRows.filter((p) => set.has((p.providerType ?? '').trim()))
+  }, [providerRows, selectedProviderTypes])
 
   const rows = useMemo(
     () => computeImputedVsMarketBySpecialty(providersForCompute, marketRows, synonymMap, config),
@@ -282,7 +296,7 @@ export function ImputedVsMarketScreen({
   const [specialtySearch, setSpecialtySearch] = useState('')
   const [minProviders, setMinProviders] = useState(0)
   const [percentileFilter, setPercentileFilter] = useState<PercentileFilterValue>('all')
-  const [alignmentFilter, setAlignmentFilter] = useState<AlignmentFilterValue>('all')
+  const [selectedAlignmentFilters, setSelectedAlignmentFilters] = useState<GapInterpretation[]>([])
 
   const availableSpecialties = useMemo(
     () => [...new Set(rows.map((r) => r.specialty))].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
@@ -299,16 +313,19 @@ export function ImputedVsMarketScreen({
     if (selectedSpecialties.length > 0) list = list.filter((r) => selectedSpecialties.includes(r.specialty))
     if (minProviders > 0) list = list.filter((r) => r.providerCount >= minProviders)
     if (percentileFilter !== 'all') list = list.filter((r) => getPercentileBucket(r) === percentileFilter)
-    if (alignmentFilter !== 'all') list = list.filter((r) => getAlignmentForRow(r) === alignmentFilter)
+    if (selectedAlignmentFilters.length > 0) {
+      const alignmentSet = new Set(selectedAlignmentFilters)
+      list = list.filter((r) => alignmentSet.has(getAlignmentForRow(r)))
+    }
     return list
-  }, [rows, selectedSpecialties, minProviders, percentileFilter, alignmentFilter])
+  }, [rows, selectedSpecialties, minProviders, percentileFilter, selectedAlignmentFilters])
 
   const isFiltered =
     selectedSpecialties.length > 0 ||
     minProviders > 0 ||
     percentileFilter !== 'all' ||
-    alignmentFilter !== 'all' ||
-    providerTypeFilter !== 'all'
+    selectedAlignmentFilters.length > 0 ||
+    selectedProviderTypes.length > 0
 
   const [drawerSpecialty, setDrawerSpecialty] = useState<string | null>(null)
   const [drawerSelectedProvider, setDrawerSelectedProvider] = useState<ImputedVsMarketProviderDetail | null>(null)
@@ -342,6 +359,7 @@ export function ImputedVsMarketScreen({
 
   const [columnOrder, setColumnOrder] = useState<MainTableColumnId[]>(() => [...MAIN_TABLE_COLUMN_IDS])
   const [hiddenColumnIds, setHiddenColumnIds] = useState<Set<MainTableColumnId>>(() => new Set())
+  const [pinnedLeftColumnIds, setPinnedLeftColumnIds] = useState<MainTableColumnId[]>(() => ['specialty'])
   const [columnWidths, setColumnWidths] = useState<Record<MainTableColumnId, number>>(() => ({
     ...AUTO_SIZE_COLUMN_WIDTHS,
   }))
@@ -354,6 +372,17 @@ export function ImputedVsMarketScreen({
     () => columnOrder.filter((id) => !hiddenColumnIds.has(id)),
     [columnOrder, hiddenColumnIds]
   )
+  const pinnedLeftSet = useMemo(() => new Set(pinnedLeftColumnIds), [pinnedLeftColumnIds])
+  const toggleColumnPin = useCallback((colId: MainTableColumnId) => {
+    setPinnedLeftColumnIds((prev) => {
+      const set = new Set(prev)
+      if (set.has(colId)) {
+        set.delete(colId)
+        return [...set]
+      }
+      return [...set, colId]
+    })
+  }, [])
   const toggleColumnVisibility = useCallback((colId: MainTableColumnId) => {
     setHiddenColumnIds((prev) => {
       const next = new Set(prev)
@@ -541,6 +570,30 @@ export function ImputedVsMarketScreen({
     [columnWidths]
   )
 
+  const pinnedLeftOffsets = useMemo(() => {
+    const offsets: Record<MainTableColumnId, number> = {} as Record<MainTableColumnId, number>
+    let left = 0
+    for (const colId of visibleOrder) {
+      if (pinnedLeftSet.has(colId)) {
+        offsets[colId] = left
+        left += getWidth(colId)
+      }
+    }
+    return offsets
+  }, [visibleOrder, pinnedLeftSet, getWidth])
+
+  const isLastPinnedLeft = useCallback(
+    (colId: MainTableColumnId) => {
+      if (!pinnedLeftSet.has(colId)) return false
+      const idx = visibleOrder.indexOf(colId)
+      for (let i = idx + 1; i < visibleOrder.length; i++) {
+        if (pinnedLeftSet.has(visibleOrder[i])) return false
+      }
+      return true
+    },
+    [visibleOrder, pinnedLeftSet]
+  )
+
   const handleAutoSizeColumns = useCallback(() => {
     setColumnWidths(() => {
       const next: Record<MainTableColumnId, number> = {} as Record<MainTableColumnId, number>
@@ -591,15 +644,32 @@ export function ImputedVsMarketScreen({
         )}
       </div>
       <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
+        <CardHeader className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <p className="text-muted-foreground">
-              Compare your effective $/wRVU (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) to market
-              25th–90th by specialty. Your $/wRVU %ile shows where you stand vs market; market CF
-              percentiles are reference targets. Click a row to open provider-level detail in a drawer.
-              Drag column headers to reorder; drag the right edge to resize. Use the icons above the table to auto-size or show/hide columns.
+              Effective $/wRVU vs market 25th–90th by specialty.
             </p>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-muted-foreground cursor-help inline-flex shrink-0" aria-label="About this table">
+                    <Info className="size-4" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[320px] text-xs text-muted-foreground font-normal space-y-1.5">
+                  <p className="font-medium text-foreground">About this table</p>
+                  <p>Compare your effective $/wRVU (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) to market 25th–90th by specialty. Your $/wRVU %ile shows where you stand vs market; market CF percentiles are reference targets.</p>
+                  <p>Click a row to open provider-level detail in a drawer. Use the pin icon to pin columns to the left; drag column headers to reorder; drag the right edge to resize. Use the icons above the table to auto-size or show/hide columns.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Row bar (pay vs productivity):{' '}
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">Green</span> = {GAP_INTERPRETATION_LABEL.aligned} ·{' '}
+            <span className="font-medium text-red-600 dark:text-red-400">Red</span> = {GAP_INTERPRETATION_LABEL.overpaid} ·{' '}
+            <span className="font-medium text-blue-600 dark:text-blue-400">Blue</span> = {GAP_INTERPRETATION_LABEL.underpaid}
+          </p>
         </CardHeader>
         <CardContent className="space-y-6">
           {!hasData && (
@@ -610,26 +680,25 @@ export function ImputedVsMarketScreen({
             <>
               {hasData && (
                 <>
-                <div className="sticky top-0 z-20 rounded-lg border border-border/70 bg-background/95 p-4 backdrop-blur-sm">
-                  <div className="flex flex-wrap items-end gap-4">
-                    <div className="flex min-w-0 flex-1 flex-wrap items-end gap-4">
-                      <div className="space-y-1.5 min-w-[140px] flex-1 max-w-[200px]">
-                        <Label className="text-xs text-muted-foreground">Specialty</Label>
-                        <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="w-full justify-between gap-2 bg-white dark:bg-background"
-                            >
-                              <span className="truncate">
-                                {selectedSpecialties.length === 0
-                                  ? 'All specialties'
-                                  : `${selectedSpecialties.length} selected`}
-                              </span>
-                              <ChevronDown className="size-4 shrink-0 opacity-50" />
-                            </Button>
-                          </DropdownMenuTrigger>
+                <div className="sticky top-0 z-20 rounded-lg border border-border/70 bg-background/95 p-3 backdrop-blur-sm">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="space-y-1.5 w-[140px] shrink-0">
+                      <Label className="text-xs text-muted-foreground">Specialty</Label>
+                      <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between gap-1.5 h-9 bg-white dark:bg-background"
+                          >
+                            <span className="truncate text-left">
+                              {selectedSpecialties.length === 0
+                                ? 'All'
+                                : `${selectedSpecialties.length} selected`}
+                            </span>
+                            <ChevronDown className="size-4 shrink-0 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
                         <DropdownMenuContent
                           align="start"
                           className="max-h-[320px] overflow-hidden p-0"
@@ -666,7 +735,7 @@ export function ImputedVsMarketScreen({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <div className="space-y-1.5 w-[130px] shrink-0">
+                    <div className="space-y-1.5 w-[115px] shrink-0">
                       <div className="flex items-center gap-1">
                         <Label className="text-xs text-muted-foreground">Your $/wRVU %ile</Label>
                         <TooltipProvider delayDuration={300}>
@@ -683,7 +752,7 @@ export function ImputedVsMarketScreen({
                         </TooltipProvider>
                       </div>
                       <Select value={percentileFilter} onValueChange={(v) => setPercentileFilter(v as PercentileFilterValue)}>
-                        <SelectTrigger className="w-full bg-white dark:bg-background">
+                        <SelectTrigger className="w-full h-9 bg-white dark:bg-background">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -695,28 +764,50 @@ export function ImputedVsMarketScreen({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1.5 w-[180px] shrink-0">
+                    <div className="space-y-1.5 w-[165px] shrink-0">
                       <Label className="text-xs text-muted-foreground">Pay vs productivity</Label>
-                      <Select value={alignmentFilter} onValueChange={(v) => setAlignmentFilter(v as AlignmentFilterValue)}>
-                        <SelectTrigger className="w-full bg-white dark:bg-background">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ALIGNMENT_FILTER_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between gap-1.5 h-9 bg-white dark:bg-background"
+                          >
+                            <span className="truncate">
+                              {selectedAlignmentFilters.length === 0
+                                ? 'All'
+                                : selectedAlignmentFilters.length === 1
+                                  ? GAP_INTERPRETATION_LABEL[selectedAlignmentFilters[0]]
+                                  : `${selectedAlignmentFilters.length} selected`}
+                            </span>
+                            <ChevronDown className="size-4 shrink-0 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                          <DropdownMenuLabel className="text-xs text-muted-foreground">Filter by alignment</DropdownMenuLabel>
+                          {(ALIGNMENT_FILTER_OPTIONS.filter((o) => o.value !== 'all') as { value: GapInterpretation; label: string }[]).map((opt) => (
+                            <DropdownMenuCheckboxItem
+                              key={opt.value}
+                              checked={selectedAlignmentFilters.includes(opt.value)}
+                              onCheckedChange={(checked) =>
+                                setSelectedAlignmentFilters((prev) =>
+                                  checked ? [...prev, opt.value] : prev.filter((v) => v !== opt.value)
+                                )
+                              }
+                            >
                               {opt.label}
-                            </SelectItem>
+                            </DropdownMenuCheckboxItem>
                           ))}
-                        </SelectContent>
-                      </Select>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <div className="space-y-1.5 w-[110px] shrink-0">
+                    <div className="space-y-1.5 w-[100px] shrink-0">
                       <Label className="text-xs text-muted-foreground">Min providers</Label>
                       <Select
                         value={minProviders === 0 ? 'all' : String(minProviders)}
                         onValueChange={(v) => setMinProviders(v === 'all' ? 0 : Number(v))}
                       >
-                        <SelectTrigger className="w-full bg-white dark:bg-background">
+                        <SelectTrigger className="w-full h-9 bg-white dark:bg-background">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -730,29 +821,77 @@ export function ImputedVsMarketScreen({
                     </div>
                     <div className="space-y-1.5 w-[140px] shrink-0">
                       <Label className="text-xs text-muted-foreground">Provider type</Label>
-                      <Select value={providerTypeFilter} onValueChange={setProviderTypeFilter}>
-                        <SelectTrigger className="w-full bg-white dark:bg-background">
-                          <SelectValue placeholder="All" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All</SelectItem>
-                          {providerTypes.map((pt) => (
-                            <SelectItem key={pt} value={pt}>
-                              {pt}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <DropdownMenu onOpenChange={(open) => !open && setProviderTypeSearch('')}>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between gap-1.5 h-9 bg-white dark:bg-background"
+                          >
+                            <span className="truncate">
+                              {selectedProviderTypes.length === 0
+                                ? 'All'
+                                : selectedProviderTypes.length === 1
+                                  ? selectedProviderTypes[0]
+                                  : `${selectedProviderTypes.length} selected`}
+                            </span>
+                            <ChevronDown className="size-4 shrink-0 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="start"
+                          className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0"
+                          onCloseAutoFocus={(e: Event) => e.preventDefault()}
+                        >
+                          <Command shouldFilter={false} className="rounded-none border-0">
+                            <CommandInput
+                              placeholder="Search provider types…"
+                              value={providerTypeSearch}
+                              onValueChange={setProviderTypeSearch}
+                              className="h-9"
+                            />
+                          </Command>
+                          <div className="max-h-[240px] overflow-y-auto p-1">
+                            <DropdownMenuLabel className="text-xs text-muted-foreground">Provider type</DropdownMenuLabel>
+                            <DropdownMenuCheckboxItem
+                              checked={selectedProviderTypes.length === 0}
+                              onCheckedChange={(checked) => checked && setSelectedProviderTypes([])}
+                              onSelect={(e) => e.preventDefault()}
+                              className="cursor-pointer"
+                            >
+                              All
+                            </DropdownMenuCheckboxItem>
+                            {filteredProviderTypes.length === 0 ? (
+                              <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                            ) : (
+                              filteredProviderTypes.map((pt) => (
+                                <DropdownMenuCheckboxItem
+                                  key={pt}
+                                  checked={selectedProviderTypes.includes(pt)}
+                                  onCheckedChange={(checked) =>
+                                    setSelectedProviderTypes((prev) =>
+                                      checked ? [...prev, pt] : prev.filter((v) => v !== pt)
+                                    )
+                                  }
+                                  onSelect={(e) => e.preventDefault()}
+                                  className="cursor-pointer"
+                                >
+                                  {pt}
+                                </DropdownMenuCheckboxItem>
+                              ))
+                            )}
+                          </div>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    </div>
-                    <div className="space-y-1.5 min-w-[280px] shrink-0 border-l border-border pl-4">
+                    <div className="space-y-1.5 w-[200px] shrink-0">
                       <Label className="text-xs text-muted-foreground">Include in TCC</Label>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant="outline"
                             size="sm"
-                            className="min-w-[280px] w-full justify-between gap-2 bg-white dark:bg-background"
+                            className="w-full justify-between gap-1.5 h-9 bg-white dark:bg-background"
                           >
                             <span className="truncate text-left">
                               {TCC_IMPUTED_OPTIONS.filter(
@@ -768,32 +907,50 @@ export function ImputedVsMarketScreen({
                             <ChevronDown className="size-4 shrink-0 opacity-50" />
                           </Button>
                         </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-[260px]">
-                            <DropdownMenuLabel className="text-xs text-muted-foreground">
-                              Include in TCC
-                            </DropdownMenuLabel>
-                            {TCC_IMPUTED_OPTIONS.map((opt) => {
-                              const checked =
-                                (opt.id === 'quality' && includeQualityPayments) ||
-                                (opt.id === 'workRVUIncentive' && includeWorkRVUIncentive)
-                              return (
-                                <DropdownMenuCheckboxItem
-                                  key={opt.id}
-                                  checked={checked}
-                                  onCheckedChange={(v) => {
-                                    if (opt.id === 'quality') setIncludeQualityPayments(!!v)
-                                    else if (opt.id === 'workRVUIncentive') setIncludeWorkRVUIncentive(!!v)
-                                  }}
-                                >
-                                  {opt.id === 'quality' ? 'Quality' : 'wRVU incentive'}
-                                </DropdownMenuCheckboxItem>
-                              )
-                            })}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                        <DropdownMenuContent align="start" className="w-[260px]">
+                          <DropdownMenuLabel className="text-xs text-muted-foreground">
+                            Include in TCC
+                          </DropdownMenuLabel>
+                          {TCC_IMPUTED_OPTIONS.map((opt) => {
+                            const checked =
+                              (opt.id === 'quality' && includeQualityPayments) ||
+                              (opt.id === 'workRVUIncentive' && includeWorkRVUIncentive)
+                            return (
+                              <DropdownMenuCheckboxItem
+                                key={opt.id}
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  if (opt.id === 'quality') setIncludeQualityPayments(!!v)
+                                  else if (opt.id === 'workRVUIncentive') setIncludeWorkRVUIncentive(!!v)
+                                }}
+                              >
+                                {opt.id === 'quality' ? 'Quality' : 'wRVU incentive'}
+                              </DropdownMenuCheckboxItem>
+                            )
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
+                    {isFiltered && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 shrink-0 gap-1.5 text-muted-foreground hover:text-foreground"
+                        onClick={() => {
+                          setSelectedSpecialties([])
+                          setMinProviders(0)
+                          setPercentileFilter('all')
+                          setSelectedAlignmentFilters([])
+                          setSelectedProviderTypes([])
+                        }}
+                      >
+                        <X className="size-4" aria-hidden />
+                        Clear filters
+                      </Button>
+                    )}
                   </div>
+                </div>
                 </>
               )}
 
@@ -820,6 +977,39 @@ export function ImputedVsMarketScreen({
                   style={{ maxHeight: 'min(70vh, 600px)' }}
                 >
                   <div className="flex justify-end gap-0.5 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Pin column to left"
+                          aria-label="Pin column"
+                        >
+                          <Pin className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="max-h-[70vh] overflow-y-auto min-w-[180px]">
+                        <DropdownMenuLabel>Pin column to left</DropdownMenuLabel>
+                        {visibleOrder.map((colId) => {
+                          const isPinned = pinnedLeftSet.has(colId)
+                          return (
+                            <DropdownMenuItem
+                              key={colId}
+                              onSelect={() => toggleColumnPin(colId)}
+                              className="flex items-center gap-2"
+                            >
+                              <Pin className={cn('size-4 shrink-0', isPinned ? 'text-primary' : 'opacity-50')} aria-hidden />
+                              <span className="truncate flex-1">{MAIN_TABLE_COLUMNS[colId].label}</span>
+                              {isPinned && (
+                                <span className="text-xs text-muted-foreground shrink-0">Pinned</span>
+                              )}
+                            </DropdownMenuItem>
+                          )
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       type="button"
                       variant="ghost"
@@ -908,11 +1098,26 @@ export function ImputedVsMarketScreen({
                               const isDragging = draggedColumnId === colId
                               const w = getWidth(colId)
                               const wPx = `${w}px`
+                              const isPinnedLeft = pinnedLeftSet.has(colId)
+                              const leftOffset = pinnedLeftOffsets[colId]
+                              const lastPinned = isLastPinnedLeft(colId)
                               return (
                                 <th
                                   key={colId}
-                                  className={`relative min-h-10 px-3 py-2.5 align-middle font-medium whitespace-normal break-words bg-muted text-foreground select-none ${col.align === 'right' ? 'text-right' : 'text-left'}`}
-                                  style={{ width: wPx, minWidth: wPx, maxWidth: wPx }}
+                                  className={cn(
+                                    'relative min-h-10 px-3 py-2.5 align-middle font-medium whitespace-normal break-words select-none',
+                                    col.align === 'right' ? 'text-right' : 'text-left',
+                                    isPinnedLeft ? 'bg-muted' : 'bg-muted text-foreground',
+                                    lastPinned && 'border-r border-border shadow-[4px_0_6px_-1px_rgba(0,0,0,0.1),4px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                                  )}
+                                  style={{
+                                    width: wPx,
+                                    minWidth: wPx,
+                                    maxWidth: wPx,
+                                    ...(isPinnedLeft && leftOffset !== undefined
+                                      ? { position: 'sticky' as const, left: leftOffset, zIndex: 30 }
+                                      : {}),
+                                  }}
                                 draggable
                                 onDragStart={(e) => handleHeaderDragStart(e, colId)}
                                 onDragOver={handleHeaderDragOver}
@@ -993,6 +1198,15 @@ export function ImputedVsMarketScreen({
                               const w = getWidth(colId)
                               const wPx = `${w}px`
                               const isFocused = focusedCell?.rowIndex === rowIndex && focusedCell?.columnIndex === colIndex
+                              const isPinnedLeft = pinnedLeftSet.has(colId)
+                              const leftOffset = pinnedLeftOffsets[colId]
+                              const lastPinned = isLastPinnedLeft(colId)
+                              const stickyBg =
+                                isPinnedLeft && rowIndex % 2 === 1
+                                  ? 'bg-muted/30'
+                                  : isPinnedLeft
+                                    ? 'bg-background'
+                                    : ''
                               return (
                                 <td
                                   key={colId}
@@ -1008,9 +1222,19 @@ export function ImputedVsMarketScreen({
                                     !isSpecialty && 'whitespace-nowrap',
                                     isFocused && 'ring-2 ring-primary ring-inset bg-primary/5',
                                     colId === 'avgTCCPercentile' && fmvRisk === 'elevated' && 'bg-amber-500/15 text-amber-800 dark:text-amber-200',
-                                    colId === 'avgTCCPercentile' && fmvRisk === 'high' && 'bg-destructive/15 text-destructive font-medium'
+                                    colId === 'avgTCCPercentile' && fmvRisk === 'high' && 'bg-destructive/15 text-destructive font-medium',
+                                    isPinnedLeft && 'sticky z-20 isolate overflow-hidden',
+                                    stickyBg,
+                                    lastPinned && 'border-r border-border shadow-[4px_0_6px_-1px_rgba(0,0,0,0.1),4px_0_4px_-2px_rgba(0,0,0,0.06)]'
                                   )}
-                                  style={{ width: wPx, minWidth: wPx, maxWidth: wPx }}
+                                  style={{
+                                    width: wPx,
+                                    minWidth: wPx,
+                                    maxWidth: wPx,
+                                    ...(isPinnedLeft && leftOffset !== undefined
+                                      ? { position: 'sticky' as const, left: leftOffset, zIndex: 20 }
+                                      : {}),
+                                  }}
                                   title={isSpecialty ? value : colId === 'currentCf' ? 'Median CF used to compute baseline TCC (work RVU incentive) for this specialty' : colId === 'avgTCCPercentile' && fmvRisk !== 'low' ? `Avg TCC percentile ${fmvRisk}; may warrant FMV review` : undefined}
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -1069,7 +1293,7 @@ export function ImputedVsMarketScreen({
             className="absolute left-0 top-0 bottom-0 z-50 w-2 cursor-col-resize touch-none border-l border-transparent hover:border-primary/30 hover:bg-primary/10"
             onMouseDown={handleFirstDrawerResize}
           />
-          <SheetHeader>
+          <SheetHeader className="px-6 pt-6 pb-2 border-b border-border gap-2">
             <SheetTitle>{drawerSpecialty ?? 'Provider detail'}</SheetTitle>
             <SheetDescription>
               Provider-level imputed $/wRVU and baseline TCC for this specialty. Click a provider row to see how TCC and wRVU percentiles are calculated.

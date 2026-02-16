@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Save, Copy, Trash2, FolderOpen, ChevronDown, Settings2 } from 'lucide-react'
+import { Save, Copy, Trash2, FolderOpen, ChevronDown, Settings2, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -102,6 +102,7 @@ interface ManageScenariosDialogProps {
   onLoad: (id: string) => void
   onDuplicate: (id: string) => void
   onDelete: (id: string) => void
+  onClearAll?: () => void
 }
 
 function ManageScenariosDialog({
@@ -111,6 +112,7 @@ function ManageScenariosDialog({
   onLoad,
   onDuplicate,
   onDelete,
+  onClearAll,
 }: ManageScenariosDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,6 +128,7 @@ function ManageScenariosDialog({
             No saved scenarios yet.
           </p>
         ) : (
+          <>
           <ScrollArea className="max-h-[280px] rounded-md border">
             <ul className="space-y-0.5 p-2">
               {sortedScenarios(scenarios).map((sc) => (
@@ -193,6 +196,30 @@ function ManageScenariosDialog({
               ))}
             </ul>
           </ScrollArea>
+          {onClearAll && (
+            <div className="flex justify-end pt-2 border-t">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Clear all ${scenarios.length} saved scenario(s)? This cannot be undone.`
+                    )
+                  ) {
+                    onClearAll()
+                    onOpenChange(false)
+                  }
+                }}
+              >
+                <RotateCcw className="size-4 mr-1" />
+                Clear all
+              </Button>
+            </div>
+          )}
+          </>
         )}
       </DialogContent>
     </Dialog>
@@ -204,6 +231,7 @@ interface SavedScenariosSectionProps {
   onLoad: (id: string) => void
   onDuplicate: (id: string) => void
   onDelete: (id: string) => void
+  onClearAll?: () => void
   onSaveNew: (name: string) => void
   loadWarning: string | null
   onDismissWarning: () => void
@@ -215,6 +243,7 @@ export function SavedScenariosSection({
   onLoad,
   onDuplicate,
   onDelete,
+  onClearAll,
   onSaveNew,
   loadWarning,
   onDismissWarning,
@@ -313,6 +342,7 @@ export function SavedScenariosSection({
         onLoad={onLoad}
         onDuplicate={onDuplicate}
         onDelete={onDelete}
+        onClearAll={onClearAll}
       />
     </div>
   )

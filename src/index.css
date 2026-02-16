@@ -191,7 +191,7 @@ body {
 
 .section-subtitle {
   font-size: 0.875rem;
-  color: oklch(0.45 0 0);
+  color: var(--muted-foreground);
   margin-bottom: 1.5rem;
 }
 

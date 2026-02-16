@@ -11,14 +11,9 @@ import {
 } from '@/components/ui/select'
 import type { OptimizerSpecialtyResult } from '@/types/optimizer'
 import type { GapInterpretation } from '@/features/optimizer/components/optimizer-constants'
-import {
-  formatPercentile,
-  getGapInterpretation,
-  GAP_INTERPRETATION_LABEL,
-} from '@/features/optimizer/components/optimizer-constants'
+import { getGapInterpretation, GAP_INTERPRETATION_LABEL } from '@/features/optimizer/components/optimizer-constants'
 import { OptimizerResultsTable } from '@/features/optimizer/components/optimizer-results-table'
 import { OptimizerDetailDrawer } from '@/features/optimizer/components/optimizer-detail-drawer'
-import { MarketCFLine } from '@/features/optimizer/components/market-cf-line'
 
 const RECOMMENDATION_FILTER_OPTIONS = [
   { value: 'all', label: 'All recommendations' },
@@ -36,20 +31,6 @@ function rowMatchesSearch(r: OptimizerSpecialtyResult, query: string) {
     ...new Set(r.providerContexts.map((c) => (c.provider.division ?? '').trim()).filter(Boolean)),
   ]
   return specialtyMatch || divisions.some((division) => division.toLowerCase().includes(lower))
-}
-
-function formatRecommendation(row: OptimizerSpecialtyResult): string {
-  const labels: Record<string, string> = {
-    INCREASE: 'Increase',
-    DECREASE: 'Decrease',
-    HOLD: 'Hold',
-    NO_RECOMMENDATION: 'No recommendation',
-  }
-  if (row.recommendedAction === 'HOLD' || row.recommendedAction === 'NO_RECOMMENDATION') {
-    return labels[row.recommendedAction] ?? row.recommendedAction
-  }
-  const pct = row.cfChangePct >= 0 ? `+${row.cfChangePct.toFixed(1)}%` : `${row.cfChangePct.toFixed(1)}%`
-  return `${labels[row.recommendedAction] ?? row.recommendedAction} ${pct}`
 }
 
 const PAY_VS_PRODUCTIVITY_OPTIONS: { value: 'all' | GapInterpretation; label: string }[] = [
@@ -144,68 +125,7 @@ export function OptimizerReviewWorkspace({ rows }: { rows: OptimizerSpecialtyRes
           No specialties match your search or filters. Try changing the filters or search.
         </p>
       ) : (
-        <>
-          <div className="hidden md:block">
-            <OptimizerResultsTable rows={visibleRows} onOpenDetail={handleOpenDetail} />
-          </div>
-          <div className="grid gap-3 md:hidden">
-            {visibleRows.map((row) => {
-              const gapInterpretation = getGapInterpretation(row.keyMetrics.gap)
-              const gapColor =
-                gapInterpretation === 'overpaid'
-                  ? 'text-red-600 dark:text-red-400'
-                  : gapInterpretation === 'underpaid'
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-muted-foreground'
-              const divisions = [
-                ...new Set(
-                  row.providerContexts
-                    .map((c) => (c.provider.division ?? '').trim())
-                    .filter(Boolean)
-                ),
-              ].join(', ')
-              return (
-                <button
-                  key={row.specialty}
-                  type="button"
-                  onClick={() => handleOpenDetail(row)}
-                  className="rounded-lg border border-border/70 bg-card p-3 text-left transition-colors hover:bg-muted/30"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium">{row.specialty}</p>
-                      {divisions ? (
-                        <p className="truncate text-xs text-muted-foreground">{divisions}</p>
-                      ) : null}
-                    </div>
-                    <span className={`shrink-0 text-xs font-medium ${gapColor}`}>
-                      {GAP_INTERPRETATION_LABEL[gapInterpretation]}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      wRVU {formatPercentile(row.keyMetrics.prodPercentile)} · TCC{' '}
-                      {formatPercentile(row.keyMetrics.compPercentile)}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <span className="text-sm font-medium">{formatRecommendation(row)}</span>
-                    {row.marketCF ? (
-                      <MarketCFLine
-                        currentCF={row.currentCF}
-                        recommendedCF={row.recommendedCF}
-                        marketCF={row.marketCF}
-                        className="shrink-0"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground text-xs">No market</span>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </>
+        <OptimizerResultsTable rows={visibleRows} onOpenDetail={handleOpenDetail} />
       )}
 
       <OptimizerDetailDrawer

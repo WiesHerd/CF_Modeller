@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Gauge, Info, Play, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Gauge, Info, Play, Trash2 } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -192,59 +192,6 @@ export function OptimizerConfigureStage({
             </p>
           </div>
         </div>
-        {/* Step-through indicator */}
-        <nav
-          className="mt-4 flex min-h-11 w-full min-w-0 items-center gap-0 rounded-xl border border-border/60 bg-muted/20 p-1.5"
-          aria-label="Optimizer configuration steps"
-        >
-          {CONFIG_STEPS.map((step, idx) => {
-            const isActive = configStep === step.id
-            const isComplete = configStep > step.id
-            const isUpcoming = configStep < step.id
-            return (
-              <div key={step.id} className="flex min-w-0 flex-1 items-center gap-2 sm:flex-initial sm:gap-2">
-                {idx > 0 ? (
-                  <div
-                    className={cn(
-                      'h-px min-w-[12px] flex-1 sm:min-w-4 sm:flex-initial',
-                      isComplete ? 'bg-primary/30' : 'bg-border'
-                    )}
-                    aria-hidden
-                  />
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => onSetConfigStep(step.id)}
-                  className={cn(
-                    'flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all sm:flex-initial',
-                    'border-transparent',
-                    isActive &&
-                      'border-border bg-background text-foreground shadow-sm ring-2 ring-primary/30',
-                    isComplete &&
-                      !isActive &&
-                      'text-muted-foreground hover:bg-background/80 hover:text-foreground',
-                    isUpcoming && 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                  )}
-                  aria-current={isActive ? 'step' : undefined}
-                >
-                  <span
-                    className={cn(
-                      'flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-colors',
-                      isActive && 'bg-primary text-primary-foreground',
-                      isComplete &&
-                        !isActive &&
-                        'border border-primary/50 bg-primary/10 text-primary',
-                      isUpcoming && 'border border-border bg-background/80'
-                    )}
-                  >
-                    {isComplete && !isActive ? <Check className="size-4" /> : step.id}
-                  </span>
-                  <span className="hidden truncate sm:inline">{step.label}</span>
-                </button>
-              </div>
-            )
-          })}
-        </nav>
       </CardHeader>
       <CardContent className="space-y-6">
         <TooltipProvider delayDuration={200}>

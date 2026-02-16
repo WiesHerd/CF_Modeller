@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { ArrowLeft, ChevronDown, FileDown, FileSpreadsheet, Lock, Printer } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileDown, FileSpreadsheet, Info, Lock, Printer, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Command, CommandInput } from '@/components/ui/command'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -19,6 +20,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { TccWrvuSummaryTable } from './tcc-wrvu-summary-table'
 import { MarketPositioningCalculationDrawer } from '@/features/optimizer/components/market-positioning-calculation-drawer'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
@@ -69,6 +76,7 @@ export function TccWrvuPercentilesReport({
 }: TccWrvuPercentilesReportProps) {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('current')
   const [specialtyFilter, setSpecialtyFilter] = useState<string>('all')
+  const [specialtySearch, setSpecialtySearch] = useState<string>('')
   const [providerSearch, setProviderSearch] = useState<string>('')
   const [payVsProdFilter, setPayVsProdFilter] = useState<string>('all')
   const [drawerProvider, setDrawerProvider] = useState<ImputedVsMarketProviderDetail | null>(null)
@@ -100,6 +108,12 @@ export function TccWrvuPercentilesReport({
     const set = new Set(results.rows.map((r) => r.specialty?.trim()).filter(Boolean))
     return Array.from(set).sort((a, b) => (a ?? '').localeCompare(b ?? ''))
   }, [results?.rows])
+
+  const filteredSpecialtyOptions = useMemo(() => {
+    if (!specialtySearch.trim()) return specialtyOptions
+    const q = specialtySearch.trim().toLowerCase()
+    return specialtyOptions.filter((s) => (s ?? '').toLowerCase().includes(q))
+  }, [specialtyOptions, specialtySearch])
 
   const filteredRows = useMemo((): BatchRowResult[] => {
     if (!results?.rows?.length) return []
@@ -189,9 +203,23 @@ export function TccWrvuPercentilesReport({
 
   return (
     <div className="space-y-4 report-print">
-      <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
-        TCC & wRVU percentiles
-      </SectionTitleWithIcon>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
+            TCC & wRVU percentiles
+          </SectionTitleWithIcon>
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+            <Lock className="size-3.5 shrink-0" aria-hidden />
+            Confidential — compensation planning
+          </p>
+        </div>
+        {results && (
+          <p className="text-xs text-muted-foreground tabular-nums shrink-0">
+            Scenario: {effectiveScenario.name}. Generated {reportDate}. {filteredRows.length} row(s)
+            {filteredRows.length !== results.rows.length ? ` of ${results.rows.length}` : ''}.
+          </p>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 no-print">
         <div className="flex flex-wrap items-center gap-2">
@@ -243,63 +271,106 @@ export function TccWrvuPercentilesReport({
 
       {results && (
         <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <p className="text-muted-foreground">
-                Scenario selects the inputs (e.g. CF target, PSQ). &quot;Current scenario&quot; uses the Single scenario inputs; other options are saved scenario snapshots from batch runs.
-              </p>
+          <CardHeader className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium text-foreground">Total cash and wRVU percentiles</p>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label="Scenario and FMV risk help"
+                    >
+                      <Info className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-sm space-y-2 p-3">
+                    <p>
+                      <strong className="text-foreground">Scenario:</strong> Selects the inputs (e.g. CF target, PSQ). &quot;Current scenario&quot; uses the Single scenario inputs; other options are saved scenario snapshots from batch runs.
+                    </p>
+                    <p>
+                      <strong className="text-foreground">FMV risk:</strong> Total cash comp at or above the 75th percentile may warrant Fair Market Value review. Use the FMV risk column (Low / Elevated / High) to flag providers for attention.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
-            <p className="text-sm font-medium text-foreground">Total cash and wRVU percentiles</p>
             {selectedScenarioId !== 'current' && effectiveScenario && (
               <p className="text-xs text-foreground/90">
                 <strong>Selected scenario:</strong> {scenarioInputsSummary(effectiveScenario.inputs)}
               </p>
             )}
-            <p className="text-xs text-muted-foreground">
-              Scenario: {effectiveScenario.name}. Generated {reportDate}. {filteredRows.length} row(s)
-              {filteredRows.length !== results.rows.length ? ` of ${results.rows.length}` : ''}.
-            </p>
-            <p className="text-xs text-amber-700 dark:text-amber-400/90 mt-1.5">
-              <strong>FMV risk:</strong> Total cash comp at or above the 75th percentile may warrant Fair Market Value review. Use the FMV risk column (Low / Elevated / High) to flag providers for attention.
-            </p>
-            <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1.5">
-              <Lock className="size-3.5 shrink-0" aria-hidden />
-              Confidential — compensation planning
-            </p>
           </CardHeader>
           <CardContent className="space-y-6">
             {results.rows.length > 0 && (
-              <div className="sticky top-0 z-20 rounded-lg border border-border/70 bg-background/95 p-4 backdrop-blur-sm">
-                <div className="flex flex-wrap items-end gap-4">
-                  <div className="space-y-1.5 min-w-[140px] flex-1 max-w-[200px]">
-                    <Label className="text-xs text-muted-foreground">Specialty</Label>
-                    <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
-                      <SelectTrigger className="w-full bg-white dark:bg-background">
-                        <SelectValue placeholder="All specialties" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All specialties</SelectItem>
-                        {specialtyOptions.map((s) => (
-                          <SelectItem key={s ?? ''} value={s ?? ''}>
-                            {s ?? '—'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5 min-w-[200px] max-w-[260px] flex-1">
-                    <Label className="text-xs text-muted-foreground">Search provider name or ID</Label>
+              <div className="sticky top-0 z-20 rounded-lg border border-border/70 bg-background/95 p-3 backdrop-blur-sm">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="relative flex-1 min-w-[200px] max-w-sm">
+                    <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
+                    <Label className="sr-only">Search provider name or ID</Label>
                     <Input
-                      placeholder="Search provider name or ID"
+                      placeholder="Search specialty or provider..."
                       value={providerSearch}
                       onChange={(e) => setProviderSearch(e.target.value)}
-                      className="w-full bg-white dark:bg-background"
+                      className="bg-white pl-8 dark:bg-background h-9 w-full"
                     />
                   </div>
-                  <div className="space-y-1.5 w-[180px] shrink-0">
+                  <div className="space-y-1.5 flex-1 min-w-[200px]">
+                    <Label className="text-xs text-muted-foreground">Specialty</Label>
+                    <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="w-full min-w-0 justify-between bg-white dark:bg-background h-9 font-normal"
+                        >
+                          <span className="truncate">
+                            {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter || '—'}
+                          </span>
+                          <ChevronDown className="size-4 opacity-50 shrink-0" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="start"
+                        className="max-h-[280px] overflow-hidden p-0 w-[var(--radix-dropdown-menu-trigger-width)]"
+                        onCloseAutoFocus={(e: Event) => e.preventDefault()}
+                      >
+                        <Command shouldFilter={false} className="rounded-none border-0">
+                          <CommandInput
+                            placeholder="Search specialties…"
+                            value={specialtySearch}
+                            onValueChange={setSpecialtySearch}
+                            className="h-9"
+                          />
+                        </Command>
+                        <div className="max-h-[200px] overflow-y-auto p-1">
+                          <DropdownMenuLabel>Specialty</DropdownMenuLabel>
+                          <DropdownMenuItem
+                            onSelect={() => setSpecialtyFilter('all')}
+                          >
+                            All specialties
+                          </DropdownMenuItem>
+                          {filteredSpecialtyOptions.length === 0 ? (
+                            <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                          ) : (
+                            filteredSpecialtyOptions.map((s) => (
+                              <DropdownMenuItem
+                                key={s ?? ''}
+                                onSelect={() => setSpecialtyFilter(s ?? '')}
+                              >
+                                {s ?? '—'}
+                              </DropdownMenuItem>
+                            ))
+                          )}
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="space-y-1.5 flex-1 min-w-[180px]">
                     <Label className="text-xs text-muted-foreground">Pay vs productivity</Label>
                     <Select value={payVsProdFilter} onValueChange={setPayVsProdFilter}>
-                      <SelectTrigger className="w-full bg-white dark:bg-background">
+                      <SelectTrigger className="w-full min-w-0 bg-white dark:bg-background h-9">
                         <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
@@ -315,7 +386,7 @@ export function TccWrvuPercentilesReport({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-9 shrink-0"
+                      className="h-9 shrink-0 text-muted-foreground hover:text-foreground"
                       onClick={() => {
                         setSpecialtyFilter('all')
                         setProviderSearch('')
@@ -329,7 +400,7 @@ export function TccWrvuPercentilesReport({
               </div>
             )}
             {(specialtyFilter !== 'all' || providerSearch.trim() || payVsProdFilter !== 'all') && filteredRows.length > 0 && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground tabular-nums">
                 Showing {filteredRows.length} of {results.rows.length} providers.
               </p>
             )}

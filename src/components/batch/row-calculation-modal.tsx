@@ -74,7 +74,7 @@ export function RowCalculationModal({
         className="flex w-full flex-col sm:max-w-xl overflow-hidden p-0"
         aria-describedby="row-calculation-desc"
       >
-        <SheetHeader className="px-6 pt-6 pb-2 border-b">
+        <SheetHeader className="px-6 pt-6 pb-2 border-b border-border gap-2">
           <SheetTitle>How we calculated this row</SheetTitle>
           <SheetDescription id="row-calculation-desc">
             {row.providerName && (

@@ -624,7 +624,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
           className="w-full caption-bottom text-sm min-w-max"
           style={{ minWidth: 'max-content' }}
         >
-          <TableHeader className="border-b border-border [&_th]:text-foreground">
+          <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground [&_th]:font-medium">
             {table.getHeaderGroups().map((hg) => {
               const visibleHeaders = hg.headers.filter((h) => h.column.getIsVisible())
               return (

@@ -115,7 +115,7 @@ function ComparisonRow({
       )}
     >
       {/* Baseline: label left, value right */}
-      <TableCell className="border-border/80 bg-muted/20 px-4 py-3 align-middle md:border-r md:px-6">
+      <TableCell className="border-border/80 bg-muted/20 px-3 py-2.5 align-middle md:border-r">
         <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <Label className="text-muted-foreground flex shrink-0 items-center text-sm font-medium">
             {labelLeft}
@@ -129,7 +129,7 @@ function ComparisonRow({
         </div>
       </TableCell>
       {/* Modeled: label left, then controls + value (value aligns in column). Responsive: controls flex to fill space. */}
-      <TableCell className="border-border/80 px-4 py-3 align-middle md:border-r md:px-6">
+      <TableCell className="border-border/80 px-3 py-2.5 align-middle md:border-r">
         <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3 md:gap-4">
           <Label className="text-muted-foreground flex shrink-0 items-center text-sm font-medium sm:min-w-0">
             {labelRight}
@@ -164,7 +164,7 @@ function ComparisonRow({
         </div>
       </TableCell>
       {/* Variance: right-aligned */}
-      <TableCell className="border-border/60 px-3 py-3 text-right tabular-nums md:px-4" style={{ width: VALUE_CELL_WIDTH }}>
+      <TableCell className="border-border/60 px-3 py-2.5 text-right tabular-nums" style={{ width: VALUE_CELL_WIDTH }}>
         {showDelta ? (
           <DeltaIndicator
             delta={delta!}
@@ -480,19 +480,19 @@ export function BaselineVsModeledSection({
               <col style={{ width: '50%' }} />
               <col style={{ width: VALUE_CELL_WIDTH }} />
             </colgroup>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="border-border/80 bg-muted/20 px-4 py-3 font-semibold md:border-r md:px-6">
+                <TableHead className="border-border/80 bg-muted/20 px-3 py-2.5 font-semibold md:border-r">
                   <span className="text-muted-foreground text-xs uppercase tracking-wider">
                     CURRENT (Baseline)
                   </span>
                 </TableHead>
-                <TableHead className="border-border/80 bg-muted/20 px-4 py-3 font-semibold md:border-r md:px-6">
+                <TableHead className="border-border/80 bg-muted/20 px-3 py-2.5 font-semibold md:border-r">
                   <span className="text-muted-foreground text-xs uppercase tracking-wider">
                     MODELED (Scenario)
                   </span>
                 </TableHead>
-                <TableHead className="border-border/80 bg-muted/20 px-3 py-3 text-right font-semibold md:px-4" style={{ width: VALUE_CELL_WIDTH }}>
+                <TableHead className="border-border/80 bg-muted/20 px-3 py-2.5 text-right font-semibold" style={{ width: VALUE_CELL_WIDTH }}>
                   <span className="text-muted-foreground text-xs uppercase tracking-wider">
                     Variance
                   </span>
@@ -715,19 +715,19 @@ export function BaselineVsModeledSection({
               <col style={{ width: '50%' }} />
               <col style={{ width: VALUE_CELL_WIDTH }} />
             </colgroup>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="border-border/80 bg-muted/20 px-4 py-3 font-semibold md:border-r md:px-6">
+                <TableHead className="border-border/80 bg-muted/20 px-3 py-2.5 font-semibold md:border-r">
                   <span className="text-muted-foreground text-xs uppercase tracking-wider">
                     CURRENT (Baseline)
                   </span>
                 </TableHead>
-                <TableHead className="border-border/80 bg-muted/20 px-4 py-3 font-semibold md:border-r md:px-6">
+                <TableHead className="border-border/80 bg-muted/20 px-3 py-2.5 font-semibold md:border-r">
                   <span className="text-muted-foreground text-xs uppercase tracking-wider">
                     MODELED (Scenario)
                   </span>
                 </TableHead>
-                <TableHead className="border-border/80 bg-muted/20 px-3 py-3 text-right font-semibold md:px-4" style={{ width: VALUE_CELL_WIDTH }}>
+                <TableHead className="border-border/80 bg-muted/20 px-3 py-2.5 text-right font-semibold" style={{ width: VALUE_CELL_WIDTH }}>
                   <span className="text-muted-foreground text-xs uppercase tracking-wider">
                     Variance
                   </span>
@@ -815,19 +815,19 @@ export function BaselineVsModeledSection({
               <col style={{ width: '50%' }} />
               <col style={{ width: VALUE_CELL_WIDTH }} />
             </colgroup>
-            <TableHeader>
+            <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="border-border/80 bg-muted/20 px-4 py-3 font-semibold md:border-r md:px-6">
+                <TableHead className="border-border/80 bg-muted/20 px-3 py-2.5 font-semibold md:border-r">
                   <span className="text-muted-foreground text-xs uppercase tracking-wider">
                     CURRENT (Baseline)
                   </span>
                 </TableHead>
-                <TableHead className="border-border/80 bg-muted/20 px-4 py-3 font-semibold md:border-r md:px-6">
+                <TableHead className="border-border/80 bg-muted/20 px-3 py-2.5 font-semibold md:border-r">
                   <span className="text-muted-foreground text-xs uppercase tracking-wider">
                     MODELED (Scenario)
                   </span>
                 </TableHead>
-                <TableHead className="border-border/80 bg-muted/20 px-3 py-3 text-right font-semibold md:px-4" style={{ width: VALUE_CELL_WIDTH }}>
+                <TableHead className="border-border/80 bg-muted/20 px-3 py-2.5 text-right font-semibold" style={{ width: VALUE_CELL_WIDTH }}>
                   <span className="text-muted-foreground text-xs uppercase tracking-wider">
                     Variance
                   </span>

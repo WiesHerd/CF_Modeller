@@ -84,7 +84,7 @@ export function OptimizerDetailDrawer({
         side="right"
         className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[620px] md:max-w-[680px] border-border"
       >
-        <SheetHeader className="space-y-1.5 border-b border-border/60 pb-5">
+        <SheetHeader className="px-6 pt-6 pb-2 border-b border-border gap-2">
           <SheetTitle className="pr-8 text-xl font-semibold tracking-tight text-foreground">
             {row.specialty}
           </SheetTitle>

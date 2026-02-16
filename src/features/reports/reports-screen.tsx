@@ -1,19 +1,20 @@
-import { useState } from 'react'
-import { ArrowLeft, FileText, FolderOpen, User, BarChart2, GitCompare, Gauge, TrendingUp } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, FileText, FolderOpen, User, BarChart2, GitCompare, Gauge, Settings2, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { TccWrvuPercentilesReport } from './tcc-wrvu-percentiles-report'
 import { SavedBatchRunReport } from './saved-batch-run-report'
 import { SingleProviderImpactReport } from './single-provider-impact-report'
+import { ManageScenariosScreen } from './manage-scenarios-screen'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, SavedScenario } from '@/types/scenario'
-import type { SavedBatchRun } from '@/types/batch'
+import type { SavedBatchRun, SavedBatchScenarioConfig } from '@/types/batch'
 import type { SynonymMap } from '@/types/batch'
 import { cn } from '@/lib/utils'
 
-export type ReportViewId = 'list' | 'tcc-wrvu' | 'saved-run' | 'impact' | 'compare-scenarios'
+export type ReportViewId = 'list' | 'tcc-wrvu' | 'saved-run' | 'impact' | 'compare-scenarios' | 'manage-scenarios'
 
 export type ReportLibraryCardId = ReportViewId | 'market-positioning' | 'cf-optimizer'
 
@@ -57,6 +58,12 @@ const REPORT_CARDS: { id: ReportLibraryCardId; title: string; description: strin
     icon: <Gauge className="size-6" />,
     navigateOnly: true,
   },
+  {
+    id: 'manage-scenarios',
+    title: 'Manage scenarios & runs',
+    description: 'View, load, or clear saved model scenarios, batch runs, and batch scenario configs.',
+    icon: <Settings2 className="size-6" />,
+  },
 ]
 
 const cardClass = cn(
@@ -65,32 +72,84 @@ const cardClass = cn(
 )
 
 export interface ReportsScreenProps {
+  /** When this value changes, the view resets to the report library list (e.g. when user clicks Reports in sidebar). */
+  reportLibraryFocusKey?: number
   providerRows: ProviderRow[]
   marketRows: MarketRow[]
   scenarioInputs: ScenarioInputs
   savedScenarios: SavedScenario[]
   savedBatchRuns: SavedBatchRun[]
+  savedBatchScenarioConfigs: SavedBatchScenarioConfig[]
   batchSynonymMap: SynonymMap
   onBack: () => void
   /** When provided, the Scenario comparison card navigates to Compare scenarios. */
   onNavigateToCompareScenarios?: () => void
   /** When provided, Market positioning and Conversion factor analysis cards navigate to Batch. */
   onNavigateToBatchCard?: (id: 'imputed-vs-market' | 'cf-optimizer') => void
+  /** Manage scenarios screen callbacks. */
+  onLoadScenario?: (id: string) => void
+  onDeleteScenario?: (id: string) => void
+  onClearAllScenarios?: () => void
+  onDuplicateScenario?: (id: string) => void
+  onLoadBatchRun?: (id: string) => void
+  onDeleteBatchRun?: (id: string) => void
+  onClearAllBatchRuns?: () => void
+  onLoadBatchScenarioConfig?: (config: SavedBatchScenarioConfig) => void
+  onDeleteBatchScenarioConfig?: (id: string) => void
+  onClearAllBatchScenarioConfigs?: () => void
 }
 
 export function ReportsScreen({
+  reportLibraryFocusKey = 0,
   providerRows,
   marketRows,
   scenarioInputs,
   savedScenarios,
   savedBatchRuns,
+  savedBatchScenarioConfigs,
   batchSynonymMap,
   onBack,
   onNavigateToCompareScenarios,
   onNavigateToBatchCard,
+  onLoadScenario,
+  onDeleteScenario,
+  onClearAllScenarios,
+  onDuplicateScenario,
+  onLoadBatchRun,
+  onDeleteBatchRun,
+  onClearAllBatchRuns,
+  onLoadBatchScenarioConfig,
+  onDeleteBatchScenarioConfig,
+  onClearAllBatchScenarioConfigs,
 }: ReportsScreenProps) {
   const [reportView, setReportView] = useState<ReportViewId>('list')
   const [selectedSavedRunId, setSelectedSavedRunId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setReportView('list')
+    setSelectedSavedRunId(null)
+  }, [reportLibraryFocusKey])
+
+  if (reportView === 'manage-scenarios') {
+    return (
+      <ManageScenariosScreen
+        savedScenarios={savedScenarios}
+        savedBatchRuns={savedBatchRuns}
+        savedBatchScenarioConfigs={savedBatchScenarioConfigs}
+        onLoadScenario={onLoadScenario ?? (() => {})}
+        onDeleteScenario={onDeleteScenario ?? (() => {})}
+        onClearAllScenarios={onClearAllScenarios ?? (() => {})}
+        onDuplicateScenario={onDuplicateScenario ?? (() => {})}
+        onLoadBatchRun={onLoadBatchRun ?? (() => {})}
+        onDeleteBatchRun={onDeleteBatchRun ?? (() => {})}
+        onClearAllBatchRuns={onClearAllBatchRuns ?? (() => {})}
+        onLoadBatchScenarioConfig={onLoadBatchScenarioConfig ?? (() => {})}
+        onDeleteBatchScenarioConfig={onDeleteBatchScenarioConfig ?? (() => {})}
+        onClearAllBatchScenarioConfigs={onClearAllBatchScenarioConfigs ?? (() => {})}
+        onBack={() => setReportView('list')}
+      />
+    )
+  }
 
   if (reportView === 'tcc-wrvu') {
     return (

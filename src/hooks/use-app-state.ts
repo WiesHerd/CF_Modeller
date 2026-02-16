@@ -485,6 +485,10 @@ export function useAppState() {
     }))
   }, [])
 
+  const clearAllSavedBatchRuns = useCallback(() => {
+    setState((s) => ({ ...s, savedBatchRuns: [] }))
+  }, [])
+
   const saveBatchScenarioConfig = useCallback((config: Omit<SavedBatchScenarioConfig, 'id' | 'createdAt'>) => {
     setState((s) => {
       const saved: SavedBatchScenarioConfig = {
@@ -534,6 +538,10 @@ export function useAppState() {
       ...s,
       savedBatchScenarioConfigs: s.savedBatchScenarioConfigs.filter((c) => c.id !== id),
     }))
+  }, [])
+
+  const clearAllSavedBatchScenarioConfigs = useCallback(() => {
+    setState((s) => ({ ...s, savedBatchScenarioConfigs: [] }))
   }, [])
 
   const setBatchSynonymMap = useCallback((map: SynonymMap) => {
@@ -618,11 +626,13 @@ export function useAppState() {
     saveCurrentBatchRun,
     loadSavedBatchRun,
     deleteSavedBatchRun,
+    clearAllSavedBatchRuns,
     saveBatchScenarioConfig,
     loadBatchScenarioConfig,
     clearAppliedBatchScenarioConfig,
     applyOptimizerOverrides,
     deleteSavedBatchScenarioConfig,
+    clearAllSavedBatchScenarioConfigs,
     setBatchSynonymMap,
     updateBatchSynonymMap,
     removeBatchSynonym,

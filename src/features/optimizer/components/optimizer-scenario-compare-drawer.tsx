@@ -26,7 +26,7 @@ export function OptimizerScenarioCompareDrawer({
         side="right"
         className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[720px] md:max-w-[840px] border-border"
       >
-        <SheetHeader className="space-y-1.5 border-b border-border/60 pb-5">
+        <SheetHeader className="px-6 pt-6 pb-2 border-b border-border gap-2">
           <SheetTitle className="flex items-center gap-2 pr-8 text-xl font-semibold tracking-tight text-foreground">
             <GitCompare className="size-5 text-muted-foreground" />
             Compare scenarios

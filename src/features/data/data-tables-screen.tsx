@@ -43,6 +43,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { DATA_GRID } from '@/lib/data-grid-styles'
 import { loadDataBrowserFilters, saveDataBrowserFilters, type DataBrowserFilters } from '@/lib/storage'
 import { formatCurrency, formatNumber } from '@/utils/format'
 import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, Maximize2, Pencil, Plus, Table2 } from 'lucide-react'
@@ -376,7 +377,7 @@ function ProviderDataTable({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack Table column value types vary per column
   const columns = useMemo<ColumnDef<ProviderRow, any>[]>(
     () => [
-      providerHelper.accessor('providerName', { header: 'Name', cell: (c) => c.getValue() ?? EMPTY, meta: { wrap: true }, size: 180, minSize: 100 }),
+      providerHelper.accessor('providerName', { header: 'Name', cell: (c) => c.getValue() ?? EMPTY, meta: { wrap: true, sticky: true }, size: 180, minSize: 100 }),
       providerHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, size: 220, minSize: 120 }),
       providerHelper.accessor('division', { header: 'Division', cell: (c) => c.getValue() ?? EMPTY, size: 200, minSize: 100 }),
       providerHelper.accessor('providerType', { header: 'Type / Role', cell: (c) => c.getValue() ?? EMPTY, size: 140, minSize: 90 }),
@@ -749,12 +750,14 @@ function ProviderDataTable({
                 {hg.headers.map((h) => {
                   const colId = h.column.id
                   const canResize = h.column.getCanResize()
+                  const isStickyCol = (h.column.columnDef.meta as { sticky?: boolean })?.sticky === true
                   return (
                     <TableHead
                       key={h.id}
                       className={cn(
                         (h.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right' : 'text-left',
                         'px-3 py-2.5 whitespace-normal break-words relative group',
+                        isStickyCol && DATA_GRID.stickyColHeader,
                         draggedColId === colId && 'opacity-60',
                         dropTargetColId === colId && 'ring-1 ring-primary'
                       )}
@@ -792,21 +795,27 @@ function ProviderDataTable({
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')} role="row">
-                {row.getVisibleCells().map((cell, colIndex) => (
-                  <TableCell
-                    key={cell.id}
-                    role="gridcell"
-                    aria-rowindex={row.index + 1}
-                    aria-colindex={colIndex + 1}
-                    className={cn(
-                      (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
-                      'px-3 py-2.5'
-                    )}
-                    style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+                {row.getVisibleCells().map((cell, colIndex) => {
+                  const isStickyCol = (cell.column.columnDef.meta as { sticky?: boolean })?.sticky === true
+                  const stickyBg = isStickyCol && (row.index % 2 === 1 ? 'bg-muted/30' : 'bg-background')
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      role="gridcell"
+                      aria-rowindex={row.index + 1}
+                      aria-colindex={colIndex + 1}
+                      className={cn(
+                        (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
+                        'px-3 py-2.5',
+                        isStickyCol && DATA_GRID.stickyColCell,
+                        stickyBg
+                      )}
+                      style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  )
+                })}
               </TableRow>
             ))}
           </tbody>
@@ -929,7 +938,7 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack Table column value types vary per column
   const columns = useMemo<ColumnDef<MarketRow, any>[]>(
     () => [
-      marketHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, size: 200, minSize: 120 }),
+      marketHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, meta: { sticky: true }, size: 200, minSize: 120 }),
       marketHelper.accessor('providerType', { header: 'Type', cell: (c) => c.getValue() ?? EMPTY, size: 100, minSize: 70 }),
       marketHelper.accessor('region', { header: 'Region', cell: (c) => c.getValue() ?? EMPTY, size: 100, minSize: 70 }),
       ...(['TCC_25', 'TCC_50', 'TCC_75', 'TCC_90'] as const).map((k) =>
@@ -1171,12 +1180,14 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
                 {hg.headers.map((h) => {
                   const colId = h.column.id
                   const canResize = h.column.getCanResize()
+                  const isStickyCol = (h.column.columnDef.meta as { sticky?: boolean })?.sticky === true
                   return (
                     <TableHead
                       key={h.id}
                       className={cn(
                         (h.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right' : 'text-left',
                         'px-3 py-2.5 whitespace-normal break-words relative group',
+                        isStickyCol && DATA_GRID.stickyColHeader,
                         draggedColId === colId && 'opacity-60',
                         dropTargetColId === colId && 'ring-1 ring-primary'
                       )}
@@ -1214,18 +1225,24 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
           <tbody>
             {table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell
-                    key={cell.id}
-                    className={cn(
-                      (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
-                      'px-3 py-2.5'
-                    )}
-                    style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  const isStickyCol = (cell.column.columnDef.meta as { sticky?: boolean })?.sticky === true
+                  const stickyBg = isStickyCol && (row.index % 2 === 1 ? 'bg-muted/30' : 'bg-background')
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      className={cn(
+                        (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
+                        'px-3 py-2.5',
+                        isStickyCol && DATA_GRID.stickyColCell,
+                        stickyBg
+                      )}
+                      style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  )
+                })}
               </TableRow>
             ))}
           </tbody>

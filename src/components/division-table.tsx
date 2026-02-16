@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import Papa from 'papaparse'
+import { cn } from '@/lib/utils'
 import type { ProviderRow } from '@/types/provider'
 import type { ScenarioResults } from '@/types/scenario'
 import { formatCurrency } from '@/utils/format'
@@ -178,10 +179,10 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
           placeholder="Search provider…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="min-h-[44px] w-full touch-manipulation sm:max-w-xs"
+          className="h-9 w-full sm:max-w-xs"
         />
         <Select value={filterSpecialty} onValueChange={setFilterSpecialty}>
-          <SelectTrigger className="min-h-[44px] w-full min-w-0 touch-manipulation sm:w-[160px]">
+          <SelectTrigger className="h-9 w-full min-w-0 sm:w-[160px]">
             <SelectValue placeholder="Specialty" />
           </SelectTrigger>
           <SelectContent>
@@ -194,7 +195,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
           </SelectContent>
         </Select>
         <Select value={filterRisk} onValueChange={setFilterRisk}>
-          <SelectTrigger className="min-h-[44px] w-full min-w-0 touch-manipulation sm:w-[140px]">
+          <SelectTrigger className="h-9 w-full min-w-0 sm:w-[140px]">
             <SelectValue placeholder="Risk" />
           </SelectTrigger>
           <SelectContent>
@@ -203,18 +204,18 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
             <SelectItem value="warn">Warnings only</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" onClick={exportCSV} className="min-h-[44px] touch-manipulation">
+        <Button variant="outline" size="sm" onClick={exportCSV}>
           <Download className="size-4 mr-1" />
           Export CSV
         </Button>
       </div>
 
-      <div className="touch-scroll-x rounded-md border overflow-x-auto">
+      <div className="rounded-md border border-border overflow-x-auto">
         <ScrollArea className="h-[400px] w-full">
-          <Table>
-            <TableHeader>
+          <Table className="w-full caption-bottom text-sm">
+            <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground [&_th]:font-medium">
               <TableRow>
-                <TableHead>
+                <TableHead className="px-3 py-2.5">
                   <button
                     type="button"
                     className="font-medium hover:underline"
@@ -223,7 +224,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
                     Provider {sortKey === 'name' && (sortDir === 'asc' ? '↑' : '↓')}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="px-3 py-2.5">
                   <button
                     type="button"
                     className="font-medium hover:underline"
@@ -232,7 +233,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
                     Specialty {sortKey === 'specialty' && (sortDir === 'asc' ? '↑' : '↓')}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="px-3 py-2.5">
                   <button
                     type="button"
                     className="font-medium hover:underline"
@@ -241,7 +242,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
                     Current TCC {sortKey === 'currentTCC' && (sortDir === 'asc' ? '↑' : '↓')}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="px-3 py-2.5">
                   <button
                     type="button"
                     className="font-medium hover:underline"
@@ -250,7 +251,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
                     Modeled TCC {sortKey === 'modeledTCC' && (sortDir === 'asc' ? '↑' : '↓')}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="px-3 py-2.5">
                   <button
                     type="button"
                     className="font-medium hover:underline"
@@ -259,7 +260,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
                     Delta {sortKey === 'delta' && (sortDir === 'asc' ? '↑' : '↓')}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="px-3 py-2.5">
                   <button
                     type="button"
                     className="font-medium hover:underline"
@@ -268,7 +269,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
                     wRVU %ile {sortKey === 'wrvuPercentile' && (sortDir === 'asc' ? '↑' : '↓')}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="px-3 py-2.5">
                   <button
                     type="button"
                     className="font-medium hover:underline"
@@ -277,7 +278,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
                     TCC %ile {sortKey === 'tccPercentile' && (sortDir === 'asc' ? '↑' : '↓')}
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="px-3 py-2.5">
                   <button
                     type="button"
                     className="font-medium hover:underline"
@@ -290,26 +291,27 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
             </TableHeader>
             <TableBody>
               {sorted.map((r) => (
-                <TableRow key={r.provider.providerId ?? r.provider.providerName ?? Math.random()}>
-                  <TableCell className="font-medium">
+                <TableRow key={r.provider.providerId ?? r.provider.providerName ?? Math.random()} className="border-b border-border/50">
+                  <TableCell className="font-medium px-3 py-2.5">
                     {r.provider.providerName ?? r.provider.providerId ?? '—'}
                   </TableCell>
-                  <TableCell>{r.provider.specialty ?? '—'}</TableCell>
-                  <TableCell>{fmtMoney(r.results.currentTCC)}</TableCell>
-                  <TableCell>{fmtMoney(r.results.modeledTCC)}</TableCell>
+                  <TableCell className="px-3 py-2.5">{r.provider.specialty ?? '—'}</TableCell>
+                  <TableCell className="tabular-nums px-3 py-2.5">{fmtMoney(r.results.currentTCC)}</TableCell>
+                  <TableCell className="tabular-nums px-3 py-2.5">{fmtMoney(r.results.modeledTCC)}</TableCell>
                   <TableCell
-                    className={
+                    className={cn(
+                      'tabular-nums px-3 py-2.5',
                       r.results.changeInTCC >= 0
                         ? 'text-green-600 dark:text-green-400'
                         : 'text-red-600 dark:text-red-400'
-                    }
+                    )}
                   >
                     {r.results.changeInTCC >= 0 ? '+' : ''}
                     {fmtMoney(r.results.changeInTCC)}
                   </TableCell>
-                  <TableCell>{fmt(r.results.wrvuPercentile)}</TableCell>
-                  <TableCell>{fmt(r.results.tccPercentile)}</TableCell>
-                  <TableCell>
+                  <TableCell className="tabular-nums px-3 py-2.5">{fmt(r.results.wrvuPercentile)}</TableCell>
+                  <TableCell className="tabular-nums px-3 py-2.5">{fmt(r.results.tccPercentile)}</TableCell>
+                  <TableCell className="px-3 py-2.5">
                     {r.results.risk.highRisk.length > 0 ? (
                       <Badge variant="destructive">High</Badge>
                     ) : r.results.risk.warnings.length > 0 ? (

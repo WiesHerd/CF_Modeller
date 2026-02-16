@@ -108,6 +108,33 @@ export function CFSweepDrawer({
     [onOpenChange]
   )
 
+  const DRAWER_WIDTH_MIN = 400
+  const DRAWER_WIDTH_MAX = 1100
+  const DRAWER_WIDTH_DEFAULT = 720
+  const [drawerWidth, setDrawerWidth] = useState(DRAWER_WIDTH_DEFAULT)
+
+  const handleDrawerResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = drawerWidth
+    const onMove = (ev: MouseEvent) => {
+      const delta = startX - ev.clientX
+      setDrawerWidth(
+        Math.min(DRAWER_WIDTH_MAX, Math.max(DRAWER_WIDTH_MIN, startW + delta))
+      )
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [drawerWidth])
+
   const specialtiesForScope = useMemo(
     () => (result?.bySpecialty?.map((r) => r.specialty).filter(Boolean) ?? []) as string[],
     [result]
@@ -117,9 +144,17 @@ export function CFSweepDrawer({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[880px] md:max-w-[960px] border-border"
+        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[none] border-border"
+        contentStyle={{ width: drawerWidth, maxWidth: 'none' }}
       >
-        <SheetHeader className="space-y-1.5 border-b border-border pb-4">
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize drawer"
+          className="absolute left-0 top-0 bottom-0 z-50 w-2 cursor-col-resize touch-none border-l border-transparent hover:border-primary/30 hover:bg-primary/10"
+          onMouseDown={handleDrawerResize}
+        />
+        <SheetHeader className="px-6 pt-6 pb-2 border-b border-border gap-2">
           <SheetTitle className="flex items-center gap-2 text-xl font-semibold tracking-tight text-foreground">
             <LineChart className="size-5 text-muted-foreground" />
             Model at CF percentiles

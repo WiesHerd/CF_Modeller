@@ -25,6 +25,8 @@ interface AppLayoutProps {
   onStepChange: (step: AppStep) => void
   currentBatchCard?: BatchCardId | null
   onBatchCardSelect?: (id: BatchCardId) => void
+  /** Called when the Reports nav item is clicked (e.g. to return to report library list from a sub-view). */
+  onReportsNavClick?: () => void
   children: React.ReactNode
 }
 
@@ -104,6 +106,7 @@ export function AppLayout({
   onStepChange,
   currentBatchCard = null,
   onBatchCardSelect,
+  onReportsNavClick,
   children,
 }: AppLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -120,6 +123,12 @@ export function AppLayout({
   const handleNav = (s: AppStep) => {
     onStepChange(s)
     setMobileOpen(false)
+  }
+
+  const handleReportsClick = () => {
+    onStepChange('reports')
+    setMobileOpen(false)
+    onReportsNavClick?.()
   }
 
   const handleBatchCard = (id: BatchCardId) => {
@@ -218,7 +227,7 @@ export function AppLayout({
             tooltip="Report library — TCC, wRVU, batch runs, impact"
             active={isReportsActive}
             disabled={false}
-            onClick={() => handleNav('reports')}
+            onClick={handleReportsClick}
             collapsed={true}
           />
           <NavButton
@@ -345,7 +354,7 @@ export function AppLayout({
             tooltip="Report library — TCC, wRVU, batch runs, impact"
             active={isReportsActive}
             disabled={false}
-            onClick={() => handleNav('reports')}
+            onClick={handleReportsClick}
             collapsed={false}
           />
         </SidebarSection>
@@ -491,7 +500,7 @@ export function AppLayout({
                     tooltip="Report library — TCC, wRVU, batch runs, impact"
                     active={isReportsActive}
                     disabled={false}
-                    onClick={() => handleNav('reports')}
+                    onClick={handleReportsClick}
                     collapsed={false}
                   />
                 </SidebarSection>

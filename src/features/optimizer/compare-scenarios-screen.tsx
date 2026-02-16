@@ -72,19 +72,14 @@ export function CompareScenariosScreen({
       </div>
 
       <div className="compare-scenarios-report">
-        <header className="border-b border-border/60 pb-4 mb-2">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h1 className="text-lg font-semibold tracking-tight text-foreground">
-              Scenario comparison report
-            </h1>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              Generated {reportDate}
-            </span>
-          </div>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-border/60 pb-4 mb-2">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Lock className="size-3.5 shrink-0" aria-hidden />
             Confidential — compensation planning
           </p>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Generated {reportDate}
+          </span>
         </header>
 
         <CompareScenariosContent

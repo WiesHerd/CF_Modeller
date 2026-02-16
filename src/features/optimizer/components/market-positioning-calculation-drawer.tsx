@@ -70,7 +70,7 @@ export function MarketPositioningCalculationDrawer({
         className="flex w-full flex-col sm:max-w-xl overflow-hidden p-0"
         aria-describedby="market-positioning-calculation-desc"
       >
-        <SheetHeader className="px-6 pt-6 pb-2 border-b gap-2">
+        <SheetHeader className="px-6 pt-6 pb-2 border-b border-border gap-2">
           <div className="flex items-start gap-2">
             {onBack && (
               <Button

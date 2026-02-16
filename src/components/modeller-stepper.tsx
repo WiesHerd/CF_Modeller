@@ -1,6 +1,5 @@
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 
 export type ModellerStep = 'provider' | 'scenario' | 'market' | 'results'
 
@@ -17,7 +16,7 @@ interface ModellerStepperProps {
   canAdvanceFromProvider: boolean
   canAdvanceFromScenario: boolean
   canAdvanceFromMarket: boolean
-  /** When false, only step chips are shown; Back/Next are rendered elsewhere (e.g. footer). */
+  /** When false, Back/Next are rendered elsewhere (e.g. footer); this component renders nothing. */
   showNavButtons?: boolean
 }
 
@@ -29,11 +28,11 @@ export function ModellerStepper({
   canAdvanceFromMarket,
   showNavButtons = true,
 }: ModellerStepperProps) {
-  const index = STEPS.findIndex((s) => s.id === currentStep)
   const canGoNext =
     (currentStep === 'provider' && canAdvanceFromProvider) ||
     (currentStep === 'scenario' && canAdvanceFromScenario) ||
     (currentStep === 'market' && canAdvanceFromMarket)
+  const index = STEPS.findIndex((s) => s.id === currentStep)
   const canGoPrev = index > 0
   const showNextButton = currentStep !== 'results'
 
@@ -58,88 +57,34 @@ export function ModellerStepper({
           ? STEPS[3].label
           : ''
 
+  if (!showNavButtons) return null
+
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <nav
-        className="flex min-h-11 w-full min-w-0 items-center gap-0 rounded-xl border border-border/60 bg-muted/20 p-1.5 sm:w-auto"
-        aria-label="Modeller steps"
+    <div className="flex shrink-0 items-center gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
+        onClick={goPrev}
+        disabled={!canGoPrev}
       >
-        {STEPS.map((step, idx) => {
-          const isActive = currentStep === step.id
-          const isComplete = index > idx
-          const isUpcoming = index < idx
-          return (
-            <div key={step.id} className="flex min-w-0 flex-1 items-center gap-2 sm:flex-initial sm:gap-2">
-              {idx > 0 ? (
-                <div
-                  className={cn(
-                    'h-px min-w-[12px] flex-1 sm:min-w-4 sm:flex-initial',
-                    isComplete ? 'bg-primary/30' : 'bg-border'
-                  )}
-                  aria-hidden
-                />
-              ) : null}
-              <button
-                type="button"
-                onClick={() => onStepChange(step.id)}
-                className={cn(
-                  'flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-all sm:flex-initial',
-                  'border-transparent',
-                  isActive &&
-                    'border-border bg-background text-foreground shadow-sm ring-2 ring-primary/30',
-                  isComplete &&
-                    !isActive &&
-                    'text-muted-foreground hover:bg-background/80 hover:text-foreground',
-                  isUpcoming && 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                )}
-                aria-current={isActive ? 'step' : undefined}
-              >
-                <span
-                  className={cn(
-                    'flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium transition-colors',
-                    isActive && 'bg-primary text-primary-foreground',
-                    isComplete &&
-                      !isActive &&
-                      'border border-primary/50 bg-primary/10 text-primary',
-                    isUpcoming && 'border border-border bg-background/80'
-                  )}
-                >
-                  {isComplete && !isActive ? <Check className="size-4" /> : step.num}
-                </span>
-                <span className="hidden truncate sm:inline">{step.label}</span>
-              </button>
-            </div>
-          )
-        })}
-      </nav>
-      {showNavButtons ? (
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={goPrev}
-            disabled={!canGoPrev}
-          >
-            <ChevronLeft className="size-4" />
-            Back
-          </Button>
-          {showNextButton && (
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              className="gap-1.5"
-              onClick={goNext}
-              disabled={!canGoNext}
-            >
-              Next: {nextStepLabel}
-              <ChevronRight className="size-4" />
-            </Button>
-          )}
-        </div>
-      ) : null}
+        <ChevronLeft className="size-4" />
+        Back
+      </Button>
+      {showNextButton && (
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          className="gap-1.5"
+          onClick={goNext}
+          disabled={!canGoNext}
+        >
+          Next: {nextStepLabel}
+          <ChevronRight className="size-4" />
+        </Button>
+      )}
     </div>
   )
 }
