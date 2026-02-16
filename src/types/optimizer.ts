@@ -208,10 +208,12 @@ export interface OptimizerSettings {
   additionalTCCLayers?: TCCLayerConfig[]
   /** Legacy: migrated to additionalTCCLayers on load when present. */
   additionalTCC?: AdditionalTCCConfig
-  /** @deprecated Optimizer uses named layers only; kept for backward compat when loading old configs. */
+  /** Include PSQ (from base scenario % or fixed) in baseline and modeled TCC. When true, uses baseScenarioInputs.psqPercent and psqBasis. */
   includePsqInBaselineAndModeled?: boolean
-  /** @deprecated Optimizer uses named layers only; kept for backward compat when loading old configs. */
+  /** Include other incentives (retention, sign-on) in baseline/modeled TCC. When tccComponentInclusion is set, that overrides. */
   includeOtherIncentivesInBaselineAndModeled?: boolean
+  /** Include stipend / non-clinical pay in baseline/modeled TCC. When tccComponentInclusion is set, that overrides. */
+  includeStipendInBaselineAndModeled?: boolean
   /** When PSQ basis is fixed dollars, use this (global). Kept for non-optimizer flows. */
   psqFixedDollars?: number
   manualExcludeProviderIds: string[]

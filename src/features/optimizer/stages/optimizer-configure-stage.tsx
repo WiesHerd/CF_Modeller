@@ -63,7 +63,9 @@ function getRecommendedErrorMetric(
 import {
   TCC_BUILTIN_COMPONENTS,
   DEFAULT_TCC_COMPONENT_INCLUSION,
+  TCC_DEFINITION_PRESETS,
   type TCCComponentInclusion,
+  type TCCDefinitionPresetId,
   type TCCLayerConfig,
   type TCCLayerType,
 } from '@/lib/tcc-components'
@@ -415,6 +417,7 @@ export function OptimizerConfigureStage({
                                   : excludedProviderTypes.filter((item) => item !== providerType)
                               )
                             }
+                            onSelect={(e) => e.preventDefault()}
                           >
                             {providerType}
                           </DropdownMenuCheckboxItem>
@@ -753,18 +756,80 @@ export function OptimizerConfigureStage({
                   <div>
                     <SectionHeaderWithTooltip
                       title="C. Total cash compensation"
-                      tooltip="Select which pay components count toward baseline and modeled TCC when aligning to productivity. Only checked components are included. Add more components in Upload by mapping columns; they appear here when available. Optional layered amounts (percent of base, dollar per FTE, flat) are added on top for both baseline and modeled."
+                      tooltip="Select which pay components count toward baseline and modeled TCC when aligning to productivity. Only checked components are included. Use a preset or choose components and optional layers below."
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Choose which components to include in baseline and modeled TCC for alignment. Add more
-                      components in Upload by mapping columns; they will appear here when available.
+                      Choose which components to include in baseline and modeled TCC. Use the preset dropdown for quick scenarios, or set components and layers manually.
                     </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">TCC definition</Label>
+                    <Select
+                      value={(() => {
+                        const inc = settings.tccComponentInclusion ?? {
+                          quality: { included: settings.includeQualityPaymentsInBaselineAndModeled },
+                          workRVUIncentive: { included: settings.includeWorkRVUIncentiveInTCC },
+                          otherIncentives: { included: settings.includeOtherIncentivesInBaselineAndModeled ?? false },
+                          stipend: { included: settings.includeStipendInBaselineAndModeled ?? false },
+                        }
+                        const match = TCC_DEFINITION_PRESETS.find(
+                          (p) => p.id !== 'custom' && Object.keys(p.inclusion).length > 0 && Object.entries(p.inclusion).every(([k, v]) => (inc[k]?.included ?? DEFAULT_TCC_COMPONENT_INCLUSION[k]?.included ?? false) === v?.included)
+                        )
+                        return match?.id ?? 'custom'
+                      })()}
+                      onValueChange={(value: TCCDefinitionPresetId) => {
+                        if (value === 'custom') return
+                        const preset = TCC_DEFINITION_PRESETS.find((p) => p.id === value)
+                        if (!preset || !Object.keys(preset.inclusion).length) return
+                        onSetSettings((prev) => ({
+                          ...prev,
+                          tccComponentInclusion: { ...DEFAULT_TCC_COMPONENT_INCLUSION, ...preset.inclusion },
+                          includeQualityPaymentsInBaselineAndModeled: !!preset.inclusion.quality?.included,
+                          includeWorkRVUIncentiveInTCC: !!preset.inclusion.workRVUIncentive?.included,
+                          includeOtherIncentivesInBaselineAndModeled: !!preset.inclusion.otherIncentives?.included,
+                          includeStipendInBaselineAndModeled: !!preset.inclusion.stipend?.included,
+                        }))
+                      }}
+                    >
+                      <SelectTrigger className="w-full max-w-[320px]">
+                        <SelectValue placeholder="Select TCC definition" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TCC_DEFINITION_PRESETS.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.label} — {p.description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-lg border border-border bg-white p-3 dark:bg-background">
+                    <input
+                      type="checkbox"
+                      id="tcc-include-psq"
+                      checked={settings.includePsqInBaselineAndModeled ?? false}
+                      onChange={(e) =>
+                        onSetSettings((prev) => ({ ...prev, includePsqInBaselineAndModeled: e.target.checked }))
+                      }
+                      className="mt-1 size-4 rounded border-input"
+                    />
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <Label htmlFor="tcc-include-psq" className="cursor-pointer font-medium">
+                        Include quality / value-based payment (from base scenario)
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Add the base scenario quality payment percentage to baseline and modeled TCC
+                        ({(settings.baseScenarioInputs?.psqPercent ?? 0)}% of base). Turn on when your single-provider or batch TCC definition includes this component.
+                      </p>
+                    </div>
                   </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {TCC_BUILTIN_COMPONENTS.map((def) => {
               const inclusion = settings.tccComponentInclusion ?? {
                 quality: { included: settings.includeQualityPaymentsInBaselineAndModeled },
                 workRVUIncentive: { included: settings.includeWorkRVUIncentiveInTCC },
+                otherIncentives: { included: settings.includeOtherIncentivesInBaselineAndModeled ?? false },
+                stipend: { included: settings.includeStipendInBaselineAndModeled ?? false },
               }
               const entry = inclusion[def.id] ?? DEFAULT_TCC_COMPONENT_INCLUSION[def.id] ?? { included: false }
               const checked = entry.included
@@ -774,6 +839,8 @@ export function OptimizerConfigureStage({
                     ...(prev.tccComponentInclusion ?? {
                       quality: { included: prev.includeQualityPaymentsInBaselineAndModeled },
                       workRVUIncentive: { included: prev.includeWorkRVUIncentiveInTCC },
+                      otherIncentives: { included: prev.includeOtherIncentivesInBaselineAndModeled ?? false },
+                      stipend: { included: prev.includeStipendInBaselineAndModeled ?? false },
                     }),
                     [def.id]: { ...entry, included },
                   }
@@ -782,6 +849,8 @@ export function OptimizerConfigureStage({
                     tccComponentInclusion: nextInclusion,
                     includeQualityPaymentsInBaselineAndModeled: nextInclusion.quality?.included ?? prev.includeQualityPaymentsInBaselineAndModeled,
                     includeWorkRVUIncentiveInTCC: nextInclusion.workRVUIncentive?.included ?? prev.includeWorkRVUIncentiveInTCC,
+                    includeOtherIncentivesInBaselineAndModeled: nextInclusion.otherIncentives?.included ?? prev.includeOtherIncentivesInBaselineAndModeled,
+                    includeStipendInBaselineAndModeled: nextInclusion.stipend?.included ?? prev.includeStipendInBaselineAndModeled,
                   }
                 })
               }
@@ -790,6 +859,8 @@ export function OptimizerConfigureStage({
                   const current = prev.tccComponentInclusion ?? {
                     quality: { included: prev.includeQualityPaymentsInBaselineAndModeled },
                     workRVUIncentive: { included: prev.includeWorkRVUIncentiveInTCC },
+                    otherIncentives: { included: prev.includeOtherIncentivesInBaselineAndModeled ?? false },
+                    stipend: { included: prev.includeStipendInBaselineAndModeled ?? false },
                   }
                   const nextInclusion: TCCComponentInclusion = {
                     ...current,
@@ -883,9 +954,9 @@ export function OptimizerConfigureStage({
           <div className="mt-4 space-y-3 rounded-lg border border-border bg-white p-3 dark:bg-background">
             <h4 className="text-sm font-medium">Additional TCC (layered)</h4>
             <p className="text-xs text-muted-foreground">
-              Add named layers on top of the selected components for both baseline and modeled (e.g.
-              value-based payment, retention bonus, stipend). Each layer can be percent of base, dollar per 1.0 FTE,
-              flat dollar, or from a provider file column.
+              Add named layers on top of the selected components for both baseline and modeled. Each layer can be
+              percent of base, dollar per 1.0 FTE, flat dollar, or From provider file (choose source column:
+              otherIncentives or nonClinicalPay for stipend).
             </p>
             <div className="space-y-3">
               {(settings.additionalTCCLayers ?? []).map((layer) => (
@@ -977,7 +1048,8 @@ export function OptimizerConfigureStage({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="otherIncentives">otherIncentives</SelectItem>
+                            <SelectItem value="otherIncentives">otherIncentives (retention, sign-on, etc.)</SelectItem>
+                            <SelectItem value="nonClinicalPay">nonClinicalPay (stipend / admin)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

@@ -560,15 +560,26 @@ export function buildExplanation(
 
 const LOW_SAMPLE_THRESHOLD = 3
 
-function getOptimizerBaselineTCCConfig(
+/** Exported for UI to build TCC breakdown in optimizer detail drawer (e.g. for calculation drilldown). */
+export function getOptimizerBaselineTCCConfig(
   settings: OptimizerSettings,
   _provider: ProviderRow,
   currentCF: number
 ) {
   const inclusion = settings.tccComponentInclusion
   const useInclusion = inclusion && Object.keys(inclusion).length > 0
+  const scenario = settings.baseScenarioInputs
+  const psqConfig =
+    settings.includePsqInBaselineAndModeled && (scenario.psqPercent ?? 0) > 0
+      ? {
+          include: true,
+          psqPercent: scenario.psqPercent ?? 0,
+          psqBasis: scenario.psqBasis,
+          psqFixedDollars: settings.psqFixedDollars,
+        }
+      : undefined
   return {
-    psqConfig: undefined,
+    psqConfig,
     includeQualityPayments: useInclusion
       ? !!inclusion.quality?.included
       : settings.includeQualityPaymentsInBaselineAndModeled,
@@ -577,6 +588,12 @@ function getOptimizerBaselineTCCConfig(
     includeWorkRVUIncentive: useInclusion
       ? !!inclusion.workRVUIncentive?.included
       : settings.includeWorkRVUIncentiveInTCC,
+    includeOtherIncentives: useInclusion
+      ? !!inclusion.otherIncentives?.included
+      : (settings.includeOtherIncentivesInBaselineAndModeled ?? false),
+    includeStipend: useInclusion
+      ? !!inclusion.stipend?.included
+      : (settings.includeStipendInBaselineAndModeled ?? false),
     currentCF,
     componentOptions: useInclusion
       ? Object.fromEntries(

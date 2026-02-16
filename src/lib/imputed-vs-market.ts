@@ -47,6 +47,7 @@ export interface ImputedVsMarketConfig {
   includeQualityPayments: boolean
   includeWorkRVUIncentive: boolean
   includeOtherIncentives?: boolean
+  includeStipend?: boolean
   /** Layered additional TCC (percent of base, dollar per FTE, flat). */
   additionalTCC?: AdditionalTCCConfig
   minBasisFTE?: number
@@ -57,6 +58,7 @@ export const DEFAULT_IMPUTED_VS_MARKET_CONFIG: ImputedVsMarketConfig = {
   includeQualityPayments: true,
   includeWorkRVUIncentive: true,
   includeOtherIncentives: false,
+  includeStipend: false,
   minBasisFTE: 0.5,
   minWRVUPer1p0CFTE: 1000,
 }
@@ -132,6 +134,7 @@ export function computeImputedVsMarketBySpecialty(
       includeQualityPayments: config.includeQualityPayments,
       includeWorkRVUIncentive: config.includeWorkRVUIncentive,
       includeOtherIncentives: config.includeOtherIncentives,
+      includeStipend: config.includeStipend,
       currentCF,
       additionalTCC: config.additionalTCC,
     }
@@ -237,6 +240,7 @@ export interface ImputedVsMarketProviderDetail {
   quality: number
   workRVUIncentive: number
   otherIncentives: number
+  stipend: number
   /** Layered additional TCC (percent of base + dollar per FTE + flat). */
   additionalTCC?: number
   /** TCC percentile (baseline TCC per 1.0 cFTE vs market TCC curve). */
@@ -338,6 +342,7 @@ export function getImputedVsMarketProviderDetail(
       quality: breakdown.quality,
       workRVUIncentive: breakdown.workRVUIncentive,
       otherIncentives: breakdown.otherIncentives,
+      stipend: breakdown.stipend,
       additionalTCC: breakdown.additionalTCC,
       tccPercentile: tccResult.percentile,
       tccPercentileBelowRange: tccResult.belowRange,

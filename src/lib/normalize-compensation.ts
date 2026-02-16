@@ -175,8 +175,10 @@ export interface OptimizerBaselineTCCConfig {
   qualityPaymentsOverridePct?: number
   /** Include current work RVU incentive in baseline. Target = clinical base / currentCF; incentive = max(0, (wRVUs - target) * currentCF). */
   includeWorkRVUIncentive: boolean
-  /** Include provider.otherIncentives in baseline (e.g. imputed-vs-market). Optimizer uses layers instead. */
+  /** Include provider.otherIncentives in baseline (e.g. imputed-vs-market). Optimizer uses tccComponentInclusion.otherIncentives or layers. */
   includeOtherIncentives?: boolean
+  /** Include provider.nonClinicalPay (stipend / admin) in baseline. */
+  includeStipend?: boolean
   /** Current CF for baseline incentive (when includeWorkRVUIncentive). */
   currentCF: number
   /** Optional per-component options (e.g. normalizeForFTE for quality). */
@@ -298,8 +300,11 @@ export function getBaselineTCCForOptimizer(
     : 0
   const otherRaw = config.includeOtherIncentives ? num(provider.otherIncentives) : 0
   const other = resolveFromFileAmount(otherRaw, 'otherIncentives', cFTE, config.componentOptions)
+  const stipendRaw = config.includeStipend ? num(provider.nonClinicalPay) : 0
+  const stipend = resolveFromFileAmount(stipendRaw, 'stipend', cFTE, config.componentOptions)
+  const psq = config.psqConfig ? getPSQDollars(clinicalBase, config.psqConfig) : 0
   const layered = getLayeredTCCAmount(config, provider, clinicalBase, cFTE)
-  return clinicalBase + quality + incentive + other + layered
+  return clinicalBase + psq + quality + incentive + other + stipend + layered
 }
 
 /** Breakdown of baseline TCC components for display (e.g. drawer build-up). */
@@ -309,6 +314,7 @@ export interface BaselineTCCBreakdown {
   quality: number
   workRVUIncentive: number
   otherIncentives: number
+  stipend: number
   /** Legacy single additional TCC block. */
   additionalTCC?: number
   /** Named layers sum (optimizer path); when set, psq/otherIncentives are 0 in optimizer. */
@@ -341,10 +347,12 @@ export function getBaselineTCCBreakdown(
     : 0
   const otherRaw = config.includeOtherIncentives ? num(provider.otherIncentives) : 0
   const otherIncentives = resolveFromFileAmount(otherRaw, 'otherIncentives', cFTE, config.componentOptions)
+  const stipendRaw = config.includeStipend ? num(provider.nonClinicalPay) : 0
+  const stipend = resolveFromFileAmount(stipendRaw, 'stipend', cFTE, config.componentOptions)
   const layeredTCC = getLayeredTCCAmount(config, provider, clinicalBase, cFTE)
   const additionalTCC = config.additionalTCCLayers?.length ? undefined : getAdditionalTCCAmount(config, clinicalBase, cFTE)
-  const total = clinicalBase + psq + qualityBreakdown + workRVUIncentive + otherIncentives + (layeredTCC ?? additionalTCC ?? 0)
-  return { clinicalBase, psq, quality: qualityBreakdown, workRVUIncentive, otherIncentives, additionalTCC, layeredTCC, total }
+  const total = clinicalBase + psq + qualityBreakdown + workRVUIncentive + otherIncentives + stipend + (layeredTCC ?? additionalTCC ?? 0)
+  return { clinicalBase, psq, quality: qualityBreakdown, workRVUIncentive, otherIncentives, stipend, additionalTCC, layeredTCC, total }
 }
 
 /**

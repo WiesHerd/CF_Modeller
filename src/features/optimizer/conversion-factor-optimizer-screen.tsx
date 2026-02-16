@@ -221,15 +221,28 @@ export function ConversionFactorOptimizerScreen({
     return [...values].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   }, [providerRowsByCompModel, targetMode, selectedSpecialties])
 
-  /** Data-driven: provider types (roles) present in scope; used for "Exclude provider types" filter. */
+  /**
+   * Data-driven: provider types (roles) present in current scope.
+   * When specialty or division is selected, only types from that subset are shown.
+   */
   const availableProviderTypes = useMemo(() => {
+    let rows = providerRowsByCompModel
+    if (targetMode === 'custom' && (selectedSpecialties.length > 0 || selectedDivisions.length > 0)) {
+      const specialtySet = new Set(selectedSpecialties)
+      const divisionSet = new Set(selectedDivisions)
+      rows = rows.filter((p) => {
+        if (specialtySet.size > 0 && !specialtySet.has((p.specialty ?? '').trim())) return false
+        if (divisionSet.size > 0 && !divisionSet.has((p.division ?? '').trim())) return false
+        return true
+      })
+    }
     const values = new Set<string>()
-    providerRowsByCompModel.forEach((provider) => {
+    rows.forEach((provider) => {
       const pt = (provider.providerType ?? '').trim()
       if (pt) values.add(pt)
     })
     return [...values].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
-  }, [providerRowsByCompModel])
+  }, [providerRowsByCompModel, targetMode, selectedSpecialties, selectedDivisions])
 
   /** When compensation model or specialty scope changes, prune selections to only those still in scope. */
   useEffect(() => {
@@ -629,18 +642,21 @@ export function ConversionFactorOptimizerScreen({
           onSetConfigStep={setConfigStep}
         />
       ) : (
-        <OptimizerRunStage
-          hasData={hasData}
-          result={result}
-          isRunning={isRunning}
-          runError={runError}
-          runDisabled={runDisabled}
-          runProgress={runProgress}
-          onRun={handleRun}
-          onStartOver={handleStartOver}
-          onExport={exportToExcel}
-          onOpenCFSweep={() => setCfSweepDrawerOpen(true)}
-        />
+                <OptimizerRunStage
+                  hasData={hasData}
+                  result={result}
+                  isRunning={isRunning}
+                  runError={runError}
+                  runDisabled={runDisabled}
+                  runProgress={runProgress}
+                  onRun={handleRun}
+                  onStartOver={handleStartOver}
+                  onExport={exportToExcel}
+                  onOpenCFSweep={() => setCfSweepDrawerOpen(true)}
+                  settings={settings}
+                  marketRows={marketRows}
+                  synonymMap={synonymMap}
+                />
       )}
 
       <CFSweepDrawer

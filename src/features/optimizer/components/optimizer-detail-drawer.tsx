@@ -1,3 +1,4 @@
+import { useCallback, useMemo, useState } from 'react'
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import {
   Sheet,
@@ -14,7 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type { OptimizerSpecialtyResult } from '@/types/optimizer'
+import type { OptimizerProviderContext, OptimizerSpecialtyResult } from '@/types/optimizer'
+import type { MarketRow } from '@/types/market'
 import {
   EXCLUSION_REASON_LABELS,
   formatPercentile,
@@ -23,6 +25,12 @@ import {
 } from '@/features/optimizer/components/optimizer-constants'
 import { ExclusionChip } from '@/features/optimizer/components/constraint-chip'
 import { MarketCFRuler } from '@/features/optimizer/components/market-cf-line'
+import { MarketPositioningCalculationDrawer } from '@/features/optimizer/components/market-positioning-calculation-drawer'
+import { matchMarketRow } from '@/lib/batch'
+import { getOptimizerBaselineTCCConfig } from '@/lib/optimizer-engine'
+import { getBaselineTCCBreakdown, getClinicalFTE, getTotalWRVUs } from '@/lib/normalize-compensation'
+import type { OptimizerSettings } from '@/types/optimizer'
+import type { ImputedVsMarketProviderDetail } from '@/lib/imputed-vs-market'
 
 function formatCurrency(value: number, decimals = 0): string {
   return new Intl.NumberFormat(undefined, {
@@ -46,15 +54,106 @@ const GAP_PILL_CLASS: Record<string, string> = {
   aligned: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
 }
 
+const DRAWER_WIDTH_MIN = 400
+const DRAWER_WIDTH_MAX = 1100
+const DRAWER_WIDTH_DEFAULT = 680
+
 export function OptimizerDetailDrawer({
   row,
   open,
   onOpenChange,
+  settings,
+  marketRows = [],
+  synonymMap = {},
 }: {
   row: OptimizerSpecialtyResult | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  settings?: OptimizerSettings | null
+  marketRows?: MarketRow[]
+  synonymMap?: Record<string, string>
 }) {
+  const [drawerWidth, setDrawerWidth] = useState(DRAWER_WIDTH_DEFAULT)
+  const [selectedProviderContext, setSelectedProviderContext] = useState<OptimizerProviderContext | null>(null)
+
+  const handleDrawerResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = drawerWidth
+    const onMove = (ev: MouseEvent) => {
+      const delta = startX - ev.clientX
+      setDrawerWidth(
+        Math.min(DRAWER_WIDTH_MAX, Math.max(DRAWER_WIDTH_MIN, startW + delta))
+      )
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [drawerWidth])
+
+  const providerDetailForDrawer = useMemo((): ImputedVsMarketProviderDetail | null => {
+    if (!selectedProviderContext || !row || !settings || marketRows.length === 0) return null
+    const ctx = selectedProviderContext
+    const provider = ctx.provider
+    const match = matchMarketRow(provider, marketRows, synonymMap)
+    const market = match.marketRow
+    if (!market) return null
+    const config = getOptimizerBaselineTCCConfig(settings, provider, row.currentCF)
+    const breakdown = getBaselineTCCBreakdown(provider, config)
+    const cFTE = getClinicalFTE(provider)
+    const totalWRVUs = getTotalWRVUs(provider)
+    const imputed =
+      totalWRVUs > 0 && cFTE > 0 ? ctx.currentTCCBaseline / (totalWRVUs / cFTE) : 0
+    return {
+      providerId: ctx.providerId,
+      providerName: (provider.providerName ?? ctx.providerId).toString(),
+      division: (provider.division ?? '').toString().trim() || '—',
+      providerType: (provider.providerType ?? '').toString().trim() || '—',
+      cFTE,
+      totalWRVUs,
+      wRVU_1p0: ctx.wRVU_1p0,
+      baselineTCC: ctx.currentTCCBaseline,
+      currentCFUsed: row.currentCF,
+      imputedDollarPerWRVU: imputed,
+      clinicalBase: breakdown.clinicalBase,
+      psq: breakdown.psq,
+      quality: breakdown.quality,
+      workRVUIncentive: breakdown.workRVUIncentive,
+      otherIncentives: breakdown.otherIncentives,
+      stipend: breakdown.stipend,
+      additionalTCC: breakdown.additionalTCC,
+      tccPercentile: ctx.currentTCC_pctile,
+      tccPercentileBelowRange: ctx.currentTCC_pctile < 25,
+      tccPercentileAboveRange: ctx.currentTCC_pctile > 90,
+      wrvuPercentile: ctx.wrvuPercentile,
+      wrvuPercentileBelowRange: ctx.wrvuPercentile < 25,
+      wrvuPercentileAboveRange: ctx.wrvuPercentile > 90,
+      marketTCC_25: market.TCC_25,
+      marketTCC_50: market.TCC_50,
+      marketTCC_75: market.TCC_75,
+      marketTCC_90: market.TCC_90,
+      marketWRVU_25: market.WRVU_25,
+      marketWRVU_50: market.WRVU_50,
+      marketWRVU_75: market.WRVU_75,
+      marketWRVU_90: market.WRVU_90,
+    }
+  }, [selectedProviderContext, row, settings, marketRows, synonymMap])
+
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next) setSelectedProviderContext(null)
+      onOpenChange(next)
+    },
+    [onOpenChange]
+  )
+
   if (!row) return null
 
   const divisions = [
@@ -79,11 +178,19 @@ export function OptimizerDetailDrawer({
         : Minus
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[620px] md:max-w-[680px] border-border"
+        className="flex w-full flex-col gap-6 overflow-hidden px-6 py-5 sm:max-w-[none] border-border"
+        contentStyle={{ width: drawerWidth, maxWidth: 'none' }}
       >
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize drawer"
+          className="absolute left-0 top-0 bottom-0 z-50 w-2 cursor-col-resize touch-none border-l border-transparent hover:border-primary/30 hover:bg-primary/10"
+          onMouseDown={handleDrawerResize}
+        />
         <SheetHeader className="px-6 pt-6 pb-2 border-b border-border gap-2">
           <SheetTitle className="pr-8 text-xl font-semibold tracking-tight text-foreground">
             {row.specialty}
@@ -253,43 +360,63 @@ export function OptimizerDetailDrawer({
             </section>
           ) : null}
 
-          {/* Providers — frozen header: only table body scrolls so column headers stay visible */}
+          {/* Providers — sticky header so column headers stay visible when scrolling */}
           <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
               Providers ({row.providerContexts.length})
             </h3>
             <div className="min-h-[240px] max-h-[420px] overflow-auto rounded-lg border border-border/60">
-              <ProviderDrilldownTable row={row} />
+              <ProviderDrilldownTable
+                row={row}
+                onSelectProvider={settings && marketRows ? setSelectedProviderContext : undefined}
+              />
             </div>
           </section>
         </div>
       </SheetContent>
+
+      {providerDetailForDrawer ? (
+        <MarketPositioningCalculationDrawer
+          open={!!selectedProviderContext}
+          onOpenChange={(next) => !next && setSelectedProviderContext(null)}
+          onBack={() => setSelectedProviderContext(null)}
+          provider={providerDetailForDrawer}
+          specialtyLabel={row.specialty}
+        />
+      ) : null}
     </Sheet>
   )
 }
 
-function ProviderDrilldownTable({ row }: { row: OptimizerSpecialtyResult }) {
+function ProviderDrilldownTable({
+  row,
+  onSelectProvider,
+}: {
+  row: OptimizerSpecialtyResult
+  onSelectProvider?: (ctx: OptimizerProviderContext) => void
+}) {
   return (
     <Table className="w-full caption-bottom text-sm">
-      <TableHeader className="sticky top-0 z-20 border-b border-border/60 [&_th]:text-foreground">
-        <TableRow>
-          <TableHead className="min-w-[140px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Provider</TableHead>
-          <TableHead className="min-w-[100px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Division</TableHead>
-          <TableHead className="min-w-[100px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Type / Role</TableHead>
-          <TableHead className="min-w-[88px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">wRVU %</TableHead>
-          <TableHead className="min-w-[100px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">TCC %</TableHead>
-          <TableHead className="min-w-[72px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">Gap</TableHead>
-          <TableHead className="min-w-[80px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">Incentive (current)</TableHead>
-          <TableHead className="min-w-[80px] bg-slate-100 text-right px-3 py-2.5 font-medium dark:bg-slate-800">Incentive (modeled)</TableHead>
-          <TableHead className="min-w-[72px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Included</TableHead>
-          <TableHead className="min-w-[140px] bg-slate-100 px-3 py-2.5 font-medium dark:bg-slate-800">Reasons</TableHead>
+      <TableHeader className="border-b border-border/60 [&_th]:text-foreground">
+        <TableRow className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:border-b [&_th]:border-border/60 [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_hsl(var(--border))]">
+          <TableHead className="min-w-[140px] px-3 py-2.5 font-medium">Provider</TableHead>
+          <TableHead className="min-w-[100px] px-3 py-2.5 font-medium">Division</TableHead>
+          <TableHead className="min-w-[100px] px-3 py-2.5 font-medium">Type / Role</TableHead>
+          <TableHead className="min-w-[88px] text-right px-3 py-2.5 font-medium">wRVU %</TableHead>
+          <TableHead className="min-w-[100px] text-right px-3 py-2.5 font-medium">TCC %</TableHead>
+          <TableHead className="min-w-[72px] text-right px-3 py-2.5 font-medium">Gap</TableHead>
+          <TableHead className="min-w-[80px] text-right px-3 py-2.5 font-medium">Incentive (current)</TableHead>
+          <TableHead className="min-w-[80px] text-right px-3 py-2.5 font-medium">Incentive (modeled)</TableHead>
+          <TableHead className="min-w-[72px] px-3 py-2.5 font-medium">Included</TableHead>
+          <TableHead className="min-w-[140px] px-3 py-2.5 font-medium">Reasons</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {row.providerContexts.map((ctx, i) => (
           <TableRow
             key={ctx.providerId}
-            className={i % 2 === 1 ? 'bg-muted/30' : undefined}
+            className={`${i % 2 === 1 ? 'bg-muted/30' : ''} ${onSelectProvider ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+            onClick={onSelectProvider ? () => onSelectProvider(ctx) : undefined}
           >
             <TableCell className="min-w-[140px] font-medium px-3 py-2.5">
               {ctx.provider.providerName ?? ctx.providerId}

@@ -17,6 +17,9 @@ export function OptimizerRunStage({
   onStartOver,
   onExport,
   onOpenCFSweep,
+  settings,
+  marketRows = [],
+  synonymMap = {},
 }: {
   hasData: boolean
   result: OptimizerRunResult | null
@@ -28,6 +31,9 @@ export function OptimizerRunStage({
   onStartOver: () => void
   onExport: () => void
   onOpenCFSweep?: () => void
+  settings?: import('@/types/optimizer').OptimizerSettings | null
+  marketRows?: import('@/types/market').MarketRow[]
+  synonymMap?: Record<string, string>
 }) {
   return (
     <Card>
@@ -119,7 +125,12 @@ export function OptimizerRunStage({
                   Pay vs productivity: when TCC percentile is higher than wRVU percentile, pay is generally above productivity; when wRVU percentile is higher, underpaid. The optimizer adjusts CF toward alignment.
                 </p>
 
-                <OptimizerReviewWorkspace rows={result.bySpecialty} />
+                <OptimizerReviewWorkspace
+                  rows={result.bySpecialty}
+                  settings={settings}
+                  marketRows={marketRows}
+                  synonymMap={synonymMap}
+                />
 
                 <details className="group rounded-lg border border-border/70 bg-card text-sm">
                   <summary className="cursor-pointer list-none p-3 font-medium text-muted-foreground [&::-webkit-details-marker]:hidden">

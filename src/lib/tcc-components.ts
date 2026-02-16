@@ -30,6 +30,20 @@ export const TCC_BUILTIN_COMPONENTS: TCCComponentDefinition[] = [
     description: 'Target = clinical $ ÷ CF; incentive if wRVUs exceed target.',
     type: 'computed',
   },
+  {
+    id: 'otherIncentives',
+    label: 'Other incentives',
+    description: 'From provider file (e.g. retention, sign-on bonuses).',
+    type: 'from_file',
+    supportsNormalizeForFTE: true,
+  },
+  {
+    id: 'stipend',
+    label: 'Stipend / non-clinical pay',
+    description: 'From provider file (admin carveouts, stipends).',
+    type: 'from_file',
+    supportsNormalizeForFTE: true,
+  },
 ]
 
 /** All built-in component IDs. */
@@ -48,7 +62,47 @@ export type TCCComponentInclusion = Record<string, { included: boolean; normaliz
 export const DEFAULT_TCC_COMPONENT_INCLUSION: TCCComponentInclusion = {
   quality: { included: true },
   workRVUIncentive: { included: true },
+  otherIncentives: { included: false },
+  stipend: { included: false },
 }
+
+/** TCC definition presets for quick scenario switching. */
+export type TCCDefinitionPresetId = 'base_productivity_only' | 'base_quality_productivity' | 'full_tcc' | 'custom'
+
+export interface TCCDefinitionPreset {
+  id: TCCDefinitionPresetId
+  label: string
+  description: string
+  /** Component inclusion for this preset; custom has no effect (user edits manually). */
+  inclusion: TCCComponentInclusion
+}
+
+export const TCC_DEFINITION_PRESETS: TCCDefinitionPreset[] = [
+  {
+    id: 'base_productivity_only',
+    label: 'Base + productivity only',
+    description: 'Clinical base and work RVU incentive only.',
+    inclusion: { quality: { included: false }, workRVUIncentive: { included: true }, otherIncentives: { included: false }, stipend: { included: false } },
+  },
+  {
+    id: 'base_quality_productivity',
+    label: 'Base + quality + productivity',
+    description: 'Clinical base, quality payments, and work RVU incentive (typical survey TCC).',
+    inclusion: { quality: { included: true }, workRVUIncentive: { included: true }, otherIncentives: { included: false }, stipend: { included: false } },
+  },
+  {
+    id: 'full_tcc',
+    label: 'Full TCC',
+    description: 'All components: base, quality, productivity, other incentives, stipend.',
+    inclusion: { quality: { included: true }, workRVUIncentive: { included: true }, otherIncentives: { included: true }, stipend: { included: true } },
+  },
+  {
+    id: 'custom',
+    label: 'Custom',
+    description: 'Manually choose components and layers below.',
+    inclusion: {}, // no-op when applied
+  },
+]
 
 /** Custom TCC column from upload: user maps a file column to a TCC component. */
 export interface CustomTCCColumnDefinition {

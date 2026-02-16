@@ -10,6 +10,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { OptimizerSpecialtyResult } from '@/types/optimizer'
+import type { OptimizerSettings } from '@/types/optimizer'
+import type { MarketRow } from '@/types/market'
 import type { GapInterpretation } from '@/features/optimizer/components/optimizer-constants'
 import { getGapInterpretation, GAP_INTERPRETATION_LABEL } from '@/features/optimizer/components/optimizer-constants'
 import { OptimizerResultsTable } from '@/features/optimizer/components/optimizer-results-table'
@@ -40,7 +42,17 @@ const PAY_VS_PRODUCTIVITY_OPTIONS: { value: 'all' | GapInterpretation; label: st
   { value: 'aligned', label: GAP_INTERPRETATION_LABEL.aligned },
 ]
 
-export function OptimizerReviewWorkspace({ rows }: { rows: OptimizerSpecialtyResult[] }) {
+export function OptimizerReviewWorkspace({
+  rows,
+  settings = null,
+  marketRows = [],
+  synonymMap = {},
+}: {
+  rows: OptimizerSpecialtyResult[]
+  settings?: OptimizerSettings | null
+  marketRows?: MarketRow[]
+  synonymMap?: Record<string, string>
+}) {
   const [search, setSearch] = useState('')
   const [payVsProductivity, setPayVsProductivity] = useState<'all' | GapInterpretation>('all')
   const [recommendation, setRecommendation] = useState<string>('all')
@@ -132,6 +144,9 @@ export function OptimizerReviewWorkspace({ rows }: { rows: OptimizerSpecialtyRes
         row={detailRow}
         open={drawerOpen}
         onOpenChange={handleDrawerClose}
+        settings={settings}
+        marketRows={marketRows}
+        synonymMap={synonymMap}
       />
     </div>
   )
