@@ -2,6 +2,37 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '@/hooks/use-app-state'
 import { computeScenario } from '@/lib/compute'
 import { AppLayout, type AppStep } from '@/components/layout/app-layout'
+
+/**
+ * Persist current app step (and batch card when applicable) in sessionStorage so that
+ * reload restores the user's screen. Aligns with enterprise UX: user at center, no loss of
+ * context on refresh. sessionStorage is tab-scoped and clears when the tab closes (governance-friendly).
+ * Only screen identifiers are stored; no provider/market or other sensitive data.
+ */
+const SESSION_STEP_KEY = 'cf-modeler-app-step'
+const SESSION_BATCH_CARD_KEY = 'cf-modeler-batch-card'
+
+const VALID_APP_STEPS: AppStep[] = ['upload', 'data', 'modeller', 'batch-scenario', 'batch-results', 'compare-scenarios', 'reports', 'help']
+const VALID_BATCH_CARDS: BatchCardId[] = ['cf-optimizer', 'imputed-vs-market', 'bulk-scenario', 'detailed-scenario']
+
+function getInitialStepAndBatchCard(): { step: AppStep; batchCard: BatchCardId | null } {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return { step: 'upload', batchCard: null }
+  }
+  try {
+    const savedStep = window.sessionStorage.getItem(SESSION_STEP_KEY)
+    const step = (VALID_APP_STEPS as string[]).includes(savedStep ?? '') ? (savedStep as AppStep) : 'upload'
+    const batchCard = step === 'batch-scenario'
+      ? (() => {
+          const saved = window.sessionStorage.getItem(SESSION_BATCH_CARD_KEY)
+          return (VALID_BATCH_CARDS as string[]).includes(saved ?? '') ? (saved as BatchCardId) : null
+        })()
+      : null
+    return { step, batchCard }
+  } catch {
+    return { step: 'upload', batchCard: null }
+  }
+}
 import { UploadAndMapping } from '@/components/upload-and-mapping'
 import { MarketDataCard, ProviderStatisticsContent } from '@/components/modeller-top-section'
 import { SpecialtySelect } from '@/components/specialty-select'
@@ -117,15 +148,32 @@ export default function App() {
     deleteSavedOptimizerConfig,
   } = useAppState()
 
-  const [step, setStep] = useState<AppStep>('upload')
+  const { step: initialStep, batchCard: initialBatchCard } = getInitialStepAndBatchCard()
+  const [step, setStep] = useState<AppStep>(initialStep)
+  const [batchCard, setBatchCard] = useState<BatchCardId | null>(initialBatchCard)
   const [modelMode, setModelMode] = useState<ModelMode>('existing')
   const [modellerStep, setModellerStep] = useState<ModellerStep>('provider')
   const [newProviderForm, setNewProviderForm] = useState<NewProviderFormValues>(DEFAULT_NEW_PROVIDER)
-  const [batchCard, setBatchCard] = useState<BatchCardId | null>(null)
   const [dataTab, setDataTab] = useState<'providers' | 'market'>('providers')
   const [modellerSaveDialogOpen, setModellerSaveDialogOpen] = useState(false)
   const [uploadSaveDialogOpen, setUploadSaveDialogOpen] = useState(false)
   const [reportLibraryFocusKey, setReportLibraryFocusKey] = useState(0)
+
+  // Persist current screen to sessionStorage so reload restores where the user was (enterprise UX standard).
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.setItem(SESSION_STEP_KEY, step)
+        if (step === 'batch-scenario' && batchCard) {
+          window.sessionStorage.setItem(SESSION_BATCH_CARD_KEY, batchCard)
+        } else {
+          window.sessionStorage.removeItem(SESSION_BATCH_CARD_KEY)
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, [step, batchCard])
 
   const handleStepChange = (newStep: AppStep, dataTabOption?: 'providers' | 'market') => {
     setStep(newStep)
