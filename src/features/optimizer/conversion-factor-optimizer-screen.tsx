@@ -491,17 +491,24 @@ export function ConversionFactorOptimizerScreen({
             <>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSaveScenarioDialogOpen(true)}
-                    aria-label="Save scenario"
-                  >
-                    <Save className="size-4" />
-                  </Button>
+                  <span className={result == null ? 'inline-flex' : ''}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => result != null && setSaveScenarioDialogOpen(true)}
+                      aria-label="Save scenario"
+                      disabled={result == null}
+                    >
+                      <Save className="size-4" />
+                    </Button>
+                  </span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Save scenario</TooltipContent>
+                <TooltipContent side="bottom">
+                  {result == null
+                    ? 'Run the optimizer first, then save this scenario to compare later.'
+                    : 'Save scenario'}
+                </TooltipContent>
               </Tooltip>
               {savedOptimizerConfigs.length > 0 && onLoadOptimizerConfig ? (
                 <DropdownMenu>

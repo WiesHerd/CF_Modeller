@@ -28,10 +28,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type {
+  BudgetConstraintKind,
   OptimizationObjective,
   OptimizerErrorMetric,
   OptimizerSettings,
 } from '@/types/optimizer'
+import { DEFAULT_BUDGET_CONSTRAINT } from '@/types/optimizer'
 
 /** Minimum provider count above which we recommend MSE (avoid a few large misalignments). */
 const ERROR_METRIC_LARGE_COHORT_THRESHOLD = 30
@@ -183,16 +185,51 @@ export function OptimizerConfigureStage({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Gauge className="size-6" aria-hidden />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Gauge className="size-6" aria-hidden />
+            </div>
+            <div>
+              <CardTitle className="leading-tight">Conversion Factor Optimizer</CardTitle>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                Configure target scope and guardrails, then run optimization.
+              </p>
+            </div>
           </div>
-          <div>
-            <CardTitle className="leading-tight">Conversion Factor Optimizer</CardTitle>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Configure target scope and guardrails, then run optimization.
-            </p>
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <nav
+              className="flex items-center gap-0.5 rounded-md p-0.5 bg-muted/50"
+              aria-label="Configuration steps"
+            >
+              {CONFIG_STEPS.map((step) => {
+                const isActive = configStep === step.id
+                return (
+                  <Tooltip key={step.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => onSetConfigStep(step.id)}
+                        aria-current={isActive ? 'step' : undefined}
+                        aria-label={`${step.label}${isActive ? ' (current)' : ''}`}
+                        className={cn(
+                          'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium transition-colors',
+                          isActive
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )}
+                      >
+                        {step.id}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {step.label}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </nav>
+          </TooltipProvider>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -653,6 +690,97 @@ export function OptimizerConfigureStage({
                   </>
                 )
               })()}
+            </div>
+          </div>
+          <div className="mt-4 space-y-3 border-t border-border/40 pt-4">
+            <SectionHeaderWithTooltip
+              title="Budget constraint"
+              tooltip="Optional budget assumption for this scenario. None = no constraint. Neutral = assume budget-neutral. Cap by % or $ = cap total incentive spend at a percentage of baseline or a dollar amount. Stored with the scenario for comparison; the optimizer does not currently enforce caps."
+            />
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-2">
+                <Label>Kind</Label>
+                <Select
+                  value={settings.budgetConstraint?.kind ?? 'none'}
+                  onValueChange={(value: BudgetConstraintKind) => {
+                    const kind = value as BudgetConstraintKind
+                    onSetSettings((prev) => ({
+                      ...prev,
+                      budgetConstraint: {
+                        kind,
+                        ...(kind === 'cap_pct' ? { capPct: prev.budgetConstraint?.capPct ?? 0, capDollars: undefined } : {}),
+                        ...(kind === 'cap_dollars' ? { capDollars: prev.budgetConstraint?.capDollars ?? 0, capPct: undefined } : {}),
+                        ...(kind === 'none' || kind === 'neutral' ? { capPct: undefined, capDollars: undefined } : {}),
+                      },
+                    }))
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="neutral">Neutral</SelectItem>
+                    <SelectItem value="cap_pct">Cap by %</SelectItem>
+                    <SelectItem value="cap_dollars">Cap by $</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(settings.budgetConstraint?.kind ?? 'none') === 'cap_pct' ? (
+                <div className="space-y-2">
+                  <Label>Cap at % of baseline</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={200}
+                    step={1}
+                    value={settings.budgetConstraint?.capPct ?? ''}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      const num = raw === '' ? undefined : Number(raw)
+                      const val = num == null ? undefined : Math.max(0, Math.min(200, Number.isNaN(num) ? 0 : num))
+                      onSetSettings((prev) => ({
+                        ...prev,
+                        budgetConstraint: {
+                          ...(prev.budgetConstraint ?? DEFAULT_BUDGET_CONSTRAINT),
+                          kind: 'cap_pct',
+                          capPct: val,
+                          capDollars: undefined,
+                        },
+                      }))
+                    }}
+                    placeholder="e.g. 100"
+                    className="w-24"
+                  />
+                </div>
+              ) : null}
+              {(settings.budgetConstraint?.kind ?? 'none') === 'cap_dollars' ? (
+                <div className="space-y-2">
+                  <Label>Cap at $</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1000}
+                    value={settings.budgetConstraint?.capDollars ?? ''}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      const num = raw === '' ? undefined : Number(raw)
+                      const val = num == null ? undefined : Math.max(0, Number.isNaN(num) ? 0 : num)
+                      onSetSettings((prev) => ({
+                        ...prev,
+                        budgetConstraint: {
+                          ...(prev.budgetConstraint ?? DEFAULT_BUDGET_CONSTRAINT),
+                          kind: 'cap_dollars',
+                          capDollars: val,
+                          capPct: undefined,
+                        },
+                      }))
+                    }}
+                    placeholder="e.g. 5000000"
+                    className="w-32"
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
                 </div>

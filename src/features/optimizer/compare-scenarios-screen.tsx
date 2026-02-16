@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { CompareScenariosContent } from '@/features/optimizer/components/compare-scenarios-content'
 import { exportComparisonToExcel } from '@/lib/compare-scenarios-export'
-import type { OptimizerScenarioComparison, SavedOptimizerConfig } from '@/types/optimizer'
+import type { OptimizerScenarioComparisonN, SavedOptimizerConfig } from '@/types/optimizer'
 
 export interface CompareScenariosScreenProps {
   savedOptimizerConfigs: SavedOptimizerConfig[]
@@ -16,13 +16,12 @@ export function CompareScenariosScreen({
   onBack,
 }: CompareScenariosScreenProps) {
   const [comparisonData, setComparisonData] = useState<{
-    comparison: OptimizerScenarioComparison
-    nameA: string
-    nameB: string
+    comparison: OptimizerScenarioComparisonN
+    scenarioNames: string[]
   } | null>(null)
 
   const handleComparisonChange = useCallback(
-    (data: { comparison: OptimizerScenarioComparison; nameA: string; nameB: string } | null) => {
+    (data: { comparison: OptimizerScenarioComparisonN; scenarioNames: string[] } | null) => {
       setComparisonData(data)
     },
     []
@@ -30,7 +29,7 @@ export function CompareScenariosScreen({
 
   const handleExportExcel = useCallback(() => {
     if (!comparisonData) return
-    exportComparisonToExcel(comparisonData.comparison, comparisonData.nameA, comparisonData.nameB)
+    exportComparisonToExcel(comparisonData.comparison, comparisonData.scenarioNames)
   }, [comparisonData])
 
   const reportDate = new Date().toLocaleDateString(undefined, {
@@ -41,11 +40,11 @@ export function CompareScenariosScreen({
   })
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <SectionTitleWithIcon icon={<GitCompare className="size-5 text-muted-foreground" />}>
         Compare scenarios
       </SectionTitleWithIcon>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button
           type="button"
           variant="outline"

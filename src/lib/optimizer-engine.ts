@@ -1246,6 +1246,15 @@ export function runOptimizerAllSpecialties(
     }
   }
 
+  const totalIncentiveDollars = bySpecialtyResult.reduce((sum, row) => {
+    for (const ctx of row.providerContexts) {
+      if (ctx.included && ctx.modeledIncentiveDollars != null) {
+        sum += ctx.modeledIncentiveDollars
+      }
+    }
+    return sum
+  }, 0)
+
   const summary: OptimizerRunSummary = {
     scenarioId: options.scenarioId,
     scenarioName: options.scenarioName,
@@ -1255,6 +1264,7 @@ export function runOptimizerAllSpecialties(
     providersExcluded: excludedList.length,
     topExclusionReasons,
     totalSpendImpactRaw: bySpecialtyResult.reduce((s, r) => s + r.spendImpactRaw, 0),
+    totalIncentiveDollars,
     countMeetingAlignmentTarget: bySpecialtyResult.filter((r) => r.flags.indexOf('not_converged') === -1).length,
     countCFAbovePolicy: bySpecialtyResult.filter((r) => r.policyCheck !== 'ok').length,
     countEffectiveRateAbove90: bySpecialtyResult.filter((r) => r.effectiveRateFlag).length,

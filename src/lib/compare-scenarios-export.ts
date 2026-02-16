@@ -1,14 +1,15 @@
 /**
  * Export scenario comparison as a single-sheet, report-style Excel file
  * with clear sections, formatted numbers, and readable column widths.
+ * Supports 2–4 scenarios (N-column layout).
  */
 
 import * as XLSX from 'xlsx'
 import type {
-  BudgetConstraint,
   OptimizationObjective,
-  OptimizerScenarioComparison,
+  OptimizerScenarioComparisonN,
 } from '@/types/optimizer'
+import { formatBudgetConstraint } from '@/lib/optimizer-format'
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat(undefined, {
@@ -38,23 +39,15 @@ function formatObjective(obj: OptimizationObjective): string {
   }
 }
 
-function formatBudgetConstraint(b: BudgetConstraint): string {
-  if (b.kind === 'none') return 'None'
-  if (b.kind === 'neutral') return 'Neutral'
-  if (b.kind === 'cap_pct' && b.capPct != null) return `Cap ${b.capPct}%`
-  if (b.kind === 'cap_dollars' && b.capDollars != null) return `Cap ${formatCurrency(b.capDollars)}`
-  return b.kind
-}
-
-/** Build a single-sheet report (array of arrays) for the comparison. */
+/** Build a single-sheet report (array of arrays) for the N-scenario comparison. */
 function buildReportRows(
-  comparison: OptimizerScenarioComparison,
-  nameA: string,
-  nameB: string,
+  comparison: OptimizerScenarioComparisonN,
+  scenarioNames: string[],
   generatedDate: string
 ): (string | number)[][] {
-  const { rollup, assumptions, bySpecialty, narrativeSummary } = comparison
-  const bullets = Array.isArray(narrativeSummary) ? narrativeSummary : [narrativeSummary]
+  const { scenarios, rollup, assumptionsPerScenario, bySpecialty, narrativeSummary } = comparison
+  const n = scenarios.length
+  const names = scenarioNames.length >= n ? scenarioNames.slice(0, n) : scenarios.map((s) => s.name)
 
   const rows: (string | number)[][] = []
 
@@ -67,96 +60,138 @@ function buildReportRows(
 
   // ----- Scenarios -----
   rows.push(['Scenarios', ''])
-  rows.push(['Scenario A', nameA])
-  rows.push(['Scenario B', nameB])
+  scenarios.forEach((s, i) => {
+    rows.push([`Scenario ${i + 1}`, s.name])
+  })
   rows.push([''])
 
   // ----- Summary -----
   rows.push(['Summary', ''])
-  for (const line of bullets) {
+  for (const line of narrativeSummary) {
     rows.push([line, ''])
   }
   rows.push([''])
 
   // ----- Roll-up metrics -----
-  rows.push(['Roll-up metrics', '', '', ''])
-  rows.push(['Metric', nameA, nameB, 'Change'])
-  const rollupPairs: [string, string, string, string][] = [
-    ['Total spend impact', formatCurrency(rollup.totalSpendImpactA), formatCurrency(rollup.totalSpendImpactB), rollup.deltaSpendImpact !== 0 ? formatCurrency(rollup.deltaSpendImpact) + (rollup.deltaSpendImpactPct != null ? ` (${rollup.deltaSpendImpactPct > 0 ? '+' : ''}${rollup.deltaSpendImpactPct.toFixed(1)}%)` : '') : '—'],
-    ['Work RVU incentive (modeled)', formatCurrency(rollup.totalIncentiveA), formatCurrency(rollup.totalIncentiveB), rollup.deltaIncentive !== 0 ? formatCurrency(rollup.deltaIncentive) : '—'],
-    ['Mean TCC percentile', formatPercentile(rollup.meanTCCPercentileA), formatPercentile(rollup.meanTCCPercentileB), '—'],
-    ['Mean wRVU percentile', formatPercentile(rollup.meanWRVUPercentileA), formatPercentile(rollup.meanWRVUPercentileB), '—'],
-    ['Specialties aligned', String(rollup.countMeetingAlignmentTargetA), String(rollup.countMeetingAlignmentTargetB), '—'],
-    ['CF above policy', String(rollup.countCFAbovePolicyA), String(rollup.countCFAbovePolicyB), '—'],
-    ['Effective rate >90th', String(rollup.countEffectiveRateAbove90A), String(rollup.countEffectiveRateAbove90B), '—'],
-  ]
-  for (const r of rollupPairs) {
-    rows.push(r)
+  const metricHeader = ['Metric', ...names]
+  if (n === 2) metricHeader.push('Change')
+  rows.push(['Roll-up metrics', ...Array(metricHeader.length - 1).fill('')])
+  rows.push(metricHeader)
+
+  const spend0 = rollup.totalSpendImpactByScenario[scenarios[0].id] ?? 0
+  const spend1 = n >= 2 ? (rollup.totalSpendImpactByScenario[scenarios[1].id] ?? 0) : 0
+  const deltaSpend = n === 2 ? spend1 - spend0 : 0
+  const deltaSpendPct = n === 2 && spend0 !== 0 ? (deltaSpend / Math.abs(spend0)) * 100 : null
+  const inc0 = rollup.totalIncentiveByScenario[scenarios[0].id] ?? 0
+  const inc1 = n >= 2 ? (rollup.totalIncentiveByScenario[scenarios[1].id] ?? 0) : 0
+  const deltaIncentive = n === 2 ? inc1 - inc0 : 0
+
+  const rollupRow = (label: string, values: (string | number)[], change?: string) => {
+    const row = [label, ...values]
+    if (n === 2 && change !== undefined) row.push(change)
+    rows.push(row)
   }
+
+  rollupRow(
+    'Total spend impact',
+    scenarios.map((s) => formatCurrency(rollup.totalSpendImpactByScenario[s.id] ?? 0)),
+    n === 2 ? (deltaSpend !== 0 ? formatCurrency(deltaSpend) + (deltaSpendPct != null ? ` (${deltaSpendPct > 0 ? '+' : ''}${deltaSpendPct.toFixed(1)}%)` : '') : '—') : undefined
+  )
+  rollupRow(
+    'Work RVU incentive (modeled)',
+    scenarios.map((s) => formatCurrency(rollup.totalIncentiveByScenario[s.id] ?? 0)),
+    n === 2 ? (deltaIncentive !== 0 ? formatCurrency(deltaIncentive) : '—') : undefined
+  )
+  rollupRow(
+    'Budget (cap)',
+    assumptionsPerScenario.map((a) => formatBudgetConstraint(a.budgetConstraint))
+  )
+  rollupRow(
+    'Incentive vs budget',
+    scenarios.map((s) => {
+      const a = assumptionsPerScenario.find((ap) => ap.scenarioId === s.id)
+      const cap = a?.budgetConstraint?.kind === 'cap_dollars' && a.budgetConstraint.capDollars != null ? a.budgetConstraint.capDollars : null
+      if (cap == null) return '—'
+      const incentive = rollup.totalIncentiveByScenario[s.id] ?? 0
+      const over = incentive - cap
+      if (over > 0) return `Over by ${formatCurrency(over)}`
+      if (over < 0) return `Under by ${formatCurrency(Math.abs(over))}`
+      return 'Within budget'
+    })
+  )
+  rollupRow(
+    'Mean TCC percentile',
+    scenarios.map((s) => formatPercentile(rollup.meanTCCPercentileByScenario[s.id] ?? 0))
+  )
+  rollupRow(
+    'Mean wRVU percentile',
+    scenarios.map((s) => formatPercentile(rollup.meanWRVUPercentileByScenario[s.id] ?? 0))
+  )
+  rollupRow(
+    'Specialties aligned',
+    scenarios.map((s) => String(rollup.countMeetingAlignmentTargetByScenario[s.id] ?? 0))
+  )
+  rollupRow(
+    'CF above policy',
+    scenarios.map((s) => String(rollup.countCFAbovePolicyByScenario[s.id] ?? 0))
+  )
+  rollupRow(
+    'Effective rate >90th',
+    scenarios.map((s) => String(rollup.countEffectiveRateAbove90ByScenario[s.id] ?? 0))
+  )
   rows.push([''])
 
   // ----- Assumptions -----
-  rows.push(['Assumptions', '', ''])
-  rows.push(['Setting', nameA, nameB])
-  rows.push(['Productivity gain (wRVU growth %)', assumptions.wRVUGrowthFactorPctA != null ? `${assumptions.wRVUGrowthFactorPctA}%` : '—', assumptions.wRVUGrowthFactorPctB != null ? `${assumptions.wRVUGrowthFactorPctB}%` : '—'])
-  rows.push(['Objective', formatObjective(assumptions.objectiveA), formatObjective(assumptions.objectiveB)])
-  rows.push(['Budget constraint', formatBudgetConstraint(assumptions.budgetConstraintA), formatBudgetConstraint(assumptions.budgetConstraintB)])
-  rows.push(['Providers included', String(assumptions.providersIncludedA), String(assumptions.providersIncludedB)])
-  rows.push(['Providers excluded', String(assumptions.providersExcludedA), String(assumptions.providersExcludedB)])
-  rows.push(['Hard cap (TCC %ile)', String(assumptions.governanceA.hardCapPercentile), String(assumptions.governanceB.hardCapPercentile)])
+  rows.push(['Assumptions', ...Array(Math.max(0, n - 1)).fill('')])
+  rows.push(['Setting', ...names])
+  rows.push(['Productivity gain (wRVU growth %)', ...assumptionsPerScenario.map((x) => (x.wRVUGrowthFactorPct != null ? `${x.wRVUGrowthFactorPct}%` : '—'))])
+  rows.push(['Objective', ...assumptionsPerScenario.map((a) => formatObjective(a.optimizationObjective))])
+  rows.push(['Budget constraint', ...assumptionsPerScenario.map((a) => formatBudgetConstraint(a.budgetConstraint))])
+  rows.push(['Providers included', ...assumptionsPerScenario.map((a) => String(a.providersIncluded))])
+  rows.push(['Providers excluded', ...assumptionsPerScenario.map((a) => String(a.providersExcluded))])
+  rows.push(['Hard cap (TCC %ile)', ...assumptionsPerScenario.map((a) => String(a.governanceConfig.hardCapPercentile))])
   rows.push([''])
 
   // ----- By specialty -----
-  rows.push(['By specialty', '', '', '', '', '', '', '', '', ''])
-  rows.push([
-    'Specialty',
-    'Presence',
-    `CF (${nameA})`,
-    `CF (${nameB})`,
-    'Δ CF %',
-    `Spend (${nameA})`,
-    `Spend (${nameB})`,
-    'Δ Spend',
-    `TCC %ile (${nameA})`,
-    `TCC %ile (${nameB})`,
-  ])
+  const bySpecHeaders = ['Specialty', 'Presence']
+  scenarios.forEach((s) => {
+    bySpecHeaders.push(`CF (${s.name})`)
+  })
+  scenarios.forEach((s) => {
+    bySpecHeaders.push(`Spend (${s.name})`)
+  })
+  scenarios.forEach((s) => {
+    bySpecHeaders.push(`TCC %ile (${s.name})`)
+  })
+  rows.push(['By specialty', ...Array(bySpecHeaders.length - 1).fill('')])
+  rows.push(bySpecHeaders)
   for (const row of bySpecialty) {
-    const presence = row.presence === 'both' ? 'Both' : row.presence === 'a_only' ? 'A only' : 'B only'
-    rows.push([
+    const presenceLabel = row.scenarioIds.length === n ? 'All' : scenarios.filter((s) => row.scenarioIds.includes(s.id)).map((s) => s.name).join(', ')
+    const r: (string | number)[] = [
       row.specialty,
-      presence,
-      row.recommendedCFA != null ? row.recommendedCFA.toFixed(2) : '—',
-      row.recommendedCFB != null ? row.recommendedCFB.toFixed(2) : '—',
-      row.deltaCFPct != null ? `${row.deltaCFPct >= 0 ? '+' : ''}${row.deltaCFPct.toFixed(1)}%` : '—',
-      row.spendImpactA != null ? formatCurrency(row.spendImpactA) : '—',
-      row.spendImpactB != null ? formatCurrency(row.spendImpactB) : '—',
-      row.deltaSpendImpact != null ? formatCurrency(row.deltaSpendImpact) : '—',
-      row.meanTCCPercentileA != null ? formatPercentile(row.meanTCCPercentileA) : '—',
-      row.meanTCCPercentileB != null ? formatPercentile(row.meanTCCPercentileB) : '—',
-    ])
+      presenceLabel,
+      ...scenarios.map((s) => (row.recommendedCFByScenario[s.id] != null ? row.recommendedCFByScenario[s.id]!.toFixed(2) : '—')),
+      ...scenarios.map((s) => (row.spendImpactByScenario[s.id] != null ? formatCurrency(row.spendImpactByScenario[s.id]!) : '—')),
+      ...scenarios.map((s) => (row.meanModeledTCCPercentileByScenario[s.id] != null ? formatPercentile(row.meanModeledTCCPercentileByScenario[s.id]!) : '—')),
+    ]
+    rows.push(r)
   }
 
   return rows
 }
 
 /** Column widths (in characters) for the report sheet. */
-const REPORT_COL_WIDTHS = [
-  { wch: 32 }, // col A: labels / specialty
-  { wch: 28 }, // col B: scenario A / value
-  { wch: 28 }, // col C: scenario B / value
-  { wch: 20 }, // col D: change
-  { wch: 16 }, // col E–J: by-specialty numeric
-  { wch: 16 },
-  { wch: 16 },
-  { wch: 16 },
-  { wch: 16 },
-  { wch: 16 },
-]
+function getReportColWidths(n: number): { wch: number }[] {
+  const widths = [{ wch: 32 }, { wch: 12 }]
+  for (let i = 0; i < n * 3 + 2; i++) {
+    widths.push({ wch: 16 })
+  }
+  return widths
+}
 
 export function exportComparisonToExcel(
-  comparison: OptimizerScenarioComparison,
-  nameA: string,
-  nameB: string
+  comparison: OptimizerScenarioComparisonN,
+  scenarioNames: string[]
 ): void {
   const generatedDate = new Date().toLocaleDateString(undefined, {
     weekday: 'short',
@@ -165,10 +200,10 @@ export function exportComparisonToExcel(
     day: 'numeric',
   })
 
-  const data = buildReportRows(comparison, nameA, nameB, generatedDate)
+  const data = buildReportRows(comparison, scenarioNames, generatedDate)
   const ws = XLSX.utils.aoa_to_sheet(data)
 
-  ws['!cols'] = REPORT_COL_WIDTHS
+  ws['!cols'] = getReportColWidths(comparison.scenarios.length)
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Comparison Report')

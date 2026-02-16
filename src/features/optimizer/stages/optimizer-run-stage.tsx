@@ -2,6 +2,18 @@ import { FileSpreadsheet, Gauge, LineChart, Play, RotateCcw } from 'lucide-react
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { ExclusionReason, OptimizerRunResult } from '@/types/optimizer'
+
+/** Total work RVU incentive $ at recommended CF; uses summary when present, else computes from result (backward compat). */
+function getTotalIncentiveDollars(result: OptimizerRunResult): number {
+  if (result.summary.totalIncentiveDollars != null) return result.summary.totalIncentiveDollars
+  let sum = 0
+  for (const row of result.bySpecialty) {
+    for (const ctx of row.providerContexts) {
+      if (ctx.included && ctx.modeledIncentiveDollars != null) sum += ctx.modeledIncentiveDollars
+    }
+  }
+  return sum
+}
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { EXCLUSION_REASON_LABELS } from '@/features/optimizer/components/optimizer-constants'
 import { OptimizerReviewWorkspace } from '@/features/optimizer/components/optimizer-review-workspace'
@@ -121,6 +133,24 @@ export function OptimizerRunStage({
                   total impact
                 </p>
 
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">Total incentive (CF) spend: </span>
+                  <span className="font-medium tabular-nums">
+                    ${getTotalIncentiveDollars(result).toLocaleString('en-US', {
+                      minimumFractionDigits: 0,
+                      maximumFractionDigits: 0,
+                    })}
+                  </span>
+                </p>
+
+                {settings?.budgetConstraint?.kind === 'cap_dollars' &&
+                settings.budgetConstraint.capDollars != null ? (
+                  <BudgetVsActual
+                    totalIncentive={getTotalIncentiveDollars(result)}
+                    capDollars={settings.budgetConstraint.capDollars}
+                  />
+                ) : null}
+
                 <p className="text-xs text-muted-foreground">
                   Pay vs productivity: when TCC percentile is higher than wRVU percentile, pay is generally above productivity; when wRVU percentile is higher, underpaid. The optimizer adjusts CF toward alignment.
                 </p>
@@ -179,4 +209,30 @@ function formatTopExclusionReasons(reasons: { reason: ExclusionReason; count: nu
   return reasons
     .map(({ reason, count }) => `${EXCLUSION_REASON_LABELS[reason] ?? reason} (${count})`)
     .join(', ')
+}
+
+function BudgetVsActual({ totalIncentive, capDollars }: { totalIncentive: number; capDollars: number }) {
+  const over = totalIncentive - capDollars
+  const isOver = over > 0
+  const isUnder = over < 0
+  const formattedCap = capDollars.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  const formattedDelta = Math.abs(over).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  return (
+    <div className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-sm">
+      <span className="text-muted-foreground">Budget (cap): </span>
+      <span className="font-medium tabular-nums">${formattedCap}</span>
+      {' · '}
+      {isOver ? (
+        <span className="font-medium text-amber-600 dark:text-amber-400">
+          Over by ${formattedDelta}
+        </span>
+      ) : isUnder ? (
+        <span className="font-medium text-emerald-600 dark:text-emerald-400">
+          Under by ${formattedDelta}
+        </span>
+      ) : (
+        <span className="font-medium text-emerald-600 dark:text-emerald-400">Within budget</span>
+      )}
+    </div>
+  )
 }

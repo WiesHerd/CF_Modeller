@@ -479,6 +479,8 @@ export interface OptimizerRunSummary {
   providersExcluded: number
   topExclusionReasons: { reason: ExclusionReason; count: number }[]
   totalSpendImpactRaw: number
+  /** Total work RVU incentive $ at recommended CF across included providers. Optional for backward compat with saved runs. */
+  totalIncentiveDollars?: number
   countMeetingAlignmentTarget: number
   countCFAbovePolicy: number
   countEffectiveRateAbove90: number
@@ -627,7 +629,10 @@ export interface OptimizerComparisonRollup {
   /** Mean TCC percentile (roll-up from bySpecialty keyMetrics). */
   meanTCCPercentileA: number
   meanTCCPercentileB: number
-  /** Mean wRVU percentile. */
+  /** Mean TCC percentile after recommended CF (modeled outcome); differs between scenarios. */
+  meanModeledTCCPercentileA: number
+  meanModeledTCCPercentileB: number
+  /** Mean wRVU percentile (input data — unchanged by CF optimizer, so same for both when same scope). */
   meanWRVUPercentileA: number
   meanWRVUPercentileB: number
   countMeetingAlignmentTargetA: number
@@ -649,8 +654,12 @@ export interface OptimizerComparisonSpecialtyRow {
   spendImpactA: number | null
   spendImpactB: number | null
   deltaSpendImpact: number | null
+  /** Mean TCC percentile at baseline (before recommended CF); same for both runs if same data. */
   meanTCCPercentileA: number | null
   meanTCCPercentileB: number | null
+  /** Mean TCC percentile after applying each run's recommended CF (modeled outcome). */
+  meanModeledTCCPercentileA: number | null
+  meanModeledTCCPercentileB: number | null
   meanWRVUPercentileA: number | null
   meanWRVUPercentileB: number | null
 }
@@ -666,4 +675,65 @@ export interface OptimizerScenarioComparison {
   bySpecialty: OptimizerComparisonSpecialtyRow[]
   /** Narrative summary in provider-compensation terms. Array = bullets, string = single paragraph (legacy). */
   narrativeSummary: string | string[]
+}
+
+// ---------------------------------------------------------------------------
+// Multi-scenario comparison (2–4 scenarios)
+// ---------------------------------------------------------------------------
+
+export const MAX_COMPARE_SCENARIOS = 4
+
+export interface ScenarioInfo {
+  id: string
+  name: string
+}
+
+/** Per-scenario assumptions (one entry per scenario in comparison). */
+export interface OptimizerAssumptionsPerScenario {
+  scenarioId: string
+  scenarioName: string
+  wRVUGrowthFactorPct: number | undefined
+  optimizationObjective: OptimizationObjective
+  governanceConfig: GovernanceConfig
+  providersIncluded: number
+  providersExcluded: number
+  manualExcludeCount: number
+  manualIncludeCount: number
+  budgetConstraint: BudgetConstraint
+  selectedSpecialties: string[]
+}
+
+/** Roll-up metrics keyed by scenario id (supports 2–4 scenarios). */
+export interface OptimizerComparisonRollupN {
+  totalSpendImpactByScenario: Record<string, number>
+  totalIncentiveByScenario: Record<string, number>
+  meanTCCPercentileByScenario: Record<string, number>
+  meanModeledTCCPercentileByScenario: Record<string, number>
+  meanWRVUPercentileByScenario: Record<string, number>
+  countMeetingAlignmentTargetByScenario: Record<string, number>
+  countCFAbovePolicyByScenario: Record<string, number>
+  countEffectiveRateAbove90ByScenario: Record<string, number>
+}
+
+/** One row in the by-specialty comparison table (N scenarios). */
+export interface OptimizerComparisonSpecialtyRowN {
+  specialty: string
+  /** Scenario ids that include this specialty. */
+  scenarioIds: string[]
+  recommendedCFByScenario: Record<string, number | null>
+  spendImpactByScenario: Record<string, number | null>
+  meanTCCPercentileByScenario: Record<string, number | null>
+  meanModeledTCCPercentileByScenario: Record<string, number | null>
+  meanWRVUPercentileByScenario: Record<string, number | null>
+}
+
+/** Full comparison result for 2–4 saved optimizer configs (all with lastRunResult). */
+export interface OptimizerScenarioComparisonN {
+  scenarios: ScenarioInfo[]
+  /** Optional baseline scenario id for delta/vs-baseline display. */
+  baselineScenarioId?: string
+  assumptionsPerScenario: OptimizerAssumptionsPerScenario[]
+  rollup: OptimizerComparisonRollupN
+  bySpecialty: OptimizerComparisonSpecialtyRowN[]
+  narrativeSummary: string[]
 }
