@@ -37,7 +37,6 @@ export function GovernanceFlags({ results }: GovernanceFlagsProps) {
     alignmentGapModeled,
     cfPercentileCurrent,
     cfPercentileModeled,
-    tccPercentile,
     modeledTCCPercentile,
   } = results
 
