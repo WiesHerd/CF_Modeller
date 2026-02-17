@@ -131,6 +131,7 @@ export function OptimizerConfigureStage({
   availableSpecialties,
   availableDivisions,
   availableProviderTypes,
+  availableProvidersForExclusion,
   onRun,
   onSetOptimizationObjective,
   onSetErrorMetric,
@@ -159,6 +160,8 @@ export function OptimizerConfigureStage({
   availableSpecialties: string[]
   availableDivisions: string[]
   availableProviderTypes: string[]
+  /** Providers currently in scope (for "Exclude providers" dropdown). */
+  availableProvidersForExclusion: { id: string; name: string }[]
   onRun: () => void
   onSetOptimizationObjective: (objective: OptimizationObjective) => void
   onSetErrorMetric: (metric: OptimizerErrorMetric) => void
@@ -175,6 +178,7 @@ export function OptimizerConfigureStage({
   const [divisionSearch, setDivisionSearch] = useState('')
   const [providerTypeIncludeSearch, setProviderTypeIncludeSearch] = useState('')
   const [providerTypeSearch, setProviderTypeSearch] = useState('')
+  const [providerExcludeSearch, setProviderExcludeSearch] = useState('')
 
   const filteredSpecialties = useMemo(() => {
     if (!specialtySearch.trim()) return availableSpecialties
@@ -199,6 +203,14 @@ export function OptimizerConfigureStage({
     const q = providerTypeSearch.toLowerCase()
     return availableProviderTypes.filter((t) => t.toLowerCase().includes(q))
   }, [availableProviderTypes, providerTypeSearch])
+
+  const filteredProvidersForExclusion = useMemo(() => {
+    if (!providerExcludeSearch.trim()) return availableProvidersForExclusion
+    const q = providerExcludeSearch.toLowerCase()
+    return availableProvidersForExclusion.filter(
+      (p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)
+    )
+  }, [availableProvidersForExclusion, providerExcludeSearch])
 
   return (
     <Card>
@@ -499,19 +511,87 @@ export function OptimizerConfigureStage({
                         Exclusions and assumptions
                       </Label>
 
-                      {availableProviderTypes.length > 0 ? (
-                        <div className="space-y-2">
-                          <SectionHeaderWithTooltip
-                            title="Exclude provider types"
-                            tooltip="Exclude providers by role or job type (e.g. Division Chief, Medical Director). Add a Provider type / Role column in your provider upload to use this."
-                            className="text-primary/90"
-                          />
-                          <DropdownMenu onOpenChange={(open) => open && setProviderTypeSearch('')}>
+                      <div className="space-y-2">
+                        <SectionHeaderWithTooltip
+                          title="Exclude provider types"
+                          tooltip="Exclude providers by role or job type (e.g. Division Chief, Medical Director). Add a Provider type / Role column in your provider upload to use this."
+                          className="text-primary/90"
+                        />
+                        {availableProviderTypes.length > 0 ? (
+                          <>
+                            <DropdownMenu onOpenChange={(open) => open && setProviderTypeSearch('')}>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="w-full justify-between gap-2">
+                                  {excludedProviderTypes.length === 0
+                                    ? 'None excluded'
+                                    : `${excludedProviderTypes.length} type(s) excluded`}
+                                  <ChevronDown className="size-4 opacity-50" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="start"
+                                className="max-h-[320px] overflow-hidden p-0"
+                                onCloseAutoFocus={(e: Event) => e.preventDefault()}
+                              >
+                                <Command shouldFilter={false} className="rounded-none border-0">
+                                  <CommandInput
+                                    placeholder="Search provider types…"
+                                    value={providerTypeSearch}
+                                    onValueChange={setProviderTypeSearch}
+                                    className="h-9"
+                                  />
+                                </Command>
+                                <div className="max-h-[240px] overflow-y-auto p-1">
+                                  <DropdownMenuLabel>Exclude these provider types from the run</DropdownMenuLabel>
+                                  {filteredProviderTypes.length === 0 ? (
+                                    <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                  ) : (
+                                    filteredProviderTypes.map((providerType) => (
+                                      <DropdownMenuCheckboxItem
+                                        key={providerType}
+                                        checked={excludedProviderTypes.includes(providerType)}
+                                        onCheckedChange={(checked) =>
+                                          onSetExcludedProviderTypes(
+                                            checked
+                                              ? [...excludedProviderTypes, providerType]
+                                              : excludedProviderTypes.filter((item) => item !== providerType)
+                                          )
+                                        }
+                                        onSelect={(e) => e.preventDefault()}
+                                      >
+                                        {providerType}
+                                      </DropdownMenuCheckboxItem>
+                                    ))
+                                  )}
+                                </div>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <p className="text-xs text-muted-foreground">
+                              Add a &quot;Provider type&quot; or &quot;Role&quot; column when uploading provider data to
+                              see types here.
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            No provider types in your data. Add a &quot;Provider type&quot; or &quot;Role&quot; column
+                            when uploading provider data to exclude by type.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2 border-t border-border/40 pt-3">
+                        <SectionHeaderWithTooltip
+                          title="Exclude providers"
+                          tooltip="Exclude specific providers by name from this run. They will not be included in optimization or results."
+                          className="text-primary/90"
+                        />
+                        {availableProvidersForExclusion.length > 0 ? (
+                          <DropdownMenu onOpenChange={(open) => open && setProviderExcludeSearch('')}>
                             <DropdownMenuTrigger asChild>
                               <Button variant="outline" size="sm" className="w-full justify-between gap-2">
-                                {excludedProviderTypes.length === 0
+                                {(settings.manualExcludeProviderIds?.length ?? 0) === 0
                                   ? 'None excluded'
-                                  : `${excludedProviderTypes.length} type(s) excluded`}
+                                  : `${settings.manualExcludeProviderIds?.length ?? 0} provider(s) excluded`}
                                 <ChevronDown className="size-4 opacity-50" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -522,43 +602,47 @@ export function OptimizerConfigureStage({
                             >
                               <Command shouldFilter={false} className="rounded-none border-0">
                                 <CommandInput
-                                  placeholder="Search provider types…"
-                                  value={providerTypeSearch}
-                                  onValueChange={setProviderTypeSearch}
+                                  placeholder="Search providers…"
+                                  value={providerExcludeSearch}
+                                  onValueChange={setProviderExcludeSearch}
                                   className="h-9"
                                 />
                               </Command>
                               <div className="max-h-[240px] overflow-y-auto p-1">
-                                <DropdownMenuLabel>Exclude these provider types from the run</DropdownMenuLabel>
-                                {filteredProviderTypes.length === 0 ? (
+                                <DropdownMenuLabel>Exclude these providers from the run</DropdownMenuLabel>
+                                {filteredProvidersForExclusion.length === 0 ? (
                                   <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
                                 ) : (
-                                  filteredProviderTypes.map((providerType) => (
+                                  filteredProvidersForExclusion.map((p) => (
                                     <DropdownMenuCheckboxItem
-                                      key={providerType}
-                                      checked={excludedProviderTypes.includes(providerType)}
-                                      onCheckedChange={(checked) =>
-                                        onSetExcludedProviderTypes(
-                                          checked
-                                            ? [...excludedProviderTypes, providerType]
-                                            : excludedProviderTypes.filter((item) => item !== providerType)
-                                        )
-                                      }
+                                      key={p.id}
+                                      checked={settings.manualExcludeProviderIds?.includes(p.id) ?? false}
+                                      onCheckedChange={(checked) => {
+                                        onSetSettings((prev) => {
+                                          const current = prev.manualExcludeProviderIds ?? []
+                                          return {
+                                            ...prev,
+                                            manualExcludeProviderIds: checked
+                                              ? [...current, p.id]
+                                              : current.filter((id) => id !== p.id),
+                                          }
+                                        })
+                                      }}
                                       onSelect={(e) => e.preventDefault()}
                                     >
-                                      {providerType}
+                                      {p.name}
                                     </DropdownMenuCheckboxItem>
                                   ))
                                 )}
                               </div>
                             </DropdownMenuContent>
                           </DropdownMenu>
+                        ) : (
                           <p className="text-xs text-muted-foreground">
-                            Add a &quot;Provider type&quot; or &quot;Role&quot; column when uploading provider data to
-                            see types here.
+                            No providers in scope yet. Set target scope (compensation model, specialty, division) first.
                           </p>
-                        </div>
-                      ) : null}
+                        )}
+                      </div>
 
                       <div className="space-y-2 border-t border-border/40 pt-3">
                         <SectionHeaderWithTooltip
@@ -602,6 +686,9 @@ export function OptimizerConfigureStage({
                     ) : null}
                     {excludedProviderTypes.length > 0 ? (
                       <span> ({excludedProviderTypes.length} provider type(s) excluded)</span>
+                    ) : null}
+                    {(settings.manualExcludeProviderIds?.length ?? 0) > 0 ? (
+                      <span> ({(settings.manualExcludeProviderIds?.length ?? 0)} provider(s) excluded)</span>
                     ) : null}
                     {(settings.wRVUGrowthFactorPct ?? 0) > 0 ? (
                       <span> (wRVUs assumed {(settings.wRVUGrowthFactorPct ?? 0)}% higher for this run)</span>

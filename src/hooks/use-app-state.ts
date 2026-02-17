@@ -294,6 +294,23 @@ export function useAppState() {
     }))
   }, [])
 
+  const deleteProvider = useCallback((providerId: string) => {
+    setState((s) => ({
+      ...s,
+      providerRows: s.providerRows.filter((row) => row.providerId !== providerId),
+    }))
+  }, [])
+
+  const deleteMarketRow = useCallback((row: MarketRow) => {
+    const key = (r: MarketRow) =>
+      `${r.specialty ?? ''}|${r.providerType ?? ''}|${r.region ?? ''}`
+    const targetKey = key(row)
+    setState((s) => ({
+      ...s,
+      marketRows: s.marketRows.filter((r) => key(r) !== targetKey),
+    }))
+  }, [])
+
   const setScenarioInputs = useCallback((inputs: Partial<ScenarioInputs>) => {
     setState((s) => ({
       ...s,
@@ -733,6 +750,8 @@ export function useAppState() {
     addProvider,
     updateMarketRow,
     addMarketRow,
+    deleteProvider,
+    deleteMarketRow,
     setScenarioInputs,
     setLastResults,
     dismissScenarioLoadWarning,

@@ -264,29 +264,6 @@ export function ConversionFactorOptimizerScreen({
     return [...values].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
   }, [providerRowsByCompModel, targetMode, selectedSpecialties, selectedDivisions])
 
-  /** When compensation model or specialty scope changes, prune selections to only those still in scope. */
-  useEffect(() => {
-    const specSet = new Set(availableSpecialties)
-    const divSet = new Set(availableDivisions)
-    const typeSet = new Set(availableProviderTypes)
-    setSelectedSpecialties((prev) => {
-      const next = prev.filter((s) => specSet.has(s))
-      return next.length !== prev.length || prev.some((s, i) => next[i] !== s) ? next : prev
-    })
-    setSelectedDivisions((prev) => {
-      const next = prev.filter((d) => divSet.has(d))
-      return next.length !== prev.length || prev.some((d, i) => next[i] !== d) ? next : prev
-    })
-    setSelectedProviderTypes((prev) => {
-      const next = prev.filter((t) => typeSet.has(t))
-      return next.length !== prev.length || prev.some((t, i) => next[i] !== t) ? next : prev
-    })
-    setExcludedProviderTypes((prev) => {
-      const next = prev.filter((t) => typeSet.has(t))
-      return next.length !== prev.length || prev.some((t, i) => next[i] !== t) ? next : prev
-    })
-  }, [availableSpecialties, availableDivisions, availableProviderTypes])
-
   const filteredProviderRowsForRun = useMemo(() => {
     let rows = providerRows
     if (providerTypeFilter === 'productivity') {
@@ -325,6 +302,52 @@ export function ConversionFactorOptimizerScreen({
 
     return rows
   }, [providerRows, providerTypeFilter, targetMode, selectedSpecialties, selectedDivisions, providerTypeScopeMode, selectedProviderTypes, excludedProviderTypes])
+
+  /** Providers in scope for the "Exclude providers" dropdown (before manual exclude). */
+  const availableProvidersForExclusion = useMemo(() => {
+    const seen = new Set<string>()
+    return filteredProviderRowsForRun
+      .map((p) => {
+        const id = (p.providerId ?? p.providerName ?? '').toString().trim()
+        const name = (p.providerName ?? p.providerId ?? id).toString().trim()
+        return { id, name }
+      })
+      .filter(({ id }) => {
+        if (!id || seen.has(id)) return false
+        seen.add(id)
+        return true
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  }, [filteredProviderRowsForRun])
+
+  /** When compensation model or specialty scope changes, prune selections to only those still in scope. */
+  useEffect(() => {
+    const specSet = new Set(availableSpecialties)
+    const divSet = new Set(availableDivisions)
+    const typeSet = new Set(availableProviderTypes)
+    const providerIdSet = new Set(availableProvidersForExclusion.map((p) => p.id))
+    setSelectedSpecialties((prev) => {
+      const next = prev.filter((s) => specSet.has(s))
+      return next.length !== prev.length || prev.some((s, i) => next[i] !== s) ? next : prev
+    })
+    setSelectedDivisions((prev) => {
+      const next = prev.filter((d) => divSet.has(d))
+      return next.length !== prev.length || prev.some((d, i) => next[i] !== d) ? next : prev
+    })
+    setSelectedProviderTypes((prev) => {
+      const next = prev.filter((t) => typeSet.has(t))
+      return next.length !== prev.length || prev.some((t, i) => next[i] !== t) ? next : prev
+    })
+    setExcludedProviderTypes((prev) => {
+      const next = prev.filter((t) => typeSet.has(t))
+      return next.length !== prev.length || prev.some((t, i) => next[i] !== t) ? next : prev
+    })
+    setSettings((prev) => {
+      const manual = prev.manualExcludeProviderIds ?? []
+      const next = manual.filter((id) => providerIdSet.has(id))
+      return next.length !== manual.length ? { ...prev, manualExcludeProviderIds: next } : prev
+    })
+  }, [availableSpecialties, availableDivisions, availableProviderTypes, availableProvidersForExclusion])
 
 
   useEffect(() => {
@@ -399,6 +422,7 @@ export function ConversionFactorOptimizerScreen({
     setSelectedProviderTypes([])
     setExcludedProviderTypes([])
     setProviderTypeFilter('all')
+    setSettings((prev) => ({ ...prev, manualExcludeProviderIds: [] }))
     setOptimizerStep('configure')
   }, [])
 
@@ -406,7 +430,7 @@ export function ConversionFactorOptimizerScreen({
     onClearOptimizerConfig?.()
     lastPushedSnapshotRef.current = null
     const defaultSettings = getDefaultOptimizerSettings(scenarioInputs)
-    setSettings(defaultSettings)
+    setSettings({ ...defaultSettings, manualExcludeProviderIds: [] })
     setResult(null)
     setTargetMode('all')
     setSelectedSpecialties([])
@@ -698,6 +722,7 @@ export function ConversionFactorOptimizerScreen({
           availableSpecialties={availableSpecialties}
           availableDivisions={availableDivisions}
           availableProviderTypes={availableProviderTypes}
+          availableProvidersForExclusion={availableProvidersForExclusion}
           onRun={handleRunAndOpenReview}
           onSetOptimizationObjective={setOptimizationObjective}
           onSetErrorMetric={setErrorMetric}

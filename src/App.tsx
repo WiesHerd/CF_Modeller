@@ -124,6 +124,8 @@ export default function App() {
     addProvider,
     updateMarketRow,
     addMarketRow,
+    deleteProvider,
+    deleteMarketRow,
     setScenarioInputs,
     setLastResults,
     dismissScenarioLoadWarning,
@@ -498,8 +500,10 @@ export default function App() {
           onNavigateToUpload={() => handleStepChange('upload')}
           onUpdateProvider={updateProvider}
           onAddProvider={addProvider}
+          onDeleteProvider={deleteProvider}
           onUpdateMarketRow={updateMarketRow}
           onAddMarketRow={addMarketRow}
+          onDeleteMarketRow={deleteMarketRow}
         />
       )}
 

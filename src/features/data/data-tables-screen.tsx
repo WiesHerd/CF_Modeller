@@ -47,7 +47,7 @@ import { cn } from '@/lib/utils'
 import { DATA_GRID, getPinnedCellStyles, PINNED_HEADER_CLASS, PINNED_CELL_CLASS, PINNED_CELL_STRIPED_CLASS } from '@/lib/data-grid-styles'
 import { loadDataBrowserFilters, saveDataBrowserFilters, type DataBrowserFilters } from '@/lib/storage'
 import { formatCurrency, formatNumber } from '@/utils/format'
-import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, LayoutList, Pencil, Pin, PinOff, Plus, Table2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, LayoutList, Pencil, Pin, PinOff, Plus, Table2, Trash2 } from 'lucide-react'
 import {
   Command,
   CommandEmpty,
@@ -148,8 +148,10 @@ interface DataTablesScreenProps {
   onNavigateToUpload?: () => void
   onUpdateProvider?: (providerId: string, updates: Partial<ProviderRow>) => void
   onAddProvider?: (row: ProviderRow) => void
+  onDeleteProvider?: (providerId: string) => void
   onUpdateMarketRow?: (existingRow: MarketRow, updates: Partial<MarketRow>) => void
   onAddMarketRow?: (row: MarketRow) => void
+  onDeleteMarketRow?: (row: MarketRow) => void
 }
 
 export function DataTablesScreen({
@@ -160,8 +162,10 @@ export function DataTablesScreen({
   onNavigateToUpload,
   onUpdateProvider,
   onAddProvider,
+  onDeleteProvider,
   onUpdateMarketRow,
   onAddMarketRow,
+  onDeleteMarketRow,
 }: DataTablesScreenProps) {
   const defaultTab = providerRows.length > 0 ? 'providers' : 'market'
   const [persistedFilters, setPersistedFilters] = useState(loadDataBrowserFilters)
@@ -218,6 +222,7 @@ export function DataTablesScreen({
               onModelFilterChange={(v) => setPersistedFilters((p: DataBrowserFilters) => ({ ...p, providerModel: v }))}
               onUpdateProvider={onUpdateProvider}
               onAddProvider={onAddProvider}
+              onDeleteProvider={onDeleteProvider}
             />
           ) : (
             <Card>
@@ -240,6 +245,7 @@ export function DataTablesScreen({
               onSpecialtyFilterChange={(v) => setPersistedFilters((p: DataBrowserFilters) => ({ ...p, marketSpecialty: v }))}
               onUpdateMarketRow={onUpdateMarketRow}
               onAddMarketRow={onAddMarketRow}
+              onDeleteMarketRow={onDeleteMarketRow}
             />
           ) : (
             <Card>
@@ -272,6 +278,7 @@ interface ProviderDataTableProps {
   onModelFilterChange?: (value: string) => void
   onUpdateProvider?: (providerId: string, updates: Partial<ProviderRow>) => void
   onAddProvider?: (row: ProviderRow) => void
+  onDeleteProvider?: (providerId: string) => void
 }
 
 function ProviderDataTable({
@@ -284,6 +291,7 @@ function ProviderDataTable({
   onModelFilterChange,
   onUpdateProvider,
   onAddProvider,
+  onDeleteProvider,
 }: ProviderDataTableProps) {
   const [internalSpecialty, setInternalSpecialty] = useState('all')
   const [internalDivision, setInternalDivision] = useState('all')
@@ -414,34 +422,58 @@ function ProviderDataTable({
       providerHelper.accessor('otherIncentives', { header: 'Other incentives', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 130, minSize: 100 }),
       providerHelper.accessor('currentTCC', { header: 'Current TCC', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 125, minSize: 100 }),
       providerHelper.accessor('productivityModel', { header: 'Model', cell: (c) => c.getValue() ?? EMPTY, size: 110, minSize: 80 }),
-      ...(onUpdateProvider
+      ...(onUpdateProvider || onDeleteProvider
         ? [
             providerHelper.display({
               id: 'actions',
               header: '',
-              cell: ({ row }) => (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  aria-label="Edit provider"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setProviderEditRow(row.original)
-                    setProviderModalMode('edit')
-                    setProviderModalOpen(true)
-                  }}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-              ),
-              size: 52,
-              minSize: 52,
+              cell: ({ row }) => {
+                const providerId = row.original.providerId ?? row.original.providerName ?? ''
+                return (
+                  <div className="flex items-center gap-0.5">
+                    {onUpdateProvider && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label="Edit provider"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setProviderEditRow(row.original)
+                          setProviderModalMode('edit')
+                          setProviderModalOpen(true)
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
+                    {onDeleteProvider && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        aria-label="Delete provider"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const name = row.original.providerName ?? providerId
+                          if (window.confirm(`Delete provider "${name}"? This cannot be undone.`)) {
+                            onDeleteProvider(providerId)
+                          }
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+                )
+              },
+              size: (onUpdateProvider && onDeleteProvider ? 88 : 52),
+              minSize: (onUpdateProvider && onDeleteProvider ? 88 : 52),
             }),
           ]
         : []),
     ],
-    [onUpdateProvider]
+    [onUpdateProvider, onDeleteProvider]
   )
 
   const filteredRows = useMemo(() => {
@@ -886,9 +918,10 @@ interface MarketDataTableProps {
   onSpecialtyFilterChange: (value: string) => void
   onUpdateMarketRow?: (existingRow: MarketRow, updates: Partial<MarketRow>) => void
   onAddMarketRow?: (row: MarketRow) => void
+  onDeleteMarketRow?: (row: MarketRow) => void
 }
 
-function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpdateMarketRow, onAddMarketRow }: MarketDataTableProps) {
+function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpdateMarketRow, onAddMarketRow, onDeleteMarketRow }: MarketDataTableProps) {
   const [marketModalOpen, setMarketModalOpen] = useState(false)
   const [marketModalMode, setMarketModalMode] = useState<'edit' | 'add'>('edit')
   const [marketEditRow, setMarketEditRow] = useState<MarketRow | null>(null)
@@ -969,34 +1002,58 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
       ...(['CF_25', 'CF_50', 'CF_75', 'CF_90'] as const).map((k) =>
         marketHelper.accessor(k, { header: k, cell: (c) => fmtCur(c.getValue() as number, 2), meta: { align: 'right' }, size: 115, minSize: 95 })
       ),
-      ...(onUpdateMarketRow
+      ...(onUpdateMarketRow || onDeleteMarketRow
         ? [
             marketHelper.display({
               id: 'actions',
               header: '',
-              cell: ({ row }) => (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  aria-label="Edit market line"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setMarketEditRow(row.original)
-                    setMarketModalMode('edit')
-                    setMarketModalOpen(true)
-                  }}
-                >
-                  <Pencil className="size-4" />
-                </Button>
-              ),
-              size: 52,
-              minSize: 52,
+              cell: ({ row }) => {
+                const r = row.original
+                const label = [r.specialty, r.providerType, r.region].filter(Boolean).join(' · ') || 'this market line'
+                return (
+                  <div className="flex items-center gap-0.5">
+                    {onUpdateMarketRow && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        aria-label="Edit market line"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setMarketEditRow(row.original)
+                          setMarketModalMode('edit')
+                          setMarketModalOpen(true)
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
+                    {onDeleteMarketRow && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        aria-label="Delete market line"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (window.confirm(`Delete market line "${label}"? This cannot be undone.`)) {
+                            onDeleteMarketRow(row.original)
+                          }
+                        }}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+                )
+              },
+              size: (onUpdateMarketRow && onDeleteMarketRow ? 88 : 52),
+              minSize: (onUpdateMarketRow && onDeleteMarketRow ? 88 : 52),
             }),
           ]
         : []),
     ],
-    [onUpdateMarketRow]
+    [onUpdateMarketRow, onDeleteMarketRow]
   )
 
   const filteredBySpecialty = useMemo(() => {
