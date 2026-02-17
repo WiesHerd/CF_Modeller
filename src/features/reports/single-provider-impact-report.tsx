@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Printer, Lock } from 'lucide-react'
+import { ArrowLeft, FileSpreadsheet, FileText, Lock, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -13,7 +13,7 @@ import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { ImpactReportPage } from '@/components/impact-report-page'
 import { matchMarketRow } from '@/lib/batch'
 import { computeScenario } from '@/lib/compute'
-import { FileText } from 'lucide-react'
+import { exportSingleScenarioXLSX } from '@/lib/single-scenario-export'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, SavedScenario } from '@/types/scenario'
@@ -67,6 +67,16 @@ export function SingleProviderImpactReport({
     window.print()
   }
 
+  const handleExportExcel = () => {
+    exportSingleScenarioXLSX({
+      provider: selectedProvider,
+      marketRow: marketMatch,
+      results,
+      scenarioInputs: effectiveScenarioInputs,
+      mode: 'existing',
+    })
+  }
+
   if (providerRows.length === 0) {
     return (
       <div className="space-y-6">
@@ -115,10 +125,22 @@ export function SingleProviderImpactReport({
           </div>
         </div>
         {results && (
-          <Button variant="outline" size="sm" onClick={handlePrint} className="shrink-0 gap-2 no-print" aria-label="Print">
-            <Printer className="size-4" />
-            Print
-          </Button>
+          <div className="flex shrink-0 items-center gap-2 no-print">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              className="gap-2"
+              aria-label="Export single scenario Excel report"
+            >
+              <FileSpreadsheet className="size-4" />
+              Export Excel Report
+            </Button>
+            <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2" aria-label="Print">
+              <Printer className="size-4" />
+              Print
+            </Button>
+          </div>
         )}
       </div>
 

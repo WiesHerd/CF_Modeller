@@ -70,20 +70,33 @@ export function ImpactReportPage({
     ? `${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`
     : '—'
   const takeaway = getImpactTakeaway(results)
+  const [providerNameFromLabel, specialtyFromLabel] = (providerLabel ?? '').split(' · ')
+  const normalizedProviderNameFromLabel = providerNameFromLabel?.trim() || undefined
+  const normalizedSpecialtyFromLabel = specialtyFromLabel?.trim() || undefined
+  const reportProviderName = provider?.providerName ?? provider?.providerId ?? normalizedProviderNameFromLabel
+  const reportSpecialty = provider?.specialty ?? normalizedSpecialtyFromLabel
 
   return (
     <div className="impact-report w-full max-w-full space-y-5 pb-12">
-      <header className="space-y-2">
-        <p className="text-foreground text-sm font-semibold uppercase tracking-wide">
-          {providerLabel ? (
-            <>
-              Compensation impact report <span className="font-normal normal-case tracking-normal">·</span>{' '}
-              <span className="font-normal normal-case tracking-normal text-foreground">{providerLabel}</span>
-            </>
-          ) : (
-            'Compensation impact report'
+      <header className="space-y-3">
+        <div className="max-w-2xl space-y-0.5">
+          <p className="text-muted-foreground text-sm font-semibold uppercase tracking-[0.16em]">
+            Compensation Impact Report
+          </p>
+          {(reportProviderName || reportSpecialty) && (
+            <p className="text-foreground text-base font-semibold tracking-tight sm:text-lg">
+              {reportProviderName ?? ''}
+              {reportProviderName && reportSpecialty ? (
+                <span className="text-muted-foreground px-2 font-normal">·</span>
+              ) : null}
+              {reportSpecialty ? (
+                <span className="text-muted-foreground text-sm font-medium sm:text-base">
+                  {reportSpecialty}
+                </span>
+              ) : null}
+            </p>
           )}
-        </p>
+        </div>
         {/* Headline (Δ amount + %) aligned right, next to the KPI cards */}
         <div className="border-border/40 flex flex-wrap items-center justify-between gap-4 border-t pt-4">
           <div className="flex flex-wrap items-stretch gap-3">
