@@ -23,6 +23,8 @@ export interface ProductivityTargetSettings {
   targetPercentile: number
   cfPercentile: number
   targetApproach: TargetApproach
+  /** When targetApproach is pay_per_wrvu (Option B), this is the gross target wRVU at 1.0 cFTE; prorated by cFTE per provider. */
+  manualTargetWRVU?: number
   alignmentTolerance: number
   rampFactorByProviderId?: Record<string, number>
   planningCFSource: PlanningCFSource
