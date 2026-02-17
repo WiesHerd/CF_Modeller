@@ -95,15 +95,34 @@ export function SingleProviderImpactReport({
 
   return (
     <div className="space-y-6 report-print">
-      <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
-        Compensation impact report
-      </SectionTitleWithIcon>
+      {/* Consistent header: left = Back + (Title + Confidential); right = actions */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <Button type="button" variant="outline" size="sm" onClick={onBack} className="shrink-0 gap-2 no-print" aria-label="Back">
+            <ArrowLeft className="size-4" />
+            Back
+          </Button>
+          <div className="min-w-0">
+            <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
+              Compensation impact report
+            </SectionTitleWithIcon>
+            {results && selectedProvider && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                <Lock className="size-3.5 shrink-0" aria-hidden />
+                Confidential — compensation planning
+              </p>
+            )}
+          </div>
+        </div>
+        {results && (
+          <Button variant="outline" size="sm" onClick={handlePrint} className="shrink-0 gap-2 no-print" aria-label="Print">
+            <Printer className="size-4" />
+            Print
+          </Button>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 no-print">
-        <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
           <Select
             value={selectedProvider ? String(selectedProvider.providerId ?? selectedProvider.providerName ?? '') : ''}
             onValueChange={(v) => setSelectedProviderId(v)}
@@ -135,12 +154,6 @@ export function SingleProviderImpactReport({
               ))}
             </SelectContent>
           </Select>
-        {results && (
-          <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2" aria-label="Print">
-            <Printer className="size-4" />
-            Print
-          </Button>
-        )}
       </div>
 
       {!marketMatch && selectedProvider && marketRows.length > 0 && (
@@ -155,10 +168,6 @@ export function SingleProviderImpactReport({
 
       {results && selectedProvider && (
         <>
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5 report-print">
-            <Lock className="size-3.5 shrink-0" aria-hidden />
-            Confidential — compensation planning
-          </p>
           <ImpactReportPage
             results={results}
             provider={selectedProvider}

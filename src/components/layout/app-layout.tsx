@@ -15,8 +15,8 @@ const SIDEBAR_EXPANDED_WIDTH = 260
 
 const BATCH_NAV: { id: BatchCardId; label: string; icon: React.ReactNode; tooltip: string; subtitle?: string }[] = [
   { id: 'cf-optimizer', label: 'CF Optimizer', icon: <Gauge className="size-5 shrink-0" />, tooltip: 'Conversion Factor Optimizer' },
+  { id: 'productivity-target', label: 'Target Optimizer', icon: <Target className="size-5 shrink-0" />, tooltip: 'Productivity Target Builder', subtitle: 'Recommended target' },
   { id: 'imputed-vs-market', label: 'Market positioning', icon: <BarChart2 className="size-5 shrink-0" />, tooltip: 'Market positioning (imputed)' },
-  { id: 'productivity-target', label: 'Productivity Target', icon: <Target className="size-5 shrink-0" />, tooltip: 'Productivity Target Builder', subtitle: 'Recommended target' },
   { id: 'bulk-scenario', label: 'Create and Run Scenario', icon: <Users className="size-5 shrink-0" />, tooltip: 'Create a scenario and run it for all providers' },
   { id: 'detailed-scenario', label: 'Detailed scenarios', icon: <Sliders className="size-5 shrink-0" />, tooltip: 'Scenario overrides by specialty and provider' },
 ]
@@ -157,7 +157,7 @@ export function AppLayout({
               className="flex items-center justify-center p-3 w-full hover:bg-muted/50 transition-colors border-b border-border/50 shrink-0 rounded-none"
               aria-label="Go to Upload"
             >
-              <img src="/NewIMage.png" alt="" className="size-8 rounded-md object-contain" />
+              <img src="/tcc-icon.svg" alt="" className="size-8 rounded-md object-cover" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">TCC Modeler — Import data</TooltipContent>
@@ -274,7 +274,7 @@ export function AppLayout({
     <div className="flex h-full w-full min-w-[260px] flex-col bg-muted/30 border-r border-border/50">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-4 border-b border-border/50 shrink-0">
-        <img src="/NewIMage.png" alt="" className="size-9 rounded-lg object-contain ring-1 ring-border/40" />
+        <img src="/tcc-icon.svg" alt="" className="size-9 rounded-lg object-cover ring-1 ring-border/40" />
         <div className="min-w-0">
           <span className="font-semibold text-foreground block truncate">TCC Modeler</span>
           <span className="text-xs text-muted-foreground">Total cash compensation</span>
@@ -425,7 +425,7 @@ export function AppLayout({
           <TooltipProvider delayDuration={300}>
             <div className="flex h-full flex-col bg-muted/30">
               <div className="flex items-center gap-2 p-4 border-b border-border/40">
-                <img src="/NewIMage.png" alt="" className="size-8 rounded-lg object-contain" />
+                <img src="/tcc-icon.svg" alt="" className="size-8 rounded-lg object-cover" />
                 <span className="font-semibold text-foreground">TCC</span>
                 <span className="font-semibold text-primary"> Modeler</span>
               </div>
@@ -532,7 +532,7 @@ export function AppLayout({
         </SheetContent>
       </Sheet>
       <div className="flex items-center gap-2 py-2 pr-4">
-        <img src="/NewIMage.png" alt="" className="size-7 rounded-lg object-contain" />
+        <img src="/tcc-icon.svg" alt="" className="size-7 rounded-lg object-cover" />
         <span className="font-semibold text-foreground">TCC</span>
         <span className="font-semibold text-primary"> Modeler</span>
       </div>

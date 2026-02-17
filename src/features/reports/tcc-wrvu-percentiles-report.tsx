@@ -203,70 +203,73 @@ export function TccWrvuPercentilesReport({
 
   return (
     <div className="space-y-4 report-print">
+      {/* Consistent header: left = Back + (Title + Confidential); right = meta + Export */}
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
-            TCC & wRVU percentiles
-          </SectionTitleWithIcon>
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-            <Lock className="size-3.5 shrink-0" aria-hidden />
-            Confidential — compensation planning
-          </p>
-        </div>
-        {results && (
-          <p className="text-xs text-muted-foreground tabular-nums shrink-0">
-            Scenario: {effectiveScenario.name}. Generated {reportDate}. {filteredRows.length} row(s)
-            {filteredRows.length !== results.rows.length ? ` of ${results.rows.length}` : ''}.
-          </p>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 no-print">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <Button type="button" variant="outline" size="sm" onClick={onBack} className="shrink-0 gap-2 no-print" aria-label="Back">
             <ArrowLeft className="size-4" />
             Back
           </Button>
-          <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Scenario" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="current">Current scenario</SelectItem>
-              {savedScenarios.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="min-w-0">
+            <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
+              TCC & wRVU percentiles
+            </SectionTitleWithIcon>
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+              <Lock className="size-3.5 shrink-0" aria-hidden />
+              Confidential — compensation planning
+            </p>
+          </div>
         </div>
-        {exportResults && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2" aria-label="Export data">
-                <FileDown className="size-4" />
-                Export
-                <ChevronDown className="size-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Export / print</DropdownMenuLabel>
-              <DropdownMenuItem onClick={handlePrint} className="gap-2">
-                <Printer className="size-4" />
-                Print
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => downloadBatchResultsCSV(exportResults)} className="gap-2">
-                <FileDown className="size-4" />
-                CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportBatchResultsXLSX(exportResults)} className="gap-2">
-                <FileSpreadsheet className="size-4" />
-                Excel (.xlsx)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {results && (
+            <p className="text-xs text-muted-foreground tabular-nums">
+              Scenario: {effectiveScenario.name}. Generated {reportDate}. {filteredRows.length} row(s)
+              {filteredRows.length !== results.rows.length ? ` of ${results.rows.length}` : ''}.
+            </p>
+          )}
+          {exportResults && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 no-print" aria-label="Export data">
+                  <FileDown className="size-4" />
+                  Export
+                  <ChevronDown className="size-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Export / print</DropdownMenuLabel>
+                <DropdownMenuItem onClick={handlePrint} className="gap-2">
+                  <Printer className="size-4" />
+                  Print
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => downloadBatchResultsCSV(exportResults)} className="gap-2">
+                  <FileDown className="size-4" />
+                  Export CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportBatchResultsXLSX(exportResults)} className="gap-2">
+                  <FileSpreadsheet className="size-4" />
+                  Export XLSX
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 no-print">
+        <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Scenario" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="current">Current scenario</SelectItem>
+            {savedScenarios.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {results && (

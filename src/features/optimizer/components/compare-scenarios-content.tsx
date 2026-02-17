@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { BarChart2, Building2, ChevronDown, ChevronRight, ChevronUp, DollarSign, FileText, GitCompare, HelpCircle, Search, Settings, Target, TrendingDown, TrendingUp } from 'lucide-react'
+import { BarChart2, Building2, ChevronDown, ChevronRight, ChevronUp, DollarSign, FileText, GitCompare, HelpCircle, Settings, Target, TrendingDown, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Dialog,
@@ -9,7 +9,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Command, CommandInput } from '@/components/ui/command'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Sheet,
   SheetContent,
@@ -581,13 +588,13 @@ export function CompareScenariosContent({
 
   const emptyStateMessage =
     totalSaved === 0
-      ? 'No saved optimizer scenarios yet. Run the CF Optimizer, then use Save scenario for each run you want to compare.'
+      ? 'No saved scenarios. Run CF Optimizer, then Save scenario to compare.'
       : totalSaved >= 2 && withRunResults < 2
-        ? `You have ${totalSaved} saved scenario(s). Only scenarios saved after running the optimizer can be compared. Run the optimizer for each scenario you want, then Save scenario; return here to compare.${withRunResults > 0 ? ` (${withRunResults} of ${totalSaved} have run results.)` : ''}`
-        : 'Save at least two scenarios after running the optimizer to compare them. Run the optimizer, then use "Save scenario" for each run you want to compare.'
+        ? `Save scenarios after running. ${withRunResults} of ${totalSaved} ready to compare.`
+        : 'Run optimizer, save 2+ scenarios, then compare here.'
 
   return (
-    <div className="flex flex-1 flex-col gap-6 overflow-y-auto">
+    <div className="flex flex-1 flex-col gap-4 overflow-y-auto">
       {!canCompare ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-center">
           <span className={cn(iconBoxClass, 'size-12 [&_svg]:size-8')} aria-hidden>
@@ -599,62 +606,58 @@ export function CompareScenariosContent({
         </div>
       ) : (
         <>
-          {/* Scenario selection — select 2 to 4 scenarios */}
-          <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
-            <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
-              <span className={cn(iconBoxClass, 'size-8 [&_svg]:size-4')} aria-hidden>
-                <GitCompare />
-              </span>
-              Scenarios
-            </h3>
-            <p className="text-xs text-muted-foreground mb-2">
-              Select 2 to {MAX_COMPARE_SCENARIOS} scenarios to compare ({selectedScenarioIds.length} selected).
-            </p>
-            <div className="relative mt-2 max-w-sm">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-              <Input
-                type="search"
-                placeholder="Search scenarios by name…"
-                value={scenarioSearch}
-                onChange={(e) => setScenarioSearch(e.target.value)}
-                className="h-9 pl-8"
-                aria-label="Search scenarios by name"
-              />
-            </div>
-            {scenarioSearch.trim() && (
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                Showing {filteredComparableConfigs.length} of {comparableConfigs.length} scenarios
-              </p>
-            )}
-            <div className="mt-2 max-h-[280px] overflow-y-auto rounded-md border border-border/40 bg-background/50 p-1">
-              {filteredComparableConfigs.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  {scenarioSearch.trim() ? 'No scenarios match your search. Try a different term.' : 'No scenarios available.'}
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-3">
-                  {filteredComparableConfigs.map((c) => (
-                    <label
-                      key={c.id}
-                      className={cn(
-                        'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors shrink-0',
-                        selectedScenarioIds.includes(c.id)
-                          ? 'border-primary bg-primary/10 text-foreground'
-                          : 'border-border/60 bg-background hover:bg-muted/30'
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedScenarioIds.includes(c.id)}
-                        onChange={() => toggleScenarioSelection(c.id)}
-                        className="size-4 rounded border-border"
-                        aria-label={`Toggle ${c.name}`}
-                      />
-                      <span className="font-medium">{c.name}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+          {/* Scenario selection — same dropdown multi-select as Target Optimizer */}
+          <section className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-foreground">
+                <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
+                  <GitCompare />
+                </span>
+                Scenarios
+                <span className="text-xs font-normal normal-case text-muted-foreground">
+                  2–{MAX_COMPARE_SCENARIOS} to compare
+                </span>
+              </h3>
+              <DropdownMenu onOpenChange={(open) => !open && setScenarioSearch('')}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="min-w-[200px] justify-between gap-2">
+                    {selectedConfigs.length === 0
+                      ? 'Select scenarios…'
+                      : selectedConfigs.length === 1
+                        ? selectedConfigs[0].name
+                        : `${selectedConfigs.length} selected`}
+                    <ChevronDown className="size-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-[320px] overflow-hidden p-0 w-[min(100vw-2rem,320px)]">
+                  <Command shouldFilter={false} className="rounded-none border-0">
+                    <CommandInput
+                      placeholder="Search…"
+                      value={scenarioSearch}
+                      onValueChange={setScenarioSearch}
+                      className="h-9"
+                    />
+                  </Command>
+                  <div className="max-h-[240px] overflow-y-auto p-1">
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">
+                      {scenarioSearch.trim() ? `${filteredComparableConfigs.length} of ${comparableConfigs.length}` : 'Scenarios'}
+                    </DropdownMenuLabel>
+                    {filteredComparableConfigs.length === 0 ? (
+                      <p className="px-2 py-2 text-sm text-muted-foreground">No matches</p>
+                    ) : (
+                      filteredComparableConfigs.map((c) => (
+                        <DropdownMenuCheckboxItem
+                          key={c.id}
+                          checked={selectedScenarioIds.includes(c.id)}
+                          onCheckedChange={() => toggleScenarioSelection(c.id)}
+                        >
+                          {c.name}
+                        </DropdownMenuCheckboxItem>
+                      ))
+                    )}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </section>
 
@@ -664,7 +667,7 @@ export function CompareScenariosContent({
                 <GitCompare />
               </span>
               <p className="text-sm text-muted-foreground">
-                Select 2 to {MAX_COMPARE_SCENARIOS} scenarios above to see the comparison.
+                Pick 2+ scenarios above.
               </p>
             </div>
           ) : comparison ? (() => {
@@ -680,9 +683,22 @@ export function CompareScenariosContent({
               const inc0 = comparison.rollup.totalIncentiveByScenario[id0] ?? 0
               const inc1 = comparison.rollup.totalIncentiveByScenario[id1] ?? 0
               const deltaIncentive = isTwo ? inc1 - inc0 : 0
+              const scenarioLabels = isTwo ? ['A', 'B'] : comparison.scenarios.map((_, i) => String(i + 1))
               return (
             <>
-              {/* At a glance — key numbers for exec review; cards are clickable to view breakdown */}
+              {/* Legend: which scenario is A vs B (order = selection order in dropdown) */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs">
+                <span className="font-medium text-muted-foreground uppercase tracking-wider">In this view:</span>
+                {comparison.scenarios.map((s: ScenarioInfo, i: number) => (
+                  <span key={s.id} className="text-foreground shrink-0" title={s.name}>
+                    <strong className="tabular-nums text-foreground">{scenarioLabels[i]}</strong>
+                    <span className="text-muted-foreground"> = </span>
+                    <span className="break-words">{s.name}</span>
+                  </span>
+                ))}
+              </div>
+
+              {/* Rollup cards — same structure as Target Optimizer */}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <button
                   type="button"
@@ -694,15 +710,15 @@ export function CompareScenariosContent({
                     <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <DollarSign />
                     </span>
-                    {isTwo ? 'Spend change (B vs A)' : 'Total spend impact'}
+                    {isTwo ? 'Spend (B vs A)' : 'Spend impact'}
                     <ChevronRight className="size-3.5 opacity-0 group-hover:opacity-70 ml-auto shrink-0" aria-hidden />
                   </div>
                   <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground normal-case">
-                    Change in total compensation spend
+                    Total comp spend Δ
                   </p>
                   <p
                     className={cn(
-                      'mt-1.5 text-lg font-semibold tabular-nums',
+                      'mt-1.5 text-sm font-semibold tabular-nums',
                       deltaSpend > 0 && 'text-red-600 dark:text-red-400',
                       deltaSpend < 0 && 'text-emerald-600 dark:text-emerald-400',
                       deltaSpend === 0 && 'text-foreground'
@@ -711,14 +727,13 @@ export function CompareScenariosContent({
                     {isTwo && deltaSpend !== 0 ? formatCurrency(deltaSpend) : isTwo ? 'No change' : `${n} scenarios`}
                   </p>
                   {isTwo && deltaSpendPct != null && deltaSpend !== 0 && (
-                    <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-                      {deltaSpendPct > 0 ? '+' : ''}
-                      {deltaSpendPct.toFixed(1)}% vs {comparison.scenarios[0].name}
+                    <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums" title={comparison.scenarios[0].name}>
+                      {deltaSpendPct > 0 ? '+' : ''}{deltaSpendPct.toFixed(1)}% vs {scenarioLabels[0]}
                     </p>
                   )}
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    <span className="group-hover:hidden">View breakdown</span>
-                    <span className="hidden group-hover:inline group-hover:text-primary group-hover:underline">View by specialty →</span>
+                    <span className="group-hover:hidden">Breakdown</span>
+                    <span className="hidden group-hover:inline group-hover:text-primary group-hover:underline">By specialty →</span>
                   </p>
                 </button>
                 <button
@@ -731,18 +746,22 @@ export function CompareScenariosContent({
                     <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <Target />
                     </span>
-                    Specialties aligned
+                    Aligned
                     <ChevronRight className="size-3.5 opacity-0 group-hover:opacity-70 ml-auto shrink-0" aria-hidden />
                   </div>
                   <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground normal-case">
-                    Specialties where pay and productivity are aligned
+                    Pay & productivity aligned
                   </p>
-                  <p className="mt-1.5 text-lg font-semibold tabular-nums text-foreground">
-                    {comparison.scenarios.map((s: ScenarioInfo) => `${s.name}: ${comparison.rollup.countMeetingAlignmentTargetByScenario[s.id] ?? 0}`).join(' · ')}
+                  <p className="mt-1.5 text-sm font-semibold tabular-nums text-foreground space-y-0.5">
+                    {comparison.scenarios.map((s: ScenarioInfo, i: number) => (
+                      <span key={s.id} className="block" title={s.name}>
+                        {scenarioLabels[i]}: {comparison.rollup.countMeetingAlignmentTargetByScenario[s.id] ?? 0}
+                      </span>
+                    ))}
                   </p>
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    <span className="group-hover:hidden">View breakdown</span>
-                    <span className="hidden group-hover:inline group-hover:text-primary group-hover:underline">View by specialty →</span>
+                    <span className="group-hover:hidden">Breakdown</span>
+                    <span className="hidden group-hover:inline group-hover:text-primary group-hover:underline">By specialty →</span>
                   </p>
                 </button>
                 <button
@@ -755,18 +774,22 @@ export function CompareScenariosContent({
                     <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <BarChart2 />
                     </span>
-                    Mean TCC percentile (modeled)
+                    TCC % (modeled)
                     <ChevronRight className="size-3.5 opacity-0 group-hover:opacity-70 ml-auto shrink-0" aria-hidden />
                   </div>
                   <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground normal-case">
-                    Pay positioning after recommended CF — differs by scenario
+                    Pay position after CF (by scenario)
                   </p>
-                  <p className="mt-1.5 text-sm font-semibold tabular-nums text-foreground">
-                    {comparison.scenarios.map((s: ScenarioInfo) => `${s.name}: ${formatPercentileForCard(comparison.rollup.meanModeledTCCPercentileByScenario[s.id] ?? 0)}`).join(' · ')}
+                  <p className="mt-1.5 text-sm font-semibold tabular-nums text-foreground space-y-0.5">
+                    {comparison.scenarios.map((s: ScenarioInfo, i: number) => (
+                      <span key={s.id} className="block" title={s.name}>
+                        {scenarioLabels[i]}: {formatPercentileForCard(comparison.rollup.meanModeledTCCPercentileByScenario[s.id] ?? 0)}
+                      </span>
+                    ))}
                   </p>
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    <span className="group-hover:hidden">View breakdown</span>
-                    <span className="hidden group-hover:inline group-hover:text-primary group-hover:underline">View by specialty →</span>
+                    <span className="group-hover:hidden">Breakdown</span>
+                    <span className="hidden group-hover:inline group-hover:text-primary group-hover:underline">By specialty →</span>
                   </p>
                 </button>
                 <button
@@ -779,15 +802,15 @@ export function CompareScenariosContent({
                     <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <DollarSign />
                     </span>
-                    {isTwo ? 'Incentive change (B vs A)' : 'Incentive (modeled)'}
+                    {isTwo ? 'Incentive (B vs A)' : 'Incentive'}
                     <ChevronRight className="size-3.5 opacity-0 group-hover:opacity-70 ml-auto shrink-0" aria-hidden />
                   </div>
                   <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground normal-case">
-                    Change in work RVU incentive dollars
+                    wRVU incentive Δ
                   </p>
                   <p
                     className={cn(
-                      'mt-1.5 text-lg font-semibold tabular-nums',
+                      'mt-1.5 text-sm font-semibold tabular-nums',
                       deltaIncentive > 0 && 'text-red-600 dark:text-red-400',
                       deltaIncentive < 0 && 'text-emerald-600 dark:text-emerald-400',
                       deltaIncentive === 0 && 'text-foreground'
@@ -796,8 +819,8 @@ export function CompareScenariosContent({
                     {isTwo && deltaIncentive !== 0 ? formatCurrency(deltaIncentive) : isTwo ? 'No change' : `${n} scenarios`}
                   </p>
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    <span className="group-hover:hidden">View breakdown</span>
-                    <span className="hidden group-hover:inline group-hover:text-primary group-hover:underline">View by specialty and provider →</span>
+                    <span className="group-hover:hidden">Breakdown</span>
+                    <span className="hidden group-hover:inline group-hover:text-primary group-hover:underline">By specialty & provider →</span>
                   </p>
                 </button>
               </div>

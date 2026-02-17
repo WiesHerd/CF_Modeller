@@ -134,3 +134,49 @@ export interface SavedProductivityTargetConfig {
   createdAt: string
   snapshot: ProductivityTargetConfigSnapshot
 }
+
+// ---------------------------------------------------------------------------
+// Multi-scenario comparison (2–4 scenarios)
+// ---------------------------------------------------------------------------
+
+export const MAX_COMPARE_TARGET_SCENARIOS = 4
+
+export interface ProductivityTargetScenarioInfo {
+  id: string
+  name: string
+}
+
+/** Per-scenario roll-up metrics keyed by scenario id. */
+export interface ProductivityTargetComparisonRollupN {
+  /** Percentile used to set group wRVU target (e.g. 50 = 50th). */
+  targetPercentileByScenario: Record<string, number>
+  /** Target approach display label per scenario. */
+  targetApproachByScenario: Record<string, string>
+  totalPlanningIncentiveByScenario: Record<string, number>
+  meanPercentToTargetByScenario: Record<string, number>
+  below80ByScenario: Record<string, number>
+  eightyTo99ByScenario: Record<string, number>
+  hundredTo119ByScenario: Record<string, number>
+  atOrAbove120ByScenario: Record<string, number>
+}
+
+/** One row in the by-specialty comparison table (N scenarios). */
+export interface ProductivityTargetComparisonSpecialtyRowN {
+  specialty: string
+  scenarioIds: string[]
+  groupTargetWRVUByScenario: Record<string, number | null>
+  planningIncentiveByScenario: Record<string, number | null>
+  meanPercentToTargetByScenario: Record<string, number | null>
+  below80ByScenario: Record<string, number>
+  eightyTo99ByScenario: Record<string, number>
+  hundredTo119ByScenario: Record<string, number>
+  atOrAbove120ByScenario: Record<string, number>
+}
+
+/** Full comparison result for 2–4 saved target configs (all with lastRunResult). */
+export interface ProductivityTargetScenarioComparisonN {
+  scenarios: ProductivityTargetScenarioInfo[]
+  rollup: ProductivityTargetComparisonRollupN
+  bySpecialty: ProductivityTargetComparisonSpecialtyRowN[]
+  narrativeSummary?: string[]
+}

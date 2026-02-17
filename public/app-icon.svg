@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+  <defs>
+    <!-- Gold for dollar sign -->
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <!-- Silver for stethoscope -->
+    <linearGradient id="silver" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3F4F6"/>
+      <stop offset="100%" stop-color="#9CA3AF"/>
+    </linearGradient>
+  </defs>
+  <!-- Dollar sign (left, fills vertical space) -->
+  <g transform="translate(8, 12) scale(0.9)">
+    <path fill="url(#gold)" stroke="#B45309" stroke-width="1.2" stroke-linejoin="round" d="M14 4v42M10 12h8a4 4 0 0 1 0 8h-8a4 4 0 0 0 0 8h8M14 4a4 4 0 1 1 0 8M14 32a4 4 0 1 1 0 8" />
+  </g>
+  <!-- Bullseye target (center) -->
+  <g transform="translate(38, 18)">
+    <circle cx="12" cy="12" r="12" fill="#DC2626"/>
+    <circle cx="12" cy="12" r="9" fill="white"/>
+    <circle cx="12" cy="12" r="6" fill="#DC2626"/>
+    <circle cx="12" cy="12" r="3" fill="white"/>
+    <circle cx="12" cy="12" r="1.2" fill="#DC2626"/>
+    <!-- Arrow -->
+    <path d="M12 2v6M12 18v6M2 12h6M18 12h6" stroke="#EA580C" stroke-width="1.5" stroke-linecap="round"/>
+    <path d="M5 5l4 4M19 5l-4 4M5 19l4-4M19 19l-4-4" stroke="#EA580C" stroke-width="1" stroke-linecap="round"/>
+  </g>
+  <!-- Stethoscope (right, curves behind) -->
+  <g transform="translate(62, 14)" stroke="url(#silver)" stroke-width="3" fill="none" stroke-linecap="round">
+    <path d="M0 8c0-4 3-8 8-8s8 4 8 8v4c0 6-4 10-10 10H6c-4 0-6-3-6-6V12"/>
+    <circle cx="16" cy="8" r="4" fill="#E5E7EB" stroke="#9CA3AF"/>
+    <path d="M2 20v-2"/>
+  </g>
+  <!-- TCC text (bottom, bold) - dark so it reads on light sidebar -->
+  <text x="50" y="88" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="22" fill="#1E3A5F" text-anchor="middle">TCC</text>
+</svg>

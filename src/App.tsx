@@ -57,7 +57,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BatchScenarioStep } from '@/components/batch/batch-scenario-step'
 import { BatchCardPicker, type BatchCardId } from '@/components/batch/batch-card-picker'
 import { ConversionFactorOptimizerScreen } from '@/features/optimizer/conversion-factor-optimizer-screen'
-import { CompareScenariosScreen } from '@/features/optimizer/compare-scenarios-screen'
+import {
+  CompareScenariosScreen,
+  type CompareTool,
+} from '@/features/optimizer/compare-scenarios-screen'
 import { ImputedVsMarketScreen } from '@/features/optimizer/imputed-vs-market-screen'
 import { ProductivityTargetScreen } from '@/features/productivity-target/productivity-target-screen'
 import { DataTablesScreen } from '@/features/data/data-tables-screen'
@@ -165,6 +168,7 @@ export default function App() {
   const [modellerSaveDialogOpen, setModellerSaveDialogOpen] = useState(false)
   const [uploadSaveDialogOpen, setUploadSaveDialogOpen] = useState(false)
   const [reportLibraryFocusKey, setReportLibraryFocusKey] = useState(0)
+  const [compareSourceForCompare, setCompareSourceForCompare] = useState<CompareTool | null>(null)
 
   // Persist current screen to sessionStorage so reload restores where the user was (enterprise UX standard).
   useEffect(() => {
@@ -877,7 +881,12 @@ export default function App() {
       {step === 'compare-scenarios' && (
         <CompareScenariosScreen
           savedOptimizerConfigs={state.savedOptimizerConfigs}
-          onBack={() => handleStepChange('upload')}
+          savedProductivityTargetConfigs={state.savedProductivityTargetConfigs}
+          compareSource={compareSourceForCompare ?? undefined}
+          onBack={() => {
+            setCompareSourceForCompare(null)
+            handleStepChange('upload')
+          }}
         />
       )}
 
@@ -968,6 +977,10 @@ export default function App() {
           onSaveProductivityTargetConfig={saveProductivityTargetConfig}
           onLoadProductivityTargetConfig={loadProductivityTargetConfig}
           onDeleteSavedProductivityTargetConfig={deleteSavedProductivityTargetConfig}
+          onNavigateToCompareScenarios={() => {
+            setCompareSourceForCompare('productivity-target')
+            handleStepChange('compare-scenarios')
+          }}
         />
       )}
       {step === 'batch-scenario' && batchCard === 'bulk-scenario' && (

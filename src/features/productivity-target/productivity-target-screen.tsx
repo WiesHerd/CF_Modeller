@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Target, ChevronDown, FolderOpen, Save, RotateCcw, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FolderOpen, GitCompare, RotateCcw, Save, Target, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -46,6 +46,7 @@ interface ProductivityTargetScreenProps {
   onSaveProductivityTargetConfig?: (name: string, updateId?: string) => void
   onLoadProductivityTargetConfig?: (id: string) => void
   onDeleteSavedProductivityTargetConfig?: (id: string) => void
+  onNavigateToCompareScenarios?: () => void
 }
 
 function getInitialState(config: ProductivityTargetConfigSnapshot | null) {
@@ -81,6 +82,7 @@ export function ProductivityTargetScreen({
   onSaveProductivityTargetConfig,
   onLoadProductivityTargetConfig,
   onDeleteSavedProductivityTargetConfig,
+  onNavigateToCompareScenarios,
 }: ProductivityTargetScreenProps) {
   const initial = useMemo(() => getInitialState(productivityTargetConfig), [productivityTargetConfig])
   const [settings, setSettings] = useState<ProductivityTargetSettings>(initial.settings)
@@ -274,6 +276,22 @@ export function ProductivityTargetScreen({
                   </DropdownMenu>
                 ) : null}
               </>
+            ) : null}
+            {onNavigateToCompareScenarios ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onNavigateToCompareScenarios()}
+                    aria-label="Compare scenarios"
+                  >
+                    <GitCompare className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Compare scenarios</TooltipContent>
+              </Tooltip>
             ) : null}
             {onClearProductivityTargetConfig ? (
               <Button
