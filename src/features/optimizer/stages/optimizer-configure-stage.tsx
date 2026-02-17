@@ -69,6 +69,7 @@ import {
   type TCCLayerType,
 } from '@/lib/tcc-components'
 import { cn } from '@/lib/utils'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 
 const CONFIG_STEPS = [
@@ -118,6 +119,7 @@ export function OptimizerConfigureStage({
   hasData,
   settings,
   runDisabled,
+  runDisabledReasons = [],
   filteredProviderRowsCount,
   targetMode,
   selectedSpecialties,
@@ -147,6 +149,8 @@ export function OptimizerConfigureStage({
   hasData: boolean
   settings: OptimizerSettings
   runDisabled: boolean
+  /** When Run is disabled, friendly reasons to show so the user knows what to select. */
+  runDisabledReasons?: string[]
   filteredProviderRowsCount: number
   targetMode: 'all' | 'custom'
   selectedSpecialties: string[]
@@ -699,15 +703,21 @@ export function OptimizerConfigureStage({
 
               {/* Step 2: Objective */}
               {configStep === 2 ? (
-                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
-                  <SectionHeaderWithTooltip
-                    variant="section"
-                    title="A. Objective"
-                    tooltip="Set how the optimizer should target pay: align TCC percentile to wRVU percentile, target a fixed percentile, or a hybrid. The error metric (MSE vs MAE) affects how outliers are weighted when minimizing misalignment."
-                  />
-          <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
+                  <div>
+                    <SectionHeaderWithTooltip
+                      variant="section"
+                      title="A. Objective"
+                      tooltip="Set how the optimizer should target pay: align TCC percentile to wRVU percentile, target a fixed percentile, or a hybrid. The error metric (MSE vs MAE) affects how outliers are weighted when minimizing misalignment."
+                      className="text-primary/90"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Set how the optimizer should target pay, then choose the error metric and optional budget assumption.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Optimization objective</Label>
+              <Label className="text-sm font-semibold text-primary/90">Optimization objective</Label>
               <Select
                 value={settings.optimizationObjective.kind}
                 onValueChange={(value) => {
@@ -813,7 +823,7 @@ export function OptimizerConfigureStage({
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <Label>Error metric</Label>
+                <Label className="text-sm font-semibold text-primary/90">Error metric</Label>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -873,10 +883,11 @@ export function OptimizerConfigureStage({
               })()}
             </div>
           </div>
-          <div className="mt-4 space-y-3 border-t border-border/40 pt-4">
+          <div className="space-y-3 border-t border-border/40 pt-4">
             <SectionHeaderWithTooltip
               title="Budget constraint"
               tooltip="Optional budget assumption for this scenario. None = no constraint. Neutral = assume budget-neutral. Cap by % or $ = cap total incentive spend at a percentage of baseline or a dollar amount. Stored with the scenario for comparison; the optimizer does not currently enforce caps."
+              className="text-primary/90"
             />
             <div className="flex flex-wrap items-end gap-4">
               <div className="space-y-2">
@@ -969,15 +980,21 @@ export function OptimizerConfigureStage({
 
               {/* Step 3: Governance */}
               {configStep === 3 ? (
-                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
-                  <SectionHeaderWithTooltip
-                    variant="section"
-                    title="B. Governance guardrails"
-                    tooltip="Exclusion rules: providers below min clinical FTE or min wRVU per 1.0 cFTE are excluded from optimization. CF bounds limit how much the recommended CF can change from current (± %). Max recommended CF percentile caps the suggestion at a market percentile (e.g. 50 = median) per specialty."
-                  />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
+                  <div>
+                    <SectionHeaderWithTooltip
+                      variant="section"
+                      title="B. Governance guardrails"
+                      tooltip="Exclusion rules: providers below min clinical FTE or min wRVU per 1.0 cFTE are excluded from optimization. CF bounds limit how much the recommended CF can change from current (± %). Max recommended CF percentile caps the suggestion at a market percentile (e.g. 50 = median) per specialty."
+                      className="text-primary/90"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Set exclusion rules and limits on how much the recommended conversion factor can change.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 border-t border-border/40 pt-4">
             <div className="space-y-2">
-              <Label>Min clinical FTE</Label>
+              <Label className="text-sm font-semibold text-primary/90">Min clinical FTE</Label>
               <Input
                 type="number"
                 min={0}
@@ -996,7 +1013,7 @@ export function OptimizerConfigureStage({
               />
             </div>
             <div className="space-y-2">
-              <Label>Min wRVU per 1.0 cFTE</Label>
+              <Label className="text-sm font-semibold text-primary/90">Min wRVU per 1.0 cFTE</Label>
               <Input
                 type="number"
                 min={0}
@@ -1014,7 +1031,7 @@ export function OptimizerConfigureStage({
               />
             </div>
             <div className="space-y-2">
-              <Label>CF bounds (± % from current)</Label>
+              <Label className="text-sm font-semibold text-primary/90">CF bounds (± % from current)</Label>
               <div className="flex items-center gap-1">
                 <Input
                   type="number"
@@ -1035,7 +1052,7 @@ export function OptimizerConfigureStage({
           </div>
           <div className="mt-4 space-y-3 border-t border-border/40 pt-4">
             <div className="flex items-center justify-between gap-4">
-              <Label className="text-sm">Max recommended CF percentile</Label>
+              <Label className="text-sm font-semibold text-primary/90">Max recommended CF percentile</Label>
               <span className="tabular-nums text-sm font-medium text-muted-foreground">
                 {settings.maxRecommendedCFPercentile ?? 50}th
               </span>
@@ -1062,17 +1079,21 @@ export function OptimizerConfigureStage({
 
               {/* Step 4: Total cash compensation */}
               {configStep === 4 ? (
-                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
+                <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
                   <div>
                     <SectionHeaderWithTooltip
                       variant="section"
                       title="C. Total cash compensation"
                       tooltip="Build your TCC by turning components on or off. Base is always included. Each component has a single data source: upload column, computed, or override. Leave optional pills off if you don't have that column."
+                      className="text-primary/90"
                     />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Turn components on or off to define what counts as total cash compensation for this scenario.
+                    </p>
                   </div>
 
-                  <div className="space-y-3 rounded-lg border border-border/40 bg-background/60 p-3">
-                    <Label className="text-xs font-medium text-muted-foreground">What’s in your TCC</Label>
+                  <div className="space-y-3 rounded-lg border border-border/50 bg-background/70 p-4 border-t border-border/40 pt-4">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What’s in your TCC</Label>
                     {(() => {
                       const inc = settings.tccComponentInclusion ?? {
                         quality: { included: settings.includeQualityPaymentsInBaselineAndModeled },
@@ -1163,8 +1184,8 @@ export function OptimizerConfigureStage({
                     })()}
                   </div>
 
-                  <div className="space-y-3 rounded-lg border border-border/40 bg-background/60 p-3">
-                    <Label className="text-xs font-medium text-muted-foreground">Options</Label>
+                  <div className="space-y-3 rounded-lg border border-border/50 bg-background/70 p-4">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Options</Label>
                     {(() => {
                       const inc = settings.tccComponentInclusion ?? {
                         quality: { included: settings.includeQualityPaymentsInBaselineAndModeled },
@@ -1361,9 +1382,9 @@ export function OptimizerConfigureStage({
                     })()}
                   </div>
 
-          <div className="mt-5 space-y-3 rounded-lg border border-border/40 bg-background/60 p-3">
+          <div className="mt-5 space-y-3 rounded-lg border border-border/50 bg-background/70 p-4">
             <div className="flex items-center gap-2">
-              <h4 className="text-sm font-medium">Additional TCC (layered)</h4>
+              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Additional TCC (layered)</Label>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="About additional TCC layers">
@@ -1532,36 +1553,50 @@ export function OptimizerConfigureStage({
           ) : null}
 
           {/* Step navigation */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-4">
-            <div>
-              {configStep > 1 ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onSetConfigStep(configStep - 1)}
-                  className="gap-1.5"
-                >
-                  <ChevronLeft className="size-4" />
-                  Back
-                </Button>
-              ) : null}
-            </div>
-            <div className="flex gap-2">
-              {configStep < 4 ? (
-                <Button
-                  type="button"
-                  onClick={() => onSetConfigStep(configStep + 1)}
-                  className="gap-1.5"
-                >
-                  Next: {CONFIG_STEPS[configStep]?.label ?? ''}
-                  <ChevronRight className="size-4" />
-                </Button>
-              ) : (
-                <Button onClick={onRun} disabled={runDisabled} className="gap-2">
-                  <Play className="size-4" />
-                  Run
-                </Button>
-              )}
+          <div className="flex flex-col gap-3 border-t border-border/40 pt-4">
+            {configStep === 4 && runDisabled && runDisabledReasons.length > 0 ? (
+              <Alert variant="default" className="border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-100 dark:border-amber-400/40 dark:bg-amber-500/15">
+                <AlertDescription>
+                  <p className="font-medium mb-1">To run the optimizer:</p>
+                  <ul className="list-disc list-inside text-sm space-y-0.5">
+                    {runDisabledReasons.map((reason, i) => (
+                      <li key={i}>{reason}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                {configStep > 1 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onSetConfigStep(configStep - 1)}
+                    className="gap-1.5"
+                  >
+                    <ChevronLeft className="size-4" />
+                    Back
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex gap-2">
+                {configStep < 4 ? (
+                  <Button
+                    type="button"
+                    onClick={() => onSetConfigStep(configStep + 1)}
+                    className="gap-1.5"
+                  >
+                    Next: {CONFIG_STEPS[configStep]?.label ?? ''}
+                    <ChevronRight className="size-4" />
+                  </Button>
+                ) : (
+                  <Button onClick={onRun} disabled={runDisabled} className="gap-2">
+                    <Play className="size-4" />
+                    Run
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </TooltipProvider>

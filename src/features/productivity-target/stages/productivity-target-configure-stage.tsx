@@ -670,18 +670,21 @@ export function ProductivityTargetConfigureStage({
 
               {configStep === 2 ? (
                 <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
-                  <SectionHeaderWithTooltip
-                    variant="section"
-                    title="Target method"
-                    tooltip="Target is expressed at 1.0 cFTE; provider-level targets are prorated by each provider's cFTE. A = market wRVU at a percentile. B = you enter a gross target wRVU (at 1.0 cFTE); we prorate for calculations."
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Choose how the productivity target is defined, then set the values used for alignment and planning payout estimates.
-                  </p>
+                  <div>
+                    <SectionHeaderWithTooltip
+                      variant="section"
+                      title="Target method"
+                      tooltip="Target is expressed at 1.0 cFTE; provider-level targets are prorated by each provider's cFTE. A = market wRVU at a percentile. B = you enter a gross target wRVU (at 1.0 cFTE); we prorate for calculations."
+                      className="text-primary/90"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Choose how the productivity target is defined, then set the values used for alignment and planning payout estimates.
+                    </p>
+                  </div>
 
-                  <div className="space-y-4 rounded-md border border-border/50 bg-background/70 p-4">
+                  <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
                     <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">Choose target approach</p>
+                      <Label className="text-sm font-semibold text-primary/90">Choose target approach</Label>
                       <p className="text-xs text-muted-foreground">
                         Use market wRVU percentile (A) or enter a gross target wRVU at 1.0 cFTE (B).
                       </p>
@@ -713,9 +716,9 @@ export function ProductivityTargetConfigureStage({
                     </p>
                   </div>
 
-                  <div className="space-y-4 rounded-md border border-border/50 bg-background/70 p-4">
+                  <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
                     <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">Set target inputs</p>
+                      <Label className="text-sm font-semibold text-primary/90">Set target inputs</Label>
                       <p className="text-xs text-muted-foreground">
                         Enter the target value for the chosen approach, then define alignment tolerance.
                       </p>
@@ -780,10 +783,12 @@ export function ProductivityTargetConfigureStage({
                     </div>
                   </div>
 
-                  <div className="space-y-4 rounded-md border border-border/50 bg-background/70 p-4">
+                  <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
                     <SectionHeaderWithTooltip
+                      variant="subsection"
                       title="Planning incentive (CF for potential payout)"
                       tooltip="The conversion factor (CF) used to estimate how much providers get paid when they hit the productivity target—i.e. the $/wRVU payout rate. Choose Market at percentile or Manual $/wRVU to enter a specific dollar rate. For planning only; does not change the CF Optimizer."
+                      className="text-primary/90"
                     />
                     <p className="text-xs text-muted-foreground">
                       Choose the payout CF source used for planning-only incentive estimates.
@@ -854,9 +859,19 @@ export function ProductivityTargetConfigureStage({
               ) : null}
 
               {configStep === 3 ? (
-                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
-                  <h3 className="text-base font-semibold">Summary</h3>
-                  <ul className="list-inside list-disc space-y-1.5 text-sm text-muted-foreground">
+                <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
+                  <div>
+                    <SectionHeaderWithTooltip
+                      variant="section"
+                      title="Summary"
+                      tooltip="Review scope, target method, and planning incentive before running. Group target is the same wRVU (at 1.0 cFTE) for everyone in the specialty; scaled by cFTE per provider."
+                      className="text-primary/90"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Review your choices below, then run to see productivity target results by specialty.
+                    </p>
+                  </div>
+                  <ul className="list-inside list-disc space-y-1.5 text-sm text-muted-foreground border-t border-border/40 pt-4">
                     <li>
                       <span className="text-foreground font-medium">Scope:</span>{' '}
                       {targetMode === 'all' ? (
