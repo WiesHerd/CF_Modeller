@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -40,7 +40,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Command, CommandInput } from '@/components/ui/command'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ArrowLeft, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, X } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, X } from 'lucide-react'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
@@ -138,6 +138,10 @@ const MAIN_TABLE_COLUMNS: Record<
 }
 
 const DEFAULT_COL_WIDTH = 120
+
+const ROW_HEIGHT_PX = 40
+const TABLE_HEADER_HEIGHT_PX = 42
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 
 const MIN_PROVIDERS_OPTIONS = [
   { value: 0, label: 'All' },
@@ -360,6 +364,8 @@ export function ImputedVsMarketScreen({
   const [draggedColumnId, setDraggedColumnId] = useState<MainTableColumnId | null>(null)
   const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
   const focusedCellRef = useRef<HTMLTableCellElement>(null)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState(25)
 
   const visibleOrder = useMemo(
     () => columnOrder.filter((id) => !hiddenColumnIds.has(id)),
@@ -461,8 +467,22 @@ export function ImputedVsMarketScreen({
     []
   )
 
-  const rowCount = filteredRows.length
+  const totalRowCount = filteredRows.length
+  const totalPages = Math.max(1, Math.ceil(totalRowCount / pageSize))
+  const safePageIndex = Math.min(pageIndex, Math.max(0, totalPages - 1))
+  const paginatedRows = useMemo(() => {
+    const start = safePageIndex * pageSize
+    return filteredRows.slice(start, start + pageSize)
+  }, [filteredRows, safePageIndex, pageSize])
+
+  useEffect(() => {
+    setPageIndex((prev) => Math.min(prev, Math.max(0, totalPages - 1)))
+  }, [totalPages])
+
+  const rowCount = paginatedRows.length
   const colCount = visibleOrder.length
+  const paginatedTableHeight = TABLE_HEADER_HEIGHT_PX + pageSize * ROW_HEIGHT_PX
+
   useEffect(() => {
     if (focusedCell == null) return
     const el = focusedCellRef.current
@@ -608,6 +628,25 @@ export function ImputedVsMarketScreen({
       <SectionTitleWithIcon icon={<BarChart2 className="size-5 text-muted-foreground" />}>
         Market positioning (imputed)
       </SectionTitleWithIcon>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <p className="text-muted-foreground">
+          Effective $/wRVU vs market 25th–90th by specialty.
+        </p>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-muted-foreground cursor-help inline-flex shrink-0" aria-label="About this table">
+                <Info className="size-4" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-[320px] text-xs font-normal space-y-1.5 text-background">
+              <p className="font-medium">About this table</p>
+              <p className="text-background/90">Compare your effective $/wRVU (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) to market 25th–90th by specialty. Your $/wRVU %ile shows where you stand vs market; market CF percentiles are reference targets.</p>
+              <p className="text-background/90">Click a row to open provider-level detail in a drawer. Use the pin icon to pin columns to the left; drag column headers to reorder; drag the right edge to resize. Use the icons above the table to auto-size or show/hide columns.</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="outline" size="sm" className="gap-2" onClick={onBack} aria-label="Back">
           <ArrowLeft className="size-4" />
@@ -637,34 +676,7 @@ export function ImputedVsMarketScreen({
         )}
       </div>
       <Card>
-        <CardHeader className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <p className="text-muted-foreground">
-              Effective $/wRVU vs market 25th–90th by specialty.
-            </p>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-muted-foreground cursor-help inline-flex shrink-0" aria-label="About this table">
-                    <Info className="size-4" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[320px] text-xs text-muted-foreground font-normal space-y-1.5">
-                  <p className="font-medium text-foreground">About this table</p>
-                  <p>Compare your effective $/wRVU (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) to market 25th–90th by specialty. Your $/wRVU %ile shows where you stand vs market; market CF percentiles are reference targets.</p>
-                  <p>Click a row to open provider-level detail in a drawer. Use the pin icon to pin columns to the left; drag column headers to reorder; drag the right edge to resize. Use the icons above the table to auto-size or show/hide columns.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Row bar (pay vs productivity):{' '}
-            <span className="font-medium text-emerald-600 dark:text-emerald-400">Green</span> = {GAP_INTERPRETATION_LABEL.aligned} ·{' '}
-            <span className="font-medium text-red-600 dark:text-red-400">Red</span> = {GAP_INTERPRETATION_LABEL.overpaid} ·{' '}
-            <span className="font-medium text-blue-600 dark:text-blue-400">Blue</span> = {GAP_INTERPRETATION_LABEL.underpaid}
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 pt-6">
           {!hasData && (
             <WarningBanner message="Upload provider and market data on the Upload screen first." />
           )}
@@ -965,11 +977,19 @@ export function ImputedVsMarketScreen({
                       No specialties match your search or filters. Try changing the filters or search.
                     </p>
                   ) : (
+                <>
                 <div
                   className="flex flex-col w-full rounded-md border overflow-hidden"
-                  style={{ maxHeight: 'min(70vh, 600px)' }}
+                  style={{ maxHeight: `${paginatedTableHeight}px` }}
                 >
-                  <div className="flex justify-end gap-0.5 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
+                    <p className="text-xs text-muted-foreground">
+                      Row bar (pay vs productivity):{' '}
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">Green</span> = {GAP_INTERPRETATION_LABEL.aligned} ·{' '}
+                      <span className="font-medium text-red-600 dark:text-red-400">Red</span> = {GAP_INTERPRETATION_LABEL.overpaid} ·{' '}
+                      <span className="font-medium text-blue-600 dark:text-blue-400">Blue</span> = {GAP_INTERPRETATION_LABEL.underpaid}
+                    </p>
+                    <div className="flex gap-0.5">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -1050,6 +1070,7 @@ export function ImputedVsMarketScreen({
                         })}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    </div>
                   </div>
                   <div
                     role="grid"
@@ -1084,7 +1105,7 @@ export function ImputedVsMarketScreen({
                             <col key={colId} style={{ width: `${getWidth(colId)}px`, minWidth: `${getWidth(colId)}px` }} />
                           ))}
                         </colgroup>
-                        <thead className="sticky top-0 z-10 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+                        <thead className="sticky top-0 z-30 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
                           <tr className="border-b border-border bg-muted">
                             {visibleOrder.map((colId) => {
                               const col = MAIN_TABLE_COLUMNS[colId]
@@ -1094,11 +1115,13 @@ export function ImputedVsMarketScreen({
                               const isPinnedLeft = pinnedLeftSet.has(colId)
                               const leftOffset = pinnedLeftOffsets[colId]
                               const lastPinned = isLastPinnedLeft(colId)
+                              const isSpecialtyCol = colId === 'specialty'
                               return (
                                 <th
                                   key={colId}
                                   className={cn(
-                                    'relative min-h-10 px-3 py-2.5 align-middle font-medium whitespace-normal break-words select-none',
+                                    'relative min-h-10 px-3 py-2.5 align-middle font-medium select-none',
+                                    isSpecialtyCol ? 'min-w-0 overflow-hidden' : 'whitespace-normal break-words',
                                     col.align === 'right' ? 'text-right' : 'text-left',
                                     isPinnedLeft ? 'bg-muted' : 'bg-muted text-foreground',
                                     lastPinned && 'border-r border-border shadow-[4px_0_6px_-1px_rgba(0,0,0,0.1),4px_0_4px_-2px_rgba(0,0,0,0.06)]'
@@ -1108,7 +1131,7 @@ export function ImputedVsMarketScreen({
                                     minWidth: wPx,
                                     maxWidth: wPx,
                                     ...(isPinnedLeft && leftOffset !== undefined
-                                      ? { position: 'sticky' as const, left: leftOffset, zIndex: 30 }
+                                      ? { position: 'sticky' as const, left: leftOffset, zIndex: 31 }
                                       : {}),
                                   }}
                                 draggable
@@ -1117,12 +1140,12 @@ export function ImputedVsMarketScreen({
                                 onDrop={(e) => handleHeaderDrop(e, colId)}
                                 onDragEnd={handleHeaderDragEnd}
                               >
-                                <span className="inline-flex items-center gap-1">
+                                <span className={cn('inline-flex items-center gap-1 min-w-0', isSpecialtyCol && 'overflow-hidden')}>
                                   <GripVertical
                                     className="size-4 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground"
                                     aria-hidden
                                   />
-                                  <span className={isDragging ? 'opacity-50' : ''}>{col.label}</span>
+                                  <span className={cn(isDragging && 'opacity-50', isSpecialtyCol && 'truncate')} title={col.label}>{col.label}</span>
                                   {colId === 'yourPercentile' && (
                                     <TooltipProvider delayDuration={300}>
                                       <Tooltip>
@@ -1167,7 +1190,7 @@ export function ImputedVsMarketScreen({
                         </tr>
                       </thead>
                       <tbody className="[&_tr:last-child]:border-0">
-                        {filteredRows.map((row, rowIndex) => {
+                        {paginatedRows.map((row, rowIndex) => {
                           const alignment = getAlignmentForRow(row)
                           const fmvRisk = getFmvRiskLevel(row.avgTCCPercentile, row.avgTCCPercentile)
                           return (
@@ -1265,6 +1288,64 @@ export function ImputedVsMarketScreen({
                   </div>
                   </div>
                 </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 px-2 py-2 border border-t-0 rounded-b-md bg-muted/20">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Rows per page</span>
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(v) => {
+                        const n = Number(v)
+                        if (PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number])) {
+                          setPageSize(n)
+                          setPageIndex(0)
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[72px] h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_SIZE_OPTIONS.map((n) => (
+                          <SelectItem key={n} value={String(n)}>
+                            {n}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="tabular-nums">
+                      {totalRowCount === 0
+                        ? '0 rows'
+                        : `${safePageIndex * pageSize + 1}–${Math.min((safePageIndex + 1) * pageSize, totalRowCount)} of ${totalRowCount}`}
+                    </span>
+                    <div className="flex gap-0.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={safePageIndex <= 0}
+                        onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        disabled={safePageIndex >= totalPages - 1}
+                        onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
+                        aria-label="Next page"
+                      >
+                        <ChevronRight className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                </>
                   )}
               </>
               )}

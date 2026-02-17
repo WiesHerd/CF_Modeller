@@ -1,11 +1,9 @@
 import { ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
-  TableHeader,
   TableRow,
 } from '@/components/ui/table'
 import {
@@ -47,9 +45,9 @@ export function OptimizerResultsTable({
 }) {
   return (
     <TooltipProvider>
-      <div className="w-full overflow-auto rounded-md border border-border">
-        <Table className="w-full caption-bottom text-sm">
-          <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+      <div className="w-full overflow-auto rounded-md border border-border" style={{ maxHeight: 'min(70vh, 600px)', minHeight: 0 }}>
+        <table className="w-full caption-bottom text-sm border-collapse">
+          <thead className="sticky top-0 z-30 border-b border-border bg-muted shadow-[0_1px_3px_0_rgba(0,0,0,0.08)] [&_th]:whitespace-nowrap [&_th]:bg-muted [&_th]:text-foreground [&_th]:font-medium">
             <TableRow>
               <TableHead className="min-w-[140px] px-3 py-2.5">Specialty</TableHead>
               <TableHead className="text-right min-w-[80px] px-3 py-2.5">wRVU %ile</TableHead>
@@ -70,7 +68,7 @@ export function OptimizerResultsTable({
               <TableHead className="min-w-[160px] px-3 py-2.5">Market line</TableHead>
               <TableHead className="w-12 text-right px-3 py-2.5">Details</TableHead>
             </TableRow>
-          </TableHeader>
+          </thead>
           <TableBody>
             {rows.map((row, index) => {
               const gapInterpretation = getGapInterpretation(row.keyMetrics.gap)
@@ -150,7 +148,7 @@ export function OptimizerResultsTable({
               )
             })}
           </TableBody>
-        </Table>
+        </table>
       </div>
     </TooltipProvider>
   )

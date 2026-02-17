@@ -9,6 +9,7 @@ import {
   User,
   Gauge,
   BarChart2,
+  Target,
   LayoutGrid,
   Sliders,
   Layers,
@@ -251,6 +252,21 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
                 <strong className="text-foreground">When:</strong> Benchmarking; understanding where you sit vs. market by specialty.
               </p>
               <GoToButton label="Market positioning" step="batch-scenario" batchCard="imputed-vs-market" onNavigate={onNavigate} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6 space-y-3">
+              <h3 className="font-medium text-foreground flex items-center gap-2">
+                <Target className="size-4 text-primary" />
+                Productivity Target Builder
+              </h3>
+              <p className="text-muted-foreground text-sm">
+                Set a group wRVU target per specialty (1.0 cFTE) and scale by cFTE; compare actuals to target, plan incentive payout, and export.
+              </p>
+              <p className="text-muted-foreground text-xs">
+                <strong className="text-foreground">When:</strong> Setting productivity expectations by specialty; planning incentive without individualized salary-based targets.
+              </p>
+              <GoToButton label="Productivity Target Builder" step="batch-scenario" batchCard="productivity-target" onNavigate={onNavigate} />
             </CardContent>
           </Card>
           <Card>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Menu, Plus, PanelLeftClose, PanelLeft, FileUp, User, Users, Gauge, BarChart2, Sliders, Table2, GitCompare, HelpCircle, FileText } from 'lucide-react'
+import { Menu, Plus, PanelLeftClose, PanelLeft, FileUp, User, Users, Gauge, BarChart2, Sliders, Table2, GitCompare, HelpCircle, FileText, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -13,9 +13,10 @@ export type AppMode = 'single' | 'batch'
 const RAIL_WIDTH = 68
 const SIDEBAR_EXPANDED_WIDTH = 260
 
-const BATCH_NAV: { id: BatchCardId; label: string; icon: React.ReactNode; tooltip: string }[] = [
+const BATCH_NAV: { id: BatchCardId; label: string; icon: React.ReactNode; tooltip: string; subtitle?: string }[] = [
   { id: 'cf-optimizer', label: 'CF Optimizer', icon: <Gauge className="size-5 shrink-0" />, tooltip: 'Conversion Factor Optimizer' },
   { id: 'imputed-vs-market', label: 'Market positioning', icon: <BarChart2 className="size-5 shrink-0" />, tooltip: 'Market positioning (imputed)' },
+  { id: 'productivity-target', label: 'Productivity Target', icon: <Target className="size-5 shrink-0" />, tooltip: 'Productivity Target Builder', subtitle: 'Recommended target' },
   { id: 'bulk-scenario', label: 'Create and Run Scenario', icon: <Users className="size-5 shrink-0" />, tooltip: 'Create a scenario and run it for all providers' },
   { id: 'detailed-scenario', label: 'Detailed scenarios', icon: <Sliders className="size-5 shrink-0" />, tooltip: 'Scenario overrides by specialty and provider' },
 ]
@@ -56,6 +57,7 @@ function NavButton({
   icon,
   label,
   tooltip,
+  subtitle,
   active,
   disabled,
   onClick,
@@ -64,6 +66,7 @@ function NavButton({
   icon: React.ReactNode
   label: string
   tooltip: string
+  subtitle?: string
   active: boolean
   disabled: boolean
   onClick: () => void
@@ -85,7 +88,12 @@ function NavButton({
       aria-label={collapsed ? tooltip : undefined}
     >
       {icon}
-      {!collapsed && <span className="truncate">{label}</span>}
+      {!collapsed && (
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">{label}</span>
+          {subtitle ? <span className="block truncate text-xs font-normal text-muted-foreground">{subtitle}</span> : null}
+        </span>
+      )}
     </button>
   )
   // Only wrap in Tooltip when collapsed (icons only); when expanded, labels are visible so no tooltip needed.
@@ -206,6 +214,7 @@ export function AppLayout({
               icon={item.icon}
               label={item.label}
               tooltip={item.tooltip}
+              subtitle={item.subtitle}
               active={isBatchScenarioActive && currentBatchCard === item.id}
               disabled={false}
               onClick={() => handleBatchCard(item.id)}
@@ -330,6 +339,7 @@ export function AppLayout({
                 icon={item.icon}
                 label={item.label}
                 tooltip={item.tooltip}
+                subtitle={item.subtitle}
                 active={isBatchScenarioActive && currentBatchCard === item.id}
                 disabled={false}
                 onClick={() => handleBatchCard(item.id)}
@@ -476,6 +486,7 @@ export function AppLayout({
                         icon={item.icon}
                         label={item.label}
                         tooltip={item.tooltip}
+                        subtitle={item.subtitle}
                         active={isBatchScenarioActive && currentBatchCard === item.id}
                         disabled={false}
                         onClick={() => handleBatchCard(item.id)}

@@ -5,9 +5,11 @@ import type { ScenarioInputs, ScenarioResults, SavedScenario } from '@/types/sce
 import type { ColumnMapping } from '@/types/upload'
 import type { BatchResults, BatchOverrides, BatchRunMode, BatchScenarioSnapshot, SavedBatchRun, SavedBatchScenarioConfig, SynonymMap } from '@/types/batch'
 import type { OptimizerConfigSnapshot, SavedOptimizerConfig } from '@/types/optimizer'
+import type { ProductivityTargetConfigSnapshot, SavedProductivityTargetConfig } from '@/types/productivity-target'
 import * as storage from '@/lib/storage'
 import * as batchStorage from '@/lib/batch-storage'
 import * as optimizerStorage from '@/lib/optimizer-storage'
+import * as productivityTargetStorage from '@/lib/productivity-target-storage'
 
 export interface AppState {
   providerRows: ProviderRow[]
@@ -50,6 +52,12 @@ export interface AppState {
   loadedOptimizerConfigId: string | null
   /** Saved optimizer scenarios for save/recall (persisted). */
   savedOptimizerConfigs: SavedOptimizerConfig[]
+  /** Productivity Target Builder form state (in-memory). */
+  productivityTargetConfig: ProductivityTargetConfigSnapshot | null
+  /** When set, the current target config was loaded from this saved config. */
+  loadedProductivityTargetConfigId: string | null
+  /** Saved productivity target scenarios (persisted). */
+  savedProductivityTargetConfigs: SavedProductivityTargetConfig[]
 }
 
 const defaultScenarioInputs: ScenarioInputs = {
@@ -92,6 +100,9 @@ const initialState: AppState = {
   optimizerConfig: null,
   loadedOptimizerConfigId: null,
   savedOptimizerConfigs: [],
+  productivityTargetConfig: null,
+  loadedProductivityTargetConfigId: null,
+  savedProductivityTargetConfigs: [],
 }
 
 export function useAppState() {
@@ -105,6 +116,7 @@ export function useAppState() {
     const savedBatchRuns = batchStorage.loadSavedBatchRuns()
     const savedBatchScenarioConfigs = batchStorage.loadSavedBatchScenarioConfigs()
     const savedOptimizerConfigs = optimizerStorage.loadSavedOptimizerConfigs()
+    const savedProductivityTargetConfigs = productivityTargetStorage.loadSavedProductivityTargetConfigs()
     const batchSynonymMap = batchStorage.loadSynonymMap()
     const batchUploadMeta = batchStorage.loadBatchUploadMeta()
     return {
@@ -121,6 +133,7 @@ export function useAppState() {
       savedBatchRuns,
       savedBatchScenarioConfigs,
       savedOptimizerConfigs,
+      savedProductivityTargetConfigs,
       batchSynonymMap,
       batchFileName: batchUploadMeta.fileName ?? null,
       batchUploadedAt: batchUploadMeta.uploadedAt ?? null,
@@ -176,6 +189,10 @@ export function useAppState() {
   useEffect(() => {
     optimizerStorage.saveSavedOptimizerConfigs(state.savedOptimizerConfigs)
   }, [state.savedOptimizerConfigs])
+
+  useEffect(() => {
+    productivityTargetStorage.saveSavedProductivityTargetConfigs(state.savedProductivityTargetConfigs)
+  }, [state.savedProductivityTargetConfigs])
 
   useEffect(() => {
     batchStorage.saveSynonymMap(state.batchSynonymMap)
@@ -649,6 +666,63 @@ export function useAppState() {
     }))
   }, [])
 
+  const clearAllSavedOptimizerConfigs = useCallback(() => {
+    setState((s) => ({ ...s, savedOptimizerConfigs: [] }))
+  }, [])
+
+  const setProductivityTargetConfig = useCallback((snapshot: ProductivityTargetConfigSnapshot | null) => {
+    setState((s) => ({ ...s, productivityTargetConfig: snapshot }))
+  }, [])
+
+  const clearProductivityTargetConfig = useCallback(() => {
+    setState((s) => ({ ...s, productivityTargetConfig: null, loadedProductivityTargetConfigId: null }))
+  }, [])
+
+  const saveProductivityTargetConfig = useCallback((name: string, updateId?: string) => {
+    setState((s) => {
+      if (!s.productivityTargetConfig) return s
+      const existing = updateId ? s.savedProductivityTargetConfigs.find((c) => c.id === updateId) : null
+      if (existing) {
+        const updated: SavedProductivityTargetConfig = {
+          ...existing,
+          name: name.trim(),
+          snapshot: s.productivityTargetConfig,
+        }
+        const list = s.savedProductivityTargetConfigs
+          .map((c) => (c.id === updateId ? updated : c))
+          .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        return { ...s, savedProductivityTargetConfigs: list }
+      }
+      const saved: SavedProductivityTargetConfig = {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        createdAt: new Date().toISOString(),
+        snapshot: s.productivityTargetConfig,
+      }
+      const list = [...s.savedProductivityTargetConfigs, saved].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      )
+      const trimmed = list.length > 20 ? list.slice(-20) : list
+      return { ...s, savedProductivityTargetConfigs: trimmed }
+    })
+  }, [])
+
+  const loadProductivityTargetConfig = useCallback((id: string) => {
+    setState((s) => {
+      const found = s.savedProductivityTargetConfigs.find((c) => c.id === id)
+      if (!found) return s
+      return { ...s, productivityTargetConfig: found.snapshot, loadedProductivityTargetConfigId: id }
+    })
+  }, [])
+
+  const deleteSavedProductivityTargetConfig = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      savedProductivityTargetConfigs: s.savedProductivityTargetConfigs.filter((c) => c.id !== id),
+      loadedProductivityTargetConfigId: s.loadedProductivityTargetConfigId === id ? null : s.loadedProductivityTargetConfigId,
+    }))
+  }, [])
+
   return {
     state,
     setProviderData,
@@ -687,5 +761,11 @@ export function useAppState() {
     saveOptimizerConfig,
     loadOptimizerConfig,
     deleteSavedOptimizerConfig,
+    clearAllSavedOptimizerConfigs,
+    setProductivityTargetConfig,
+    clearProductivityTargetConfig,
+    saveProductivityTargetConfig,
+    loadProductivityTargetConfig,
+    deleteSavedProductivityTargetConfig,
   }
 }

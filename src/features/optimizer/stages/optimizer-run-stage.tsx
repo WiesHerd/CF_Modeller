@@ -1,6 +1,19 @@
-import { FileSpreadsheet, Gauge, LineChart, Play, RotateCcw } from 'lucide-react'
+import { useState } from 'react'
+import { FileSpreadsheet, Gauge, Info, LineChart, Play, RotateCcw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { ExclusionReason, OptimizerRunResult } from '@/types/optimizer'
 
 /** Total work RVU incentive $ at recommended CF; uses summary when present, else computes from result (backward compat). */
@@ -47,18 +60,34 @@ export function OptimizerRunStage({
   marketRows?: import('@/types/market').MarketRow[]
   synonymMap?: Record<string, string>
 }) {
+  const [exclusionDrilldownReason, setExclusionDrilldownReason] = useState<ExclusionReason | null>(null)
+
   return (
+    <TooltipProvider delayDuration={300}>
     <Card>
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary [&_svg]:size-5">
             <Gauge />
           </div>
-          <CardTitle className="leading-tight">Run and review</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="leading-tight">Run and review</CardTitle>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="About Run and review"
+                >
+                  <Info className="size-5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[280px] text-xs">
+                Run optimization, then review recommendations with policy and outlier context.
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Run optimization, then review recommendations with policy and outlier context.
-        </p>
       </CardHeader>
       <CardContent className="space-y-6">
         {runError ? (
@@ -123,24 +152,41 @@ export function OptimizerRunStage({
                   <span className="font-medium tabular-nums">{result.summary.providersIncluded}</span> in scope
                   {' · '}
                   <span className="font-medium tabular-nums">{result.summary.providersExcluded}</span> excluded
-                  {' · '}
-                  <span className="font-medium tabular-nums">
-                    ${result.summary.totalSpendImpactRaw.toLocaleString('en-US', {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}
-                  </span>{' '}
-                  total impact
                 </p>
 
                 <p className="text-sm text-muted-foreground">
-                  <span className="font-medium">Total incentive (CF) spend: </span>
-                  <span className="font-medium tabular-nums">
-                    ${getTotalIncentiveDollars(result).toLocaleString('en-US', {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help font-medium tabular-nums text-primary underline decoration-dotted decoration-primary/50 underline-offset-2">
+                        ${result.summary.totalSpendImpactRaw.toLocaleString('en-US', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        })}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[280px] text-xs">
+                      Change in total TCC (Total Cash Compensation) when moving from current/baseline to the recommended CF. Positive = total pay goes up under the recommendation; negative = total pay goes down.
+                    </TooltipContent>
+                  </Tooltip>
+                  {' '}
+                  total impact
+                  {' · '}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help underline decoration-dotted decoration-primary/50 underline-offset-2">
+                        <span>Total incentive (CF) spend: </span>
+                        <span className="font-medium tabular-nums text-primary">
+                          ${getTotalIncentiveDollars(result).toLocaleString('en-US', {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0,
+                          })}
+                        </span>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[280px] text-xs">
+                      Total work RVU incentive dollars at the recommended CF across all included providers. This is the amount of productivity (CF) incentive pay at the new conversion factor, not a change from baseline.
+                    </TooltipContent>
+                  </Tooltip>
                 </p>
 
                 {settings?.budgetConstraint?.kind === 'cap_dollars' &&
@@ -150,10 +196,6 @@ export function OptimizerRunStage({
                     capDollars={settings.budgetConstraint.capDollars}
                   />
                 ) : null}
-
-                <p className="text-xs text-muted-foreground">
-                  Pay vs productivity: when TCC percentile is higher than wRVU percentile, pay is generally above productivity; when wRVU percentile is higher, underpaid. The optimizer adjusts CF toward alignment.
-                </p>
 
                 <OptimizerReviewWorkspace
                   rows={result.bySpecialty}
@@ -190,11 +232,58 @@ export function OptimizerRunStage({
                     {result.summary.topExclusionReasons.length > 0 ? (
                       <div className="mt-2">
                         <span className="text-muted-foreground">Top exclusion reasons: </span>
-                        {formatTopExclusionReasons(result.summary.topExclusionReasons)}
+                        <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                          {result.summary.topExclusionReasons.map(({ reason, count }, i) => (
+                            <span key={reason}>
+                              {i > 0 ? ', ' : null}
+                              <button
+                                type="button"
+                                onClick={() => setExclusionDrilldownReason(reason)}
+                                className="cursor-pointer text-primary underline hover:text-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
+                              >
+                                {EXCLUSION_REASON_LABELS[reason] ?? reason} ({count})
+                              </button>
+                            </span>
+                          ))}
+                        </span>
+                        <p className="mt-1 text-xs text-muted-foreground">Click a reason to see who was excluded.</p>
                       </div>
                     ) : null}
                   </div>
                 </details>
+
+                {result.audit?.excludedProviders ? (
+                  <Dialog open={exclusionDrilldownReason != null} onOpenChange={(open) => !open && setExclusionDrilldownReason(null)}>
+                    <DialogContent className="max-h-[80vh] flex max-w-lg flex-col overflow-hidden">
+                      <DialogHeader>
+                        <DialogTitle>
+                          {exclusionDrilldownReason != null
+                            ? `Excluded for: ${EXCLUSION_REASON_LABELS[exclusionDrilldownReason] ?? exclusionDrilldownReason}`
+                            : 'Excluded providers'}
+                        </DialogTitle>
+                      </DialogHeader>
+                      {exclusionDrilldownReason != null ? (
+                        <div className="min-h-0 flex-1 overflow-y-auto rounded-md border border-border/70 bg-muted/20 p-2">
+                          <ul className="space-y-1 text-sm">
+                            {result.audit.excludedProviders
+                              .filter((p) => p.reasons.includes(exclusionDrilldownReason))
+                              .map((p) => (
+                                <li key={p.providerId} className="flex flex-wrap items-baseline gap-2 border-b border-border/40 py-1 last:border-0">
+                                  <span className="font-medium">{p.providerName || p.providerId}</span>
+                                  <span className="text-xs text-muted-foreground">{p.specialty}</span>
+                                  {p.reasons.length > 1 ? (
+                                    <span className="text-xs text-muted-foreground">
+                                      (also: {p.reasons.filter((r) => r !== exclusionDrilldownReason).map((r) => EXCLUSION_REASON_LABELS[r] ?? r).join(', ')})
+                                    </span>
+                                  ) : null}
+                                </li>
+                              ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </DialogContent>
+                  </Dialog>
+                ) : null}
               </div>
             ) : null}
 
@@ -202,13 +291,8 @@ export function OptimizerRunStage({
         ) : null}
       </CardContent>
     </Card>
+    </TooltipProvider>
   )
-}
-
-function formatTopExclusionReasons(reasons: { reason: ExclusionReason; count: number }[]) {
-  return reasons
-    .map(({ reason, count }) => `${EXCLUSION_REASON_LABELS[reason] ?? reason} (${count})`)
-    .join(', ')
 }
 
 function BudgetVsActual({ totalIncentive, capDollars }: { totalIncentive: number; capDollars: number }) {

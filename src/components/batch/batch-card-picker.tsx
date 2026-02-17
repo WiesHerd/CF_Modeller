@@ -1,8 +1,8 @@
 import { Card, CardContent } from '@/components/ui/card'
-import { Gauge, LayoutGrid, Sliders, BarChart2 } from 'lucide-react'
+import { Gauge, LayoutGrid, Sliders, BarChart2, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type BatchCardId = 'cf-optimizer' | 'imputed-vs-market' | 'bulk-scenario' | 'detailed-scenario'
+export type BatchCardId = 'cf-optimizer' | 'imputed-vs-market' | 'productivity-target' | 'bulk-scenario' | 'detailed-scenario'
 
 interface BatchCardPickerProps {
   onSelect: (card: BatchCardId) => void
@@ -21,6 +21,12 @@ const CARDS: { id: BatchCardId; title: string; description: string; icon: React.
     title: 'Market positioning (imputed)',
     description: 'Compare your effective $/wRVU to market 25th–90th by specialty; see your percentile and market CF targets.',
     icon: <BarChart2 className="size-6" />,
+  },
+  {
+    id: 'productivity-target',
+    title: 'Productivity Target Builder',
+    description: 'Set a group wRVU target per specialty (1.0 cFTE) and scale by cFTE; compare actuals to target, plan incentive, and export.',
+    icon: <Target className="size-6" />,
   },
   {
     id: 'bulk-scenario',

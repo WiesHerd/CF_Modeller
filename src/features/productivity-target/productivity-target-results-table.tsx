@@ -1,0 +1,89 @@
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { ChevronRight } from 'lucide-react'
+import type { ProductivityTargetSpecialtyResult } from '@/types/productivity-target'
+import { cn } from '@/lib/utils'
+
+function formatNum(n: number, decimals = 0): string {
+  return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
+}
+
+export function ProductivityTargetResultsTable({
+  rows,
+  onOpenDetail,
+}: {
+  rows: ProductivityTargetSpecialtyResult[]
+  onOpenDetail: (row: ProductivityTargetSpecialtyResult) => void
+}) {
+  return (
+    <div className="rounded-md border border-border/80">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-8" />
+            <TableHead>Specialty</TableHead>
+            <TableHead className="text-right">Group target (1.0 cFTE)</TableHead>
+            <TableHead className="text-right">Providers</TableHead>
+            <TableHead className="text-right">Mean % to target</TableHead>
+            <TableHead className="text-right">Total potential incentive</TableHead>
+            <TableHead className="text-right">&lt;80%</TableHead>
+            <TableHead className="text-right">80–99%</TableHead>
+            <TableHead className="text-right">100–119%</TableHead>
+            <TableHead className="text-right">≥120%</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow
+              key={row.specialty}
+              className={cn(
+                'cursor-pointer transition-colors hover:bg-muted/50',
+                row.warning && 'opacity-70'
+              )}
+              onClick={() => onOpenDetail(row)}
+            >
+              <TableCell className="w-8 p-1">
+                <Button variant="ghost" size="icon" className="size-7" aria-label="Open detail">
+                  <ChevronRight className="size-4" />
+                </Button>
+              </TableCell>
+              <TableCell>
+                <div>
+                  <span className="font-medium">{row.specialty}</span>
+                  {row.warning ? (
+                    <span className="ml-1 text-xs text-amber-600 dark:text-amber-400">({row.warning})</span>
+                  ) : null}
+                </div>
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {row.groupTargetWRVU_1cFTE != null ? formatNum(row.groupTargetWRVU_1cFTE, 0) : '—'}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{row.providers.length}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                {formatNum(row.summary.meanPercentToTarget, 1)}%
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {formatCurrency(row.totalPlanningIncentiveDollars)}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{row.summary.bandCounts.below80}</TableCell>
+              <TableCell className="text-right tabular-nums">{row.summary.bandCounts.eightyTo99}</TableCell>
+              <TableCell className="text-right tabular-nums">{row.summary.bandCounts.hundredTo119}</TableCell>
+              <TableCell className="text-right tabular-nums">{row.summary.bandCounts.atOrAbove120}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}

@@ -1,0 +1,381 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowLeft, Target, ChevronDown, FolderOpen, Save, RotateCcw, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
+import type { ProviderRow } from '@/types/provider'
+import type { MarketRow } from '@/types/market'
+import type {
+  ProductivityTargetConfigSnapshot,
+  ProductivityTargetSettings,
+  ProductivityTargetRunResult,
+  SavedProductivityTargetConfig,
+} from '@/types/productivity-target'
+import { DEFAULT_PRODUCTIVITY_TARGET_SETTINGS } from '@/types/productivity-target'
+import { runBySpecialty } from '@/lib/productivity-target-engine'
+import { downloadProductivityTargetCSV } from '@/lib/productivity-target-export'
+import { ProductivityTargetConfigureStage } from '@/features/productivity-target/stages/productivity-target-configure-stage'
+import { ProductivityTargetRunStage } from '@/features/productivity-target/stages/productivity-target-run-stage'
+
+interface ProductivityTargetScreenProps {
+  providerRows: ProviderRow[]
+  marketRows: MarketRow[]
+  synonymMap: Record<string, string>
+  onBack: () => void
+  productivityTargetConfig: ProductivityTargetConfigSnapshot | null
+  onProductivityTargetConfigChange: (snapshot: ProductivityTargetConfigSnapshot) => void
+  onClearProductivityTargetConfig?: () => void
+  savedProductivityTargetConfigs?: SavedProductivityTargetConfig[]
+  loadedProductivityTargetConfigId?: string | null
+  onSaveProductivityTargetConfig?: (name: string, updateId?: string) => void
+  onLoadProductivityTargetConfig?: (id: string) => void
+  onDeleteSavedProductivityTargetConfig?: (id: string) => void
+}
+
+function getInitialState(config: ProductivityTargetConfigSnapshot | null) {
+  const defaultSettings = DEFAULT_PRODUCTIVITY_TARGET_SETTINGS
+  if (!config) {
+    return {
+      settings: defaultSettings,
+      result: null as ProductivityTargetRunResult | null,
+      targetMode: 'all' as const,
+      selectedSpecialties: [] as string[],
+      configStep: 1,
+    }
+  }
+  return {
+    settings: { ...defaultSettings, ...config.settings },
+    result: config.lastRunResult ?? null,
+    targetMode: (config.targetMode ?? 'all') as 'all' | 'custom',
+    selectedSpecialties: [...(config.selectedSpecialties ?? [])],
+    configStep: Math.min(3, Math.max(1, config.configStep ?? 1)),
+  }
+}
+
+export function ProductivityTargetScreen({
+  providerRows = [],
+  marketRows = [],
+  synonymMap = {},
+  onBack,
+  productivityTargetConfig,
+  onProductivityTargetConfigChange,
+  onClearProductivityTargetConfig,
+  savedProductivityTargetConfigs = [],
+  loadedProductivityTargetConfigId = null,
+  onSaveProductivityTargetConfig,
+  onLoadProductivityTargetConfig,
+  onDeleteSavedProductivityTargetConfig,
+}: ProductivityTargetScreenProps) {
+  const initial = useMemo(() => getInitialState(productivityTargetConfig), [productivityTargetConfig])
+  const [settings, setSettings] = useState<ProductivityTargetSettings>(initial.settings)
+  const [result, setResult] = useState<ProductivityTargetRunResult | null>(initial.result)
+  const [targetMode, setTargetMode] = useState<'all' | 'custom'>(initial.targetMode)
+  const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(initial.selectedSpecialties)
+  const [configStep, setConfigStep] = useState(initial.configStep)
+  const [targetStep, setTargetStep] = useState<'configure' | 'run'>(initial.result ? 'run' : 'configure')
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const [saveScenarioName, setSaveScenarioName] = useState('')
+  const lastPushedSnapshotRef = useRef<ProductivityTargetConfigSnapshot | null>(null)
+
+  useEffect(() => {
+    if (saveDialogOpen && loadedProductivityTargetConfigId && savedProductivityTargetConfigs.length > 0) {
+      const loaded = savedProductivityTargetConfigs.find((c) => c.id === loadedProductivityTargetConfigId)
+      if (loaded?.name) setSaveScenarioName(loaded.name)
+    }
+    if (!saveDialogOpen) setSaveScenarioName('')
+  }, [saveDialogOpen, loadedProductivityTargetConfigId, savedProductivityTargetConfigs])
+
+  useEffect(() => {
+    if (productivityTargetConfig === lastPushedSnapshotRef.current) return
+    lastPushedSnapshotRef.current = null
+    const next = getInitialState(productivityTargetConfig)
+    setSettings(next.settings)
+    setResult(next.result)
+    setTargetMode(next.targetMode)
+    setSelectedSpecialties(next.selectedSpecialties)
+    setConfigStep(next.configStep)
+    setTargetStep(next.result ? 'run' : 'configure')
+  }, [productivityTargetConfig])
+
+  const buildSnapshot = useCallback(
+    (): ProductivityTargetConfigSnapshot => ({
+      settings,
+      configStep,
+      targetMode,
+      selectedSpecialties: [...selectedSpecialties],
+      lastRunResult: result ?? undefined,
+    }),
+    [settings, configStep, targetMode, selectedSpecialties, result]
+  )
+
+  useEffect(() => {
+    const snapshot = buildSnapshot()
+    if (lastPushedSnapshotRef.current === snapshot) return
+    lastPushedSnapshotRef.current = snapshot
+    onProductivityTargetConfigChange(snapshot)
+  }, [buildSnapshot, onProductivityTargetConfigChange])
+
+  const hasData = providerRows.length > 0 && marketRows.length > 0
+
+  const availableSpecialties = useMemo(() => {
+    const set = new Set(providerRows.map((p) => (p.specialty ?? '').trim()).filter(Boolean))
+    return [...set].sort()
+  }, [providerRows])
+
+  const filteredProviderRowsForRun = useMemo(() => {
+    if (targetMode !== 'custom' || selectedSpecialties.length === 0) return providerRows
+    const set = new Set(selectedSpecialties)
+    return providerRows.filter((p) => set.has((p.specialty ?? '').trim()))
+  }, [providerRows, targetMode, selectedSpecialties])
+
+  const runDisabled =
+    !hasData ||
+    (targetMode === 'custom' && selectedSpecialties.length === 0) ||
+    filteredProviderRowsForRun.length === 0
+
+  const handleRun = useCallback(() => {
+    if (!hasData || runDisabled) return
+    const runResult = runBySpecialty(filteredProviderRowsForRun, marketRows, synonymMap, settings)
+    setResult(runResult)
+    setTargetStep('run')
+  }, [hasData, runDisabled, filteredProviderRowsForRun, marketRows, synonymMap, settings])
+
+  const handleStartOver = useCallback(() => {
+    setResult(null)
+    setTargetStep('configure')
+    setConfigStep(1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    if (result) downloadProductivityTargetCSV(result)
+  }, [result])
+
+  const handleClearConfig = useCallback(() => {
+    setSettings(DEFAULT_PRODUCTIVITY_TARGET_SETTINGS)
+    setResult(null)
+    setTargetMode('all')
+    setSelectedSpecialties([])
+    setConfigStep(1)
+    setTargetStep('configure')
+    lastPushedSnapshotRef.current = null
+    onClearProductivityTargetConfig?.()
+  }, [onClearProductivityTargetConfig])
+
+  return (
+    <div className="space-y-6">
+      <SectionTitleWithIcon icon={<Target className="size-5 text-muted-foreground" />}>
+        Productivity Target Builder
+      </SectionTitleWithIcon>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              if (targetStep === 'run') {
+                setTargetStep('configure')
+                setConfigStep(1)
+              } else {
+                onBack()
+              }
+            }}
+            className="gap-2"
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </Button>
+          {targetStep === 'run' ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => setTargetStep('configure')}>
+              Change requirements
+            </Button>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <TooltipProvider delayDuration={300}>
+            {onSaveProductivityTargetConfig ? (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={result == null ? 'inline-flex' : ''}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => result != null && setSaveDialogOpen(true)}
+                        aria-label="Save scenario"
+                        disabled={result == null}
+                      >
+                        <Save className="size-4" />
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {result == null ? 'Run first, then save this scenario.' : 'Save scenario'}
+                  </TooltipContent>
+                </Tooltip>
+                {savedProductivityTargetConfigs.length > 0 && onLoadProductivityTargetConfig ? (
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" aria-label={`Saved scenarios (${savedProductivityTargetConfigs.length})`}>
+                            <FolderOpen className="size-4" />
+                            <ChevronDown className="size-4 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Saved scenarios ({savedProductivityTargetConfigs.length})</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto">
+                      {[...savedProductivityTargetConfigs].reverse().map((config) => (
+                        <DropdownMenuItem
+                          key={config.id}
+                          onSelect={(e) => {
+                            e.preventDefault()
+                            onLoadProductivityTargetConfig(config.id)
+                          }}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="truncate">{config.name}</span>
+                          {onDeleteSavedProductivityTargetConfig ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                onDeleteSavedProductivityTargetConfig(config.id)
+                              }}
+                              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              aria-label={`Delete ${config.name}`}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          ) : null}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
+              </>
+            ) : null}
+            {onClearProductivityTargetConfig ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleClearConfig}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Reset configuration"
+              >
+                <RotateCcw className="size-4" />
+              </Button>
+            ) : null}
+          </TooltipProvider>
+        </div>
+      </div>
+
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save target scenario</DialogTitle>
+            <DialogDescription>
+              Save the current target scope, method, and run result so you can recall them later.
+              {loadedProductivityTargetConfigId && (
+                <span className="mt-1 block text-foreground/80">You have a scenario loaded — update it or save as a new one.</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="target-scenario-name">Scenario name</Label>
+            <Input
+              id="target-scenario-name"
+              value={saveScenarioName}
+              onChange={(e) => setSaveScenarioName(e.target.value)}
+              placeholder="e.g. Q1 Group target"
+            />
+          </div>
+          <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <div className="flex gap-2">
+              {loadedProductivityTargetConfigId && (
+                <Button
+                  variant="secondary"
+                  disabled={!saveScenarioName.trim()}
+                  onClick={() => {
+                    const name = saveScenarioName.trim()
+                    if (name && onSaveProductivityTargetConfig) {
+                      onSaveProductivityTargetConfig(name, loadedProductivityTargetConfigId)
+                      setSaveScenarioName('')
+                      setSaveDialogOpen(false)
+                    }
+                  }}
+                >
+                  Update current
+                </Button>
+              )}
+              <Button
+                onClick={() => {
+                  const name = saveScenarioName.trim()
+                  if (name && onSaveProductivityTargetConfig) {
+                    onSaveProductivityTargetConfig(name)
+                    setSaveScenarioName('')
+                    setSaveDialogOpen(false)
+                  }
+                }}
+                disabled={!saveScenarioName.trim()}
+              >
+                {loadedProductivityTargetConfigId ? 'Save as new' : 'Save'}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {targetStep === 'configure' ? (
+        <ProductivityTargetConfigureStage
+          hasData={hasData}
+          settings={settings}
+          runDisabled={runDisabled}
+          filteredProviderRowsCount={filteredProviderRowsForRun.length}
+          targetMode={targetMode}
+          selectedSpecialties={selectedSpecialties}
+          availableSpecialties={availableSpecialties}
+          onRun={handleRun}
+          onSetTargetMode={setTargetMode}
+          onSetSelectedSpecialties={setSelectedSpecialties}
+          onSetSettings={setSettings}
+          configStep={configStep}
+          onSetConfigStep={setConfigStep}
+        />
+      ) : (
+        <ProductivityTargetRunStage
+          hasData={hasData}
+          result={result}
+          runDisabled={runDisabled}
+          onRun={handleRun}
+          onStartOver={handleStartOver}
+          onExport={handleExport}
+        />
+      )}
+    </div>
+  )
+}

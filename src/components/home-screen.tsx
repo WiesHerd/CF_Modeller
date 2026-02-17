@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card'
-import { User, Gauge, BarChart2, LayoutGrid, Sliders, FileUp } from 'lucide-react'
+import { User, Gauge, BarChart2, Target, LayoutGrid, Sliders, FileUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BatchCardId } from '@/components/batch/batch-card-picker'
 
@@ -29,6 +29,12 @@ const BATCH_CARDS: { id: BatchCardId; title: string; description: string; icon: 
     title: 'Market positioning (imputed)',
     description: 'Compare your effective $/wRVU to market 25th–90th by specialty; see your percentile and market CF targets.',
     icon: <BarChart2 className="size-6" />,
+  },
+  {
+    id: 'productivity-target',
+    title: 'Productivity Target Builder',
+    description: 'Set a group wRVU target per specialty (1.0 cFTE) and scale by cFTE; compare actuals to target, plan incentive, and export.',
+    icon: <Target className="size-6" />,
   },
   {
     id: 'bulk-scenario',

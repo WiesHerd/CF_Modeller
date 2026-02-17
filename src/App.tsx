@@ -13,7 +13,7 @@ const SESSION_STEP_KEY = 'cf-modeler-app-step'
 const SESSION_BATCH_CARD_KEY = 'cf-modeler-batch-card'
 
 const VALID_APP_STEPS: AppStep[] = ['upload', 'data', 'modeller', 'batch-scenario', 'batch-results', 'compare-scenarios', 'reports', 'help']
-const VALID_BATCH_CARDS: BatchCardId[] = ['cf-optimizer', 'imputed-vs-market', 'bulk-scenario', 'detailed-scenario']
+const VALID_BATCH_CARDS: BatchCardId[] = ['cf-optimizer', 'imputed-vs-market', 'productivity-target', 'bulk-scenario', 'detailed-scenario']
 
 function getInitialStepAndBatchCard(): { step: AppStep; batchCard: BatchCardId | null } {
   if (typeof window === 'undefined' || !window.sessionStorage) {
@@ -59,6 +59,7 @@ import { BatchCardPicker, type BatchCardId } from '@/components/batch/batch-card
 import { ConversionFactorOptimizerScreen } from '@/features/optimizer/conversion-factor-optimizer-screen'
 import { CompareScenariosScreen } from '@/features/optimizer/compare-scenarios-screen'
 import { ImputedVsMarketScreen } from '@/features/optimizer/imputed-vs-market-screen'
+import { ProductivityTargetScreen } from '@/features/productivity-target/productivity-target-screen'
 import { DataTablesScreen } from '@/features/data/data-tables-screen'
 import { HelpScreen } from '@/features/help/help-screen'
 import { ReportsScreen } from '@/features/reports/reports-screen'
@@ -146,6 +147,12 @@ export default function App() {
     saveOptimizerConfig,
     loadOptimizerConfig,
     deleteSavedOptimizerConfig,
+    clearAllSavedOptimizerConfigs,
+    setProductivityTargetConfig,
+    clearProductivityTargetConfig,
+    saveProductivityTargetConfig,
+    loadProductivityTargetConfig,
+    deleteSavedProductivityTargetConfig,
   } = useAppState()
 
   const { step: initialStep, batchCard: initialBatchCard } = getInitialStepAndBatchCard()
@@ -905,6 +912,10 @@ export default function App() {
           onLoadBatchScenarioConfig={loadBatchScenarioConfig}
           onDeleteBatchScenarioConfig={deleteSavedBatchScenarioConfig}
           onClearAllBatchScenarioConfigs={clearAllSavedBatchScenarioConfigs}
+          savedOptimizerConfigs={state.savedOptimizerConfigs}
+          onLoadOptimizerConfig={loadOptimizerConfig}
+          onDeleteSavedOptimizerConfig={deleteSavedOptimizerConfig}
+          onClearAllSavedOptimizerConfigs={clearAllSavedOptimizerConfigs}
         />
       )}
 
@@ -941,6 +952,22 @@ export default function App() {
           marketRows={state.marketRows}
           synonymMap={state.batchSynonymMap}
           onBack={() => setBatchCard(null)}
+        />
+      )}
+      {step === 'batch-scenario' && batchCard === 'productivity-target' && (
+        <ProductivityTargetScreen
+          providerRows={state.providerRows}
+          marketRows={state.marketRows}
+          synonymMap={state.batchSynonymMap}
+          onBack={() => setBatchCard(null)}
+          productivityTargetConfig={state.productivityTargetConfig}
+          onProductivityTargetConfigChange={setProductivityTargetConfig}
+          onClearProductivityTargetConfig={clearProductivityTargetConfig}
+          savedProductivityTargetConfigs={state.savedProductivityTargetConfigs}
+          loadedProductivityTargetConfigId={state.loadedProductivityTargetConfigId}
+          onSaveProductivityTargetConfig={saveProductivityTargetConfig}
+          onLoadProductivityTargetConfig={loadProductivityTargetConfig}
+          onDeleteSavedProductivityTargetConfig={deleteSavedProductivityTargetConfig}
         />
       )}
       {step === 'batch-scenario' && batchCard === 'bulk-scenario' && (
