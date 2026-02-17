@@ -85,6 +85,8 @@ function getInitialState(
       targetMode: 'all' as const,
       selectedSpecialties: [] as string[],
       selectedDivisions: [] as string[],
+      providerTypeScopeMode: 'all' as const,
+      selectedProviderTypes: [] as string[],
       excludedProviderTypes: [] as string[],
       providerTypeFilter: 'all' as const,
       configStep: 1,
@@ -96,6 +98,8 @@ function getInitialState(
     targetMode: optimizerConfig.targetMode,
     selectedSpecialties: [...(optimizerConfig.selectedSpecialties ?? [])],
     selectedDivisions: [...(optimizerConfig.selectedDivisions ?? [])],
+    providerTypeScopeMode: (optimizerConfig.providerTypeScopeMode ?? 'all') as 'all' | 'custom',
+    selectedProviderTypes: [...(optimizerConfig.selectedProviderTypes ?? [])],
     excludedProviderTypes: [...(optimizerConfig.excludedProviderTypes ?? [])],
     providerTypeFilter: optimizerConfig.providerTypeFilter,
     configStep: Math.min(4, Math.max(1, optimizerConfig.configStep ?? 1)),
@@ -137,6 +141,8 @@ export function ConversionFactorOptimizerScreen({
   const [targetMode, setTargetMode] = useState<'all' | 'custom'>(initial.targetMode)
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(initial.selectedSpecialties)
   const [selectedDivisions, setSelectedDivisions] = useState<string[]>(initial.selectedDivisions)
+  const [providerTypeScopeMode, setProviderTypeScopeMode] = useState<'all' | 'custom'>(initial.providerTypeScopeMode)
+  const [selectedProviderTypes, setSelectedProviderTypes] = useState<string[]>(initial.selectedProviderTypes)
   const [excludedProviderTypes, setExcludedProviderTypes] = useState<string[]>(initial.excludedProviderTypes)
   const [providerTypeFilter, setProviderTypeFilter] = useState<'all' | 'productivity' | 'base'>(initial.providerTypeFilter)
   const [configStep, setConfigStep] = useState(initial.configStep)
@@ -165,6 +171,8 @@ export function ConversionFactorOptimizerScreen({
     setTargetMode(optimizerConfig.targetMode)
     setSelectedSpecialties([...(optimizerConfig.selectedSpecialties ?? [])])
     setSelectedDivisions([...(optimizerConfig.selectedDivisions ?? [])])
+    setProviderTypeScopeMode((optimizerConfig.providerTypeScopeMode ?? 'all') as 'all' | 'custom')
+    setSelectedProviderTypes([...(optimizerConfig.selectedProviderTypes ?? [])])
     setExcludedProviderTypes([...(optimizerConfig.excludedProviderTypes ?? [])])
     setProviderTypeFilter(optimizerConfig.providerTypeFilter)
     setConfigStep(Math.min(4, Math.max(1, optimizerConfig.configStep ?? 1)))
@@ -176,11 +184,13 @@ export function ConversionFactorOptimizerScreen({
     targetMode,
     selectedSpecialties: [...selectedSpecialties],
     selectedDivisions: [...selectedDivisions],
+    providerTypeScopeMode,
+    selectedProviderTypes: [...selectedProviderTypes],
     excludedProviderTypes: [...excludedProviderTypes],
     settings,
     configStep,
     lastRunResult: result ?? undefined,
-  }), [providerTypeFilter, targetMode, selectedSpecialties, selectedDivisions, excludedProviderTypes, settings, configStep, result])
+  }), [providerTypeFilter, targetMode, selectedSpecialties, selectedDivisions, providerTypeScopeMode, selectedProviderTypes, excludedProviderTypes, settings, configStep, result])
 
   useEffect(() => {
     const snapshot = buildSnapshot()
@@ -267,6 +277,10 @@ export function ConversionFactorOptimizerScreen({
       const next = prev.filter((d) => divSet.has(d))
       return next.length !== prev.length || prev.some((d, i) => next[i] !== d) ? next : prev
     })
+    setSelectedProviderTypes((prev) => {
+      const next = prev.filter((t) => typeSet.has(t))
+      return next.length !== prev.length || prev.some((t, i) => next[i] !== t) ? next : prev
+    })
     setExcludedProviderTypes((prev) => {
       const next = prev.filter((t) => typeSet.has(t))
       return next.length !== prev.length || prev.some((t, i) => next[i] !== t) ? next : prev
@@ -284,14 +298,6 @@ export function ConversionFactorOptimizerScreen({
       })
     }
 
-    if (excludedProviderTypes.length > 0) {
-      const excludedSet = new Set(excludedProviderTypes)
-      rows = rows.filter((provider) => {
-        const pt = (provider.providerType ?? '').trim()
-        return !excludedSet.has(pt)
-      })
-    }
-
     if (targetMode === 'custom' && selectedSpecialties.length > 0) {
       const specialtySet = new Set(selectedSpecialties)
       const divisionSet = new Set(selectedDivisions)
@@ -304,8 +310,22 @@ export function ConversionFactorOptimizerScreen({
       })
     }
 
+    if (providerTypeScopeMode === 'custom' && selectedProviderTypes.length > 0) {
+      const typeSet = new Set(selectedProviderTypes)
+      rows = rows.filter((provider) => typeSet.has((provider.providerType ?? '').trim()))
+    }
+
+    if (excludedProviderTypes.length > 0) {
+      const excludedSet = new Set(excludedProviderTypes)
+      rows = rows.filter((provider) => {
+        const pt = (provider.providerType ?? '').trim()
+        return !excludedSet.has(pt)
+      })
+    }
+
     return rows
-  }, [providerRows, providerTypeFilter, excludedProviderTypes, selectedDivisions, selectedSpecialties, targetMode])
+  }, [providerRows, providerTypeFilter, targetMode, selectedSpecialties, selectedDivisions, providerTypeScopeMode, selectedProviderTypes, excludedProviderTypes])
+
 
   useEffect(() => {
     return () => {
@@ -375,6 +395,8 @@ export function ConversionFactorOptimizerScreen({
     setTargetMode('all')
     setSelectedSpecialties([])
     setSelectedDivisions([])
+    setProviderTypeScopeMode('all')
+    setSelectedProviderTypes([])
     setExcludedProviderTypes([])
     setProviderTypeFilter('all')
     setOptimizerStep('configure')
@@ -389,6 +411,8 @@ export function ConversionFactorOptimizerScreen({
     setTargetMode('all')
     setSelectedSpecialties([])
     setSelectedDivisions([])
+    setProviderTypeScopeMode('all')
+    setSelectedProviderTypes([])
     setExcludedProviderTypes([])
     setProviderTypeFilter('all')
     setConfigStep(1)
@@ -442,6 +466,7 @@ export function ConversionFactorOptimizerScreen({
     !hasData ||
     isRunning ||
     (targetMode === 'custom' && selectedSpecialties.length === 0) ||
+    (providerTypeScopeMode === 'custom' && selectedProviderTypes.length === 0) ||
     filteredProviderRowsForRun.length === 0
 
   const handleRunAndOpenReview = useCallback(() => {
@@ -664,6 +689,10 @@ export function ConversionFactorOptimizerScreen({
           targetMode={targetMode}
           selectedSpecialties={selectedSpecialties}
           selectedDivisions={selectedDivisions}
+          providerTypeScopeMode={providerTypeScopeMode}
+          selectedProviderTypes={selectedProviderTypes}
+          onSetProviderTypeScopeMode={setProviderTypeScopeMode}
+          onSetSelectedProviderTypes={setSelectedProviderTypes}
           excludedProviderTypes={excludedProviderTypes}
           providerTypeFilter={providerTypeFilter}
           availableSpecialties={availableSpecialties}

@@ -1,7 +1,7 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Gauge, Info, Play, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Info, Play, Trash2 } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useMemo, useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -81,15 +81,21 @@ const CONFIG_STEPS = [
 function SectionHeaderWithTooltip({
   title,
   tooltip,
+  variant = 'subsection',
   className,
 }: {
   title: string
   tooltip: string
+  /** 'section' = larger heading for main panel sections; 'subsection' = default smaller label */
+  variant?: 'section' | 'subsection'
   className?: string
 }) {
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <h3 className={cn(
+        'font-semibold',
+        variant === 'section' ? 'text-base' : 'text-sm'
+      )}>{title}</h3>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -116,6 +122,10 @@ export function OptimizerConfigureStage({
   targetMode,
   selectedSpecialties,
   selectedDivisions,
+  providerTypeScopeMode,
+  selectedProviderTypes,
+  onSetProviderTypeScopeMode,
+  onSetSelectedProviderTypes,
   excludedProviderTypes,
   providerTypeFilter,
   availableSpecialties,
@@ -140,6 +150,10 @@ export function OptimizerConfigureStage({
   targetMode: 'all' | 'custom'
   selectedSpecialties: string[]
   selectedDivisions: string[]
+  providerTypeScopeMode: 'all' | 'custom'
+  selectedProviderTypes: string[]
+  onSetProviderTypeScopeMode: (mode: 'all' | 'custom') => void
+  onSetSelectedProviderTypes: (types: string[]) => void
   excludedProviderTypes: string[]
   providerTypeFilter: 'all' | 'productivity' | 'base'
   availableSpecialties: string[]
@@ -159,6 +173,7 @@ export function OptimizerConfigureStage({
 }) {
   const [specialtySearch, setSpecialtySearch] = useState('')
   const [divisionSearch, setDivisionSearch] = useState('')
+  const [providerTypeIncludeSearch, setProviderTypeIncludeSearch] = useState('')
   const [providerTypeSearch, setProviderTypeSearch] = useState('')
 
   const filteredSpecialties = useMemo(() => {
@@ -173,6 +188,12 @@ export function OptimizerConfigureStage({
     return availableDivisions.filter((d) => d.toLowerCase().includes(q))
   }, [availableDivisions, divisionSearch])
 
+  const filteredProviderTypesForInclude = useMemo(() => {
+    if (!providerTypeIncludeSearch.trim()) return availableProviderTypes
+    const q = providerTypeIncludeSearch.toLowerCase()
+    return availableProviderTypes.filter((t) => t.toLowerCase().includes(q))
+  }, [availableProviderTypes, providerTypeIncludeSearch])
+
   const filteredProviderTypes = useMemo(() => {
     if (!providerTypeSearch.trim()) return availableProviderTypes
     const q = providerTypeSearch.toLowerCase()
@@ -181,56 +202,39 @@ export function OptimizerConfigureStage({
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Gauge className="size-6" aria-hidden />
-            </div>
-            <div>
-              <CardTitle className="leading-tight">Conversion Factor Optimizer</CardTitle>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Configure target scope and guardrails, then run optimization.
-              </p>
-            </div>
-          </div>
-          <TooltipProvider delayDuration={200}>
-            <nav
-              className="flex items-center gap-0.5 rounded-md p-0.5 bg-muted/50"
-              aria-label="Configuration steps"
-            >
-              {CONFIG_STEPS.map((step) => {
-                const isActive = configStep === step.id
-                return (
-                  <Tooltip key={step.id}>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => onSetConfigStep(step.id)}
-                        aria-current={isActive ? 'step' : undefined}
-                        aria-label={`${step.label}${isActive ? ' (current)' : ''}`}
-                        className={cn(
-                          'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium transition-colors',
-                          isActive
-                            ? 'bg-primary text-primary-foreground shadow-sm'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                        )}
-                      >
-                        {step.id}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">
-                      {step.label}
-                    </TooltipContent>
-                  </Tooltip>
-                )
-              })}
-            </nav>
-          </TooltipProvider>
-        </div>
-      </CardHeader>
       <CardContent className="space-y-6">
         <TooltipProvider delayDuration={200}>
+          <nav
+            className="flex items-center justify-end gap-0.5 rounded-md p-0.5 bg-muted/50 w-fit ml-auto"
+            aria-label="Configuration steps"
+          >
+            {CONFIG_STEPS.map((step) => {
+              const isActive = configStep === step.id
+              return (
+                <Tooltip key={step.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => onSetConfigStep(step.id)}
+                      aria-current={isActive ? 'step' : undefined}
+                      aria-label={`${step.label}${isActive ? ' (current)' : ''}`}
+                      className={cn(
+                        'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
+                    >
+                      {step.id}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    {step.label}
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </nav>
           {!hasData ? (
             <WarningBanner
               message="Upload provider and market data on the Upload screen before running optimization."
@@ -241,283 +245,376 @@ export function OptimizerConfigureStage({
             <>
               {/* Step 1: Target population */}
               {configStep === 1 ? (
-                <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
                   <div>
                     <SectionHeaderWithTooltip
+                      variant="section"
                       title="Target scope"
                       tooltip="Choose which providers are included in this run: by compensation model (all, productivity-based only, or base salary only) and optionally by specialty and division. The specialty and division lists only show options that exist in your data for the selected model."
+                      className="text-primary/90"
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Choose which provider set should be included in this run.
+                      Configure who is included first, then apply exclusions and assumptions.
                     </p>
                   </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Compensation model</Label>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant={providerTypeFilter === 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => onSetProviderTypeFilter('all')}
-                >
-                  All providers
-                </Button>
-                <Button
-                  type="button"
-                  variant={providerTypeFilter === 'productivity' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => onSetProviderTypeFilter('productivity')}
-                >
-                  Productivity-based only
-                </Button>
-                <Button
-                  type="button"
-                  variant={providerTypeFilter === 'base' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => onSetProviderTypeFilter('base')}
-                >
-                  Base salary only
-                </Button>
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Specialty scope</Label>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant={targetMode === 'all' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => onSetTargetMode('all')}
-                  >
-                    All specialties
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={targetMode === 'custom' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => onSetTargetMode('custom')}
-                  >
-                    Custom selection
-                  </Button>
-                </div>
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                    <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Include providers
+                      </Label>
 
-                {targetMode === 'custom' ? (
-                  <>
-                    <DropdownMenu onOpenChange={(open) => open && setSpecialtySearch('')}>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="min-w-[220px] justify-between gap-2">
-                          {selectedSpecialties.length === 0
-                            ? 'Specialties...'
-                            : `${selectedSpecialties.length} specialty(ies)`}
-                          <ChevronDown className="size-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="start"
-                        className="max-h-[320px] overflow-hidden p-0"
-                        onCloseAutoFocus={(e: Event) => e.preventDefault()}
-                      >
-                        <Command shouldFilter={false} className="rounded-none border-0">
-                          <CommandInput
-                            placeholder="Search specialties…"
-                            value={specialtySearch}
-                            onValueChange={setSpecialtySearch}
-                            className="h-9"
-                          />
-                        </Command>
-                        <div className="max-h-[240px] overflow-y-auto p-1">
-                          <DropdownMenuLabel>Specialty</DropdownMenuLabel>
-                          {filteredSpecialties.length === 0 ? (
-                            <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
-                          ) : (
-                            filteredSpecialties.map((specialty) => (
-                              <DropdownMenuCheckboxItem
-                                key={specialty}
-                                checked={selectedSpecialties.includes(specialty)}
-                                onCheckedChange={(checked) =>
-                                  onSetSelectedSpecialties(
-                                    checked
-                                      ? [...selectedSpecialties, specialty]
-                                      : selectedSpecialties.filter((item) => item !== specialty)
-                                  )
-                                }
-                              >
-                                {specialty}
-                              </DropdownMenuCheckboxItem>
-                            ))
-                          )}
-                        </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-
-                    <DropdownMenu onOpenChange={(open) => open && setDivisionSearch('')}>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="min-w-[180px] justify-between gap-2">
-                          {selectedDivisions.length === 0
-                            ? 'All divisions'
-                            : `${selectedDivisions.length} division(s)`}
-                          <ChevronDown className="size-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="start"
-                        className="max-h-[320px] overflow-hidden p-0"
-                        onCloseAutoFocus={(e: Event) => e.preventDefault()}
-                      >
-                        <Command shouldFilter={false} className="rounded-none border-0">
-                          <CommandInput
-                            placeholder="Search divisions…"
-                            value={divisionSearch}
-                            onValueChange={setDivisionSearch}
-                            className="h-9"
-                          />
-                        </Command>
-                        <div className="max-h-[240px] overflow-y-auto p-1">
-                          <DropdownMenuLabel>Division / Department</DropdownMenuLabel>
-                          {availableDivisions.length === 0 ? (
-                            <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                              No divisions in data
-                            </div>
-                          ) : filteredDivisions.length === 0 ? (
-                            <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
-                          ) : (
-                            filteredDivisions.map((division) => (
-                              <DropdownMenuCheckboxItem
-                                key={division}
-                                checked={selectedDivisions.includes(division)}
-                                onCheckedChange={(checked) =>
-                                  onSetSelectedDivisions(
-                                    checked
-                                      ? [...selectedDivisions, division]
-                                      : selectedDivisions.filter((item) => item !== division)
-                                  )
-                                }
-                              >
-                                {division}
-                              </DropdownMenuCheckboxItem>
-                            ))
-                          )}
-                        </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </>
-                ) : null}
-              </div>
-            </div>
-
-            {availableProviderTypes.length > 0 ? (
-              <div className="space-y-2">
-                <SectionHeaderWithTooltip
-                  title="Exclude provider types"
-                  tooltip="Exclude providers by role or job type (e.g. Division Chief, Medical Director). Add a Provider type / Role column in your provider upload to use this."
-                />
-                <DropdownMenu onOpenChange={(open) => open && setProviderTypeSearch('')}>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="min-w-[220px] justify-between gap-2">
-                      {excludedProviderTypes.length === 0
-                        ? 'None excluded'
-                        : `${excludedProviderTypes.length} type(s) excluded`}
-                      <ChevronDown className="size-4 opacity-50" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="start"
-                    className="max-h-[320px] overflow-hidden p-0"
-                    onCloseAutoFocus={(e: Event) => e.preventDefault()}
-                  >
-                    <Command shouldFilter={false} className="rounded-none border-0">
-                      <CommandInput
-                        placeholder="Search provider types…"
-                        value={providerTypeSearch}
-                        onValueChange={setProviderTypeSearch}
-                        className="h-9"
-                      />
-                    </Command>
-                    <div className="max-h-[240px] overflow-y-auto p-1">
-                      <DropdownMenuLabel>Exclude these provider types from the run</DropdownMenuLabel>
-                      {filteredProviderTypes.length === 0 ? (
-                        <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
-                      ) : (
-                        filteredProviderTypes.map((providerType) => (
-                          <DropdownMenuCheckboxItem
-                            key={providerType}
-                            checked={excludedProviderTypes.includes(providerType)}
-                            onCheckedChange={(checked) =>
-                              onSetExcludedProviderTypes(
-                                checked
-                                  ? [...excludedProviderTypes, providerType]
-                                  : excludedProviderTypes.filter((item) => item !== providerType)
-                              )
-                            }
-                            onSelect={(e) => e.preventDefault()}
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold text-primary/90">Compensation model</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant={providerTypeFilter === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onSetProviderTypeFilter('all')}
                           >
-                            {providerType}
-                          </DropdownMenuCheckboxItem>
-                        ))
-                      )}
+                            All providers
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={providerTypeFilter === 'productivity' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onSetProviderTypeFilter('productivity')}
+                          >
+                            Productivity-based only
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={providerTypeFilter === 'base' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onSetProviderTypeFilter('base')}
+                          >
+                            Base salary only
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 border-t border-border/40 pt-3">
+                        <Label className="text-sm font-semibold text-primary/90">Specialty scope</Label>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant={targetMode === 'all' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => onSetTargetMode('all')}
+                            >
+                              All specialties
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={targetMode === 'custom' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => onSetTargetMode('custom')}
+                            >
+                              Custom selection
+                            </Button>
+                          </div>
+
+                          {targetMode === 'custom' ? (
+                            <>
+                              <DropdownMenu onOpenChange={(open) => open && setSpecialtySearch('')}>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm" className="min-w-[220px] justify-between gap-2">
+                                    {selectedSpecialties.length === 0
+                                      ? 'Specialties...'
+                                      : `${selectedSpecialties.length} specialty(ies)`}
+                                    <ChevronDown className="size-4 opacity-50" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="start"
+                                  className="max-h-[320px] overflow-hidden p-0"
+                                  onCloseAutoFocus={(e: Event) => e.preventDefault()}
+                                >
+                                  <Command shouldFilter={false} className="rounded-none border-0">
+                                    <CommandInput
+                                      placeholder="Search specialties…"
+                                      value={specialtySearch}
+                                      onValueChange={setSpecialtySearch}
+                                      className="h-9"
+                                    />
+                                  </Command>
+                                  <div className="max-h-[240px] overflow-y-auto p-1">
+                                    <DropdownMenuLabel>Specialty</DropdownMenuLabel>
+                                    {filteredSpecialties.length === 0 ? (
+                                      <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                    ) : (
+                                      filteredSpecialties.map((specialty) => (
+                                        <DropdownMenuCheckboxItem
+                                          key={specialty}
+                                          checked={selectedSpecialties.includes(specialty)}
+                                          onCheckedChange={(checked) =>
+                                            onSetSelectedSpecialties(
+                                              checked
+                                                ? [...selectedSpecialties, specialty]
+                                                : selectedSpecialties.filter((item) => item !== specialty)
+                                            )
+                                          }
+                                        >
+                                          {specialty}
+                                        </DropdownMenuCheckboxItem>
+                                      ))
+                                    )}
+                                  </div>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+
+                              <DropdownMenu onOpenChange={(open) => open && setDivisionSearch('')}>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="outline" size="sm" className="min-w-[180px] justify-between gap-2">
+                                    {selectedDivisions.length === 0
+                                      ? 'All divisions'
+                                      : `${selectedDivisions.length} division(s)`}
+                                    <ChevronDown className="size-4 opacity-50" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent
+                                  align="start"
+                                  className="max-h-[320px] overflow-hidden p-0"
+                                  onCloseAutoFocus={(e: Event) => e.preventDefault()}
+                                >
+                                  <Command shouldFilter={false} className="rounded-none border-0">
+                                    <CommandInput
+                                      placeholder="Search divisions…"
+                                      value={divisionSearch}
+                                      onValueChange={setDivisionSearch}
+                                      className="h-9"
+                                    />
+                                  </Command>
+                                  <div className="max-h-[240px] overflow-y-auto p-1">
+                                    <DropdownMenuLabel>Division / Department</DropdownMenuLabel>
+                                    {availableDivisions.length === 0 ? (
+                                      <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                        No divisions in data
+                                      </div>
+                                    ) : filteredDivisions.length === 0 ? (
+                                      <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                    ) : (
+                                      filteredDivisions.map((division) => (
+                                        <DropdownMenuCheckboxItem
+                                          key={division}
+                                          checked={selectedDivisions.includes(division)}
+                                          onCheckedChange={(checked) =>
+                                            onSetSelectedDivisions(
+                                              checked
+                                                ? [...selectedDivisions, division]
+                                                : selectedDivisions.filter((item) => item !== division)
+                                            )
+                                          }
+                                        >
+                                          {division}
+                                        </DropdownMenuCheckboxItem>
+                                      ))
+                                    )}
+                                  </div>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      {availableProviderTypes.length > 0 ? (
+                        <div className="space-y-2 border-t border-border/40 pt-3">
+                          <Label className="text-sm font-semibold text-primary/90">Provider type scope</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant={providerTypeScopeMode === 'all' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => onSetProviderTypeScopeMode('all')}
+                            >
+                              All provider types
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={providerTypeScopeMode === 'custom' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => onSetProviderTypeScopeMode('custom')}
+                            >
+                              Custom selection
+                            </Button>
+                          </div>
+                          {providerTypeScopeMode === 'custom' ? (
+                            <DropdownMenu onOpenChange={(open) => open && setProviderTypeIncludeSearch('')}>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="min-w-[220px] justify-between gap-2">
+                                  {selectedProviderTypes.length === 0
+                                    ? 'Select provider types...'
+                                    : `${selectedProviderTypes.length} type(s)`}
+                                  <ChevronDown className="size-4 opacity-50" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                align="start"
+                                className="max-h-[320px] overflow-hidden p-0"
+                                onCloseAutoFocus={(e: Event) => e.preventDefault()}
+                              >
+                                <Command shouldFilter={false} className="rounded-none border-0">
+                                  <CommandInput
+                                    placeholder="Search provider types…"
+                                    value={providerTypeIncludeSearch}
+                                    onValueChange={setProviderTypeIncludeSearch}
+                                    className="h-9"
+                                  />
+                                </Command>
+                                <div className="max-h-[240px] overflow-y-auto p-1">
+                                  <DropdownMenuLabel>Include only these provider types (role)</DropdownMenuLabel>
+                                  {filteredProviderTypesForInclude.length === 0 ? (
+                                    <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                  ) : (
+                                    filteredProviderTypesForInclude.map((providerType) => (
+                                      <DropdownMenuCheckboxItem
+                                        key={providerType}
+                                        checked={selectedProviderTypes.includes(providerType)}
+                                        onCheckedChange={(checked) =>
+                                          onSetSelectedProviderTypes(
+                                            checked
+                                              ? [...selectedProviderTypes, providerType]
+                                              : selectedProviderTypes.filter((item) => item !== providerType)
+                                          )
+                                        }
+                                        onSelect={(e) => e.preventDefault()}
+                                      >
+                                        {providerType}
+                                      </DropdownMenuCheckboxItem>
+                                    ))
+                                  )}
+                                </div>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <p className="text-xs text-muted-foreground">
-                  Add a &quot;Provider type&quot; or &quot;Role&quot; column when uploading provider data to see types here.
-                </p>
-              </div>
-            ) : null}
 
-            <div className="space-y-2">
-              <SectionHeaderWithTooltip
-                title="Assume productivity gain (%)"
-                tooltip="Scale recorded wRVUs by this amount for this run only (e.g. 5 = 5% higher). Use when budgeting for expected productivity growth—the optimizer will align pay to where productivity would be at that level."
-              />
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  type="number"
-                  min={0}
-                  max={50}
-                  step={1}
-                  value={settings.wRVUGrowthFactorPct ?? ''}
-                  onChange={(e) => {
-                    const raw = e.target.value
-                    const num = raw === '' ? undefined : Number(raw)
-                    const val = num === undefined ? undefined : Math.max(0, Math.min(50, Number.isNaN(num) ? 0 : num))
-                    onSetSettings((prev) => ({ ...prev, wRVUGrowthFactorPct: val }))
-                  }}
-                  placeholder="0"
-                  className="h-9 w-20"
-                />
-                <span className="text-sm text-muted-foreground">
-                  % higher wRVUs for this run (0 = use recorded values)
-                </span>
-              </div>
-            </div>
+                    <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Exclusions and assumptions
+                      </Label>
 
-            <div className="border-t border-border/40 pt-1 text-xs text-muted-foreground">
-              {filteredProviderRowsCount} provider(s) in scope
-              {providerTypeFilter !== 'all' ? (
-                <span>
-                  {' '}
-                  ({providerTypeFilter === 'productivity' ? 'productivity-based' : 'base salary'} only)
-                </span>
-              ) : null}
-              {targetMode === 'custom' && selectedSpecialties.length > 0 ? (
-                <span> across {selectedSpecialties.length} specialty(ies)</span>
-              ) : null}
-              {excludedProviderTypes.length > 0 ? (
-                <span> ({excludedProviderTypes.length} provider type(s) excluded)</span>
-              ) : null}
-              {(settings.wRVUGrowthFactorPct ?? 0) > 0 ? (
-                <span> (wRVUs assumed {(settings.wRVUGrowthFactorPct ?? 0)}% higher for this run)</span>
-              ) : null}
-            </div>
+                      {availableProviderTypes.length > 0 ? (
+                        <div className="space-y-2">
+                          <SectionHeaderWithTooltip
+                            title="Exclude provider types"
+                            tooltip="Exclude providers by role or job type (e.g. Division Chief, Medical Director). Add a Provider type / Role column in your provider upload to use this."
+                            className="text-primary/90"
+                          />
+                          <DropdownMenu onOpenChange={(open) => open && setProviderTypeSearch('')}>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full justify-between gap-2">
+                                {excludedProviderTypes.length === 0
+                                  ? 'None excluded'
+                                  : `${excludedProviderTypes.length} type(s) excluded`}
+                                <ChevronDown className="size-4 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="start"
+                              className="max-h-[320px] overflow-hidden p-0"
+                              onCloseAutoFocus={(e: Event) => e.preventDefault()}
+                            >
+                              <Command shouldFilter={false} className="rounded-none border-0">
+                                <CommandInput
+                                  placeholder="Search provider types…"
+                                  value={providerTypeSearch}
+                                  onValueChange={setProviderTypeSearch}
+                                  className="h-9"
+                                />
+                              </Command>
+                              <div className="max-h-[240px] overflow-y-auto p-1">
+                                <DropdownMenuLabel>Exclude these provider types from the run</DropdownMenuLabel>
+                                {filteredProviderTypes.length === 0 ? (
+                                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                ) : (
+                                  filteredProviderTypes.map((providerType) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={providerType}
+                                      checked={excludedProviderTypes.includes(providerType)}
+                                      onCheckedChange={(checked) =>
+                                        onSetExcludedProviderTypes(
+                                          checked
+                                            ? [...excludedProviderTypes, providerType]
+                                            : excludedProviderTypes.filter((item) => item !== providerType)
+                                        )
+                                      }
+                                      onSelect={(e) => e.preventDefault()}
+                                    >
+                                      {providerType}
+                                    </DropdownMenuCheckboxItem>
+                                  ))
+                                )}
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <p className="text-xs text-muted-foreground">
+                            Add a &quot;Provider type&quot; or &quot;Role&quot; column when uploading provider data to
+                            see types here.
+                          </p>
+                        </div>
+                      ) : null}
+
+                      <div className="space-y-2 border-t border-border/40 pt-3">
+                        <SectionHeaderWithTooltip
+                          title="Assume productivity gain (%)"
+                          tooltip="Scale recorded wRVUs by this amount for this run only (e.g. 5 = 5% higher). Use when budgeting for expected productivity growth—the optimizer will align pay to where productivity would be at that level."
+                          className="text-primary/90"
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={50}
+                            step={1}
+                            value={settings.wRVUGrowthFactorPct ?? ''}
+                            onChange={(e) => {
+                              const raw = e.target.value
+                              const num = raw === '' ? undefined : Number(raw)
+                              const val = num === undefined ? undefined : Math.max(0, Math.min(50, Number.isNaN(num) ? 0 : num))
+                              onSetSettings((prev) => ({ ...prev, wRVUGrowthFactorPct: val }))
+                            }}
+                            placeholder="0"
+                            className="h-9 w-20"
+                          />
+                          <span className="text-sm text-muted-foreground">% higher wRVUs for this run</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Use 0 to keep recorded productivity values.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-border/50 bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">{filteredProviderRowsCount}</span> provider(s) in scope
+                    {providerTypeFilter !== 'all' ? (
+                      <span>
+                        {' '}
+                        ({providerTypeFilter === 'productivity' ? 'productivity-based' : 'base salary'} only)
+                      </span>
+                    ) : null}
+                    {targetMode === 'custom' && selectedSpecialties.length > 0 ? (
+                      <span> across {selectedSpecialties.length} specialty(ies)</span>
+                    ) : null}
+                    {excludedProviderTypes.length > 0 ? (
+                      <span> ({excludedProviderTypes.length} provider type(s) excluded)</span>
+                    ) : null}
+                    {(settings.wRVUGrowthFactorPct ?? 0) > 0 ? (
+                      <span> (wRVUs assumed {(settings.wRVUGrowthFactorPct ?? 0)}% higher for this run)</span>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
               {/* Step 2: Objective */}
               {configStep === 2 ? (
-                <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
                   <SectionHeaderWithTooltip
+                    variant="section"
                     title="A. Objective"
                     tooltip="Set how the optimizer should target pay: align TCC percentile to wRVU percentile, target a fixed percentile, or a hybrid. The error metric (MSE vs MAE) affects how outliers are weighted when minimizing misalignment."
                   />
@@ -785,8 +882,9 @@ export function OptimizerConfigureStage({
 
               {/* Step 3: Governance */}
               {configStep === 3 ? (
-                <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
                   <SectionHeaderWithTooltip
+                    variant="section"
                     title="B. Governance guardrails"
                     tooltip="Exclusion rules: providers below min clinical FTE or min wRVU per 1.0 cFTE are excluded from optimization. CF bounds limit how much the recommended CF can change from current (± %). Max recommended CF percentile caps the suggestion at a market percentile (e.g. 50 = median) per specialty."
                   />
@@ -877,9 +975,10 @@ export function OptimizerConfigureStage({
 
               {/* Step 4: Total cash compensation */}
               {configStep === 4 ? (
-                <div className="space-y-5 rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
                   <div>
                     <SectionHeaderWithTooltip
+                      variant="section"
                       title="C. Total cash compensation"
                       tooltip="Build your TCC by turning components on or off. Base is always included. Each component has a single data source: upload column, computed, or override. Leave optional pills off if you don't have that column."
                     />

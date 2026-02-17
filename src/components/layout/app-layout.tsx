@@ -15,7 +15,7 @@ const SIDEBAR_EXPANDED_WIDTH = 260
 
 const BATCH_NAV: { id: BatchCardId; label: string; icon: React.ReactNode; tooltip: string; subtitle?: string }[] = [
   { id: 'cf-optimizer', label: 'CF Optimizer', icon: <Gauge className="size-5 shrink-0" />, tooltip: 'Conversion Factor Optimizer' },
-  { id: 'productivity-target', label: 'Target Optimizer', icon: <Target className="size-5 shrink-0" />, tooltip: 'Productivity Target Builder', subtitle: 'Recommended target' },
+  { id: 'productivity-target', label: 'Target Optimizer', icon: <Target className="size-5 shrink-0" />, tooltip: 'Target Optimizer', subtitle: 'Recommended target' },
   { id: 'imputed-vs-market', label: 'Market positioning', icon: <BarChart2 className="size-5 shrink-0" />, tooltip: 'Market positioning (imputed)' },
   { id: 'bulk-scenario', label: 'Create and Run Scenario', icon: <Users className="size-5 shrink-0" />, tooltip: 'Create a scenario and run it for all providers' },
   { id: 'detailed-scenario', label: 'Detailed scenarios', icon: <Sliders className="size-5 shrink-0" />, tooltip: 'Scenario overrides by specialty and provider' },

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Target, Info } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -39,15 +39,21 @@ const CONFIG_STEPS = [
 function SectionHeaderWithTooltip({
   title,
   tooltip,
+  variant = 'subsection',
   className,
 }: {
   title: string
   tooltip: string
+  /** 'section' = larger heading for main panel sections; 'subsection' = default smaller label */
+  variant?: 'section' | 'subsection'
   className?: string
 }) {
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <h3 className={cn(
+        'font-semibold',
+        variant === 'section' ? 'text-base' : 'text-sm'
+      )}>{title}</h3>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -74,6 +80,25 @@ export function ProductivityTargetConfigureStage({
   targetMode,
   selectedSpecialties,
   availableSpecialties,
+  modelScopeMode,
+  selectedModels,
+  availableModels,
+  onSetModelScopeMode,
+  onSetSelectedModels,
+  providerTypeScopeMode,
+  selectedProviderTypes,
+  excludedProviderTypes,
+  availableProviderTypes,
+  onSetProviderTypeScopeMode,
+  onSetSelectedProviderTypes,
+  onSetExcludedProviderTypes,
+  providerScopeMode,
+  selectedProviderIds,
+  excludedProviderIds,
+  availableProviders,
+  onSetProviderScopeMode,
+  onSetSelectedProviderIds,
+  onSetExcludedProviderIds,
   onRun,
   onSetTargetMode,
   onSetSelectedSpecialties,
@@ -88,6 +113,25 @@ export function ProductivityTargetConfigureStage({
   targetMode: 'all' | 'custom'
   selectedSpecialties: string[]
   availableSpecialties: string[]
+  modelScopeMode: 'all' | 'custom'
+  selectedModels: string[]
+  availableModels: string[]
+  onSetModelScopeMode: (mode: 'all' | 'custom') => void
+  onSetSelectedModels: (models: string[]) => void
+  providerTypeScopeMode: 'all' | 'custom'
+  selectedProviderTypes: string[]
+  excludedProviderTypes: string[]
+  availableProviderTypes: string[]
+  onSetProviderTypeScopeMode: (mode: 'all' | 'custom') => void
+  onSetSelectedProviderTypes: (types: string[]) => void
+  onSetExcludedProviderTypes: (types: string[]) => void
+  providerScopeMode: 'all' | 'custom'
+  selectedProviderIds: string[]
+  excludedProviderIds: string[]
+  availableProviders: { id: string; name: string }[]
+  onSetProviderScopeMode: (mode: 'all' | 'custom') => void
+  onSetSelectedProviderIds: (ids: string[]) => void
+  onSetExcludedProviderIds: (ids: string[]) => void
   onRun: () => void
   onSetTargetMode: (mode: 'all' | 'custom') => void
   onSetSelectedSpecialties: (specialties: string[]) => void
@@ -96,27 +140,49 @@ export function ProductivityTargetConfigureStage({
   onSetConfigStep: (step: number) => void
 }) {
   const [specialtySearch, setSpecialtySearch] = useState('')
+  const [modelSearch, setModelSearch] = useState('')
+  const [providerTypeIncludeSearch, setProviderTypeIncludeSearch] = useState('')
+  const [providerSearch, setProviderSearch] = useState('')
+  const [providerTypeExcludeSearch, setProviderTypeExcludeSearch] = useState('')
+  const [providerExcludeSearch, setProviderExcludeSearch] = useState('')
+  const [showAdvancedExclusions, setShowAdvancedExclusions] = useState(false)
   const filteredSpecialties = useMemo(() => {
     if (!specialtySearch.trim()) return availableSpecialties
     const q = specialtySearch.toLowerCase()
     return availableSpecialties.filter((s) => s.toLowerCase().includes(q))
   }, [availableSpecialties, specialtySearch])
+  const filteredModels = useMemo(() => {
+    if (!modelSearch.trim()) return availableModels
+    const q = modelSearch.toLowerCase()
+    return availableModels.filter((m) => m.toLowerCase().includes(q))
+  }, [availableModels, modelSearch])
+  const filteredProviderTypes = useMemo(() => {
+    if (!providerTypeIncludeSearch.trim()) return availableProviderTypes
+    const q = providerTypeIncludeSearch.toLowerCase()
+    return availableProviderTypes.filter((t) => t.toLowerCase().includes(q))
+  }, [availableProviderTypes, providerTypeIncludeSearch])
+  const filteredProviders = useMemo(() => {
+    if (!providerSearch.trim()) return availableProviders
+    const q = providerSearch.toLowerCase()
+    return availableProviders.filter((p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+  }, [availableProviders, providerSearch])
+
+  const filteredProviderTypesForExclusion = useMemo(() => {
+    if (!providerTypeExcludeSearch.trim()) return availableProviderTypes
+    const q = providerTypeExcludeSearch.toLowerCase()
+    return availableProviderTypes.filter((t) => t.toLowerCase().includes(q))
+  }, [availableProviderTypes, providerTypeExcludeSearch])
+
+  const filteredProvidersForExclusion = useMemo(() => {
+    if (!providerExcludeSearch.trim()) return availableProviders
+    const q = providerExcludeSearch.toLowerCase()
+    return availableProviders.filter((p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q))
+  }, [availableProviders, providerExcludeSearch])
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <Target className="size-6" aria-hidden />
-            </div>
-            <div>
-              <CardTitle className="leading-tight">Productivity Target Builder</CardTitle>
-              <p className="mt-0.5 text-sm text-muted-foreground">
-                Set a group wRVU target per specialty (1.0 cFTE) and scale by cFTE; compare actuals to target.
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center justify-end gap-3">
           <TooltipProvider delayDuration={200}>
             <nav className="flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5" aria-label="Configuration steps">
               {CONFIG_STEPS.map((step) => {
@@ -156,86 +222,421 @@ export function ProductivityTargetConfigureStage({
           {hasData ? (
             <>
               {configStep === 1 ? (
-                <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
                   <SectionHeaderWithTooltip
+                    variant="section"
                     title="Target scope"
-                    tooltip="Choose which providers are included. All specialties uses everyone with a market match; custom lets you select specific specialties."
+                    tooltip="Choose which providers are included. Specialty, Model, Provider type (role), and Provider scope: all or custom selection."
+                    className="text-primary/90"
                   />
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Specialty scope</Label>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Specialty scope */}
+                    <div className="space-y-2 min-w-0 rounded-lg border border-border/50 bg-background/60 p-3">
+                      <Label className="text-sm font-semibold text-primary/90">Specialty scope</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant={targetMode === 'all' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => onSetTargetMode('all')}
+                        >
+                          All specialties
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={targetMode === 'custom' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => onSetTargetMode('custom')}
+                        >
+                          Custom selection
+                        </Button>
+                      </div>
+                      {targetMode === 'custom' ? (
+                        <DropdownMenu onOpenChange={(open) => open && setSpecialtySearch('')}>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="w-full min-w-0 justify-between gap-2">
+                              {selectedSpecialties.length === 0
+                                ? 'Select specialties...'
+                                : `${selectedSpecialties.length} specialty(ies)`}
+                              <ChevronDown className="size-4 opacity-50" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="max-h-[320px] overflow-hidden p-0">
+                            <Command shouldFilter={false} className="rounded-none border-0">
+                              <CommandInput
+                                placeholder="Search specialties…"
+                                value={specialtySearch}
+                                onValueChange={setSpecialtySearch}
+                                className="h-9"
+                              />
+                            </Command>
+                            <div className="max-h-[240px] overflow-y-auto p-1">
+                              <DropdownMenuLabel>Specialty</DropdownMenuLabel>
+                              {filteredSpecialties.length === 0 ? (
+                                <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                              ) : (
+                                filteredSpecialties.map((specialty) => (
+                                  <DropdownMenuCheckboxItem
+                                    key={specialty}
+                                    checked={selectedSpecialties.includes(specialty)}
+                                    onCheckedChange={(checked) =>
+                                      onSetSelectedSpecialties(
+                                        checked ? [...selectedSpecialties, specialty] : selectedSpecialties.filter((s) => s !== specialty)
+                                      )
+                                    }
+                                  >
+                                    {specialty}
+                                  </DropdownMenuCheckboxItem>
+                                ))
+                              )}
+                            </div>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : null}
+                    </div>
+                    {/* Model scope */}
+                    {availableModels.length > 0 ? (
+                      <div className="space-y-2 min-w-0 rounded-lg border border-border/50 bg-background/60 p-3">
+                        <Label className="text-sm font-semibold text-primary/90">Model scope</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant={modelScopeMode === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onSetModelScopeMode('all')}
+                          >
+                            All models
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={modelScopeMode === 'custom' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onSetModelScopeMode('custom')}
+                          >
+                            Custom selection
+                          </Button>
+                        </div>
+                        {modelScopeMode === 'custom' ? (
+                          <DropdownMenu onOpenChange={(open) => open && setModelSearch('')}>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full min-w-0 justify-between gap-2">
+                                {selectedModels.length === 0
+                                  ? 'Select models...'
+                                  : `${selectedModels.length} model(s)`}
+                                <ChevronDown className="size-4 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="max-h-[320px] overflow-hidden p-0">
+                              <Command shouldFilter={false} className="rounded-none border-0">
+                                <CommandInput
+                                  placeholder="Search models…"
+                                  value={modelSearch}
+                                  onValueChange={setModelSearch}
+                                  className="h-9"
+                                />
+                              </Command>
+                              <div className="max-h-[240px] overflow-y-auto p-1">
+                                <DropdownMenuLabel>Model (compensation type)</DropdownMenuLabel>
+                                {filteredModels.length === 0 ? (
+                                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                ) : (
+                                  filteredModels.map((model) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={model}
+                                      checked={selectedModels.includes(model)}
+                                      onCheckedChange={(checked) =>
+                                        onSetSelectedModels(
+                                          checked ? [...selectedModels, model] : selectedModels.filter((m) => m !== model)
+                                        )
+                                      }
+                                    >
+                                      {model}
+                                    </DropdownMenuCheckboxItem>
+                                  ))
+                                )}
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {/* Provider type scope */}
+                    {availableProviderTypes.length > 0 ? (
+                      <div className="space-y-2 min-w-0 rounded-lg border border-border/50 bg-background/60 p-3">
+                        <Label className="text-sm font-semibold text-primary/90">Provider type scope</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant={providerTypeScopeMode === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onSetProviderTypeScopeMode('all')}
+                          >
+                            All provider types
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={providerTypeScopeMode === 'custom' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onSetProviderTypeScopeMode('custom')}
+                          >
+                            Custom selection
+                          </Button>
+                        </div>
+                        {providerTypeScopeMode === 'custom' ? (
+                          <DropdownMenu onOpenChange={(open) => open && setProviderTypeIncludeSearch('')}>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full min-w-0 justify-between gap-2">
+                                {selectedProviderTypes.length === 0
+                                  ? 'Select provider types...'
+                                  : `${selectedProviderTypes.length} type(s)`}
+                                <ChevronDown className="size-4 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="max-h-[320px] overflow-hidden p-0">
+                              <Command shouldFilter={false} className="rounded-none border-0">
+                                <CommandInput
+                                  placeholder="Search provider types…"
+                                  value={providerTypeIncludeSearch}
+                                  onValueChange={setProviderTypeIncludeSearch}
+                                  className="h-9"
+                                />
+                              </Command>
+                              <div className="max-h-[240px] overflow-y-auto p-1">
+                                <DropdownMenuLabel>Provider type (role)</DropdownMenuLabel>
+                                {filteredProviderTypes.length === 0 ? (
+                                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                ) : (
+                                  filteredProviderTypes.map((providerType) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={providerType}
+                                      checked={selectedProviderTypes.includes(providerType)}
+                                      onCheckedChange={(checked) =>
+                                        onSetSelectedProviderTypes(
+                                          checked ? [...selectedProviderTypes, providerType] : selectedProviderTypes.filter((t) => t !== providerType)
+                                        )
+                                      }
+                                    >
+                                      {providerType}
+                                    </DropdownMenuCheckboxItem>
+                                  ))
+                                )}
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {/* Provider scope */}
+                    {availableProviders.length > 0 ? (
+                      <div className="space-y-2 min-w-0 rounded-lg border border-border/50 bg-background/60 p-3">
+                        <Label className="text-sm font-semibold text-primary/90">Provider scope</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant={providerScopeMode === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onSetProviderScopeMode('all')}
+                          >
+                            All providers in scope
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={providerScopeMode === 'custom' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onSetProviderScopeMode('custom')}
+                          >
+                            Custom selection
+                          </Button>
+                        </div>
+                        {providerScopeMode === 'custom' ? (
+                          <DropdownMenu onOpenChange={(open) => open && setProviderSearch('')}>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full min-w-0 justify-between gap-2">
+                                {selectedProviderIds.length === 0
+                                  ? 'Select providers...'
+                                  : `${selectedProviderIds.length} provider(s)`}
+                                <ChevronDown className="size-4 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="max-h-[320px] overflow-hidden p-0">
+                              <Command shouldFilter={false} className="rounded-none border-0">
+                                <CommandInput
+                                  placeholder="Search providers…"
+                                  value={providerSearch}
+                                  onValueChange={setProviderSearch}
+                                  className="h-9"
+                                />
+                              </Command>
+                              <div className="max-h-[240px] overflow-y-auto p-1">
+                                <DropdownMenuLabel>Provider</DropdownMenuLabel>
+                                {filteredProviders.length === 0 ? (
+                                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                ) : (
+                                  filteredProviders.map((p) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={p.id}
+                                      checked={selectedProviderIds.includes(p.id)}
+                                      onCheckedChange={(checked) =>
+                                        onSetSelectedProviderIds(
+                                          checked ? [...selectedProviderIds, p.id] : selectedProviderIds.filter((id) => id !== p.id)
+                                        )
+                                      }
+                                    >
+                                      {p.name}
+                                    </DropdownMenuCheckboxItem>
+                                  ))
+                                )}
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="rounded-lg border border-border/50 bg-background/60 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-semibold text-primary/90">Advanced exclusions</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Optional: remove specific roles or providers after inclusion filters.
+                        </p>
+                      </div>
                       <Button
                         type="button"
-                        variant={targetMode === 'all' ? 'default' : 'outline'}
+                        variant="outline"
                         size="sm"
-                        onClick={() => onSetTargetMode('all')}
+                        onClick={() => setShowAdvancedExclusions((prev) => !prev)}
+                        className="gap-1.5"
                       >
-                        All specialties
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={targetMode === 'custom' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => onSetTargetMode('custom')}
-                      >
-                        Custom selection
+                        {showAdvancedExclusions ? 'Hide' : 'Show'}
+                        <ChevronDown className={cn('size-4 transition-transform', showAdvancedExclusions ? 'rotate-180' : '')} />
                       </Button>
                     </div>
-                  </div>
-                  {targetMode === 'custom' ? (
-                    <DropdownMenu onOpenChange={(open) => open && setSpecialtySearch('')}>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="min-w-[220px] justify-between gap-2">
-                          {selectedSpecialties.length === 0
-                            ? 'Select specialties...'
-                            : `${selectedSpecialties.length} specialty(ies)`}
-                          <ChevronDown className="size-4 opacity-50" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="max-h-[320px] overflow-hidden p-0">
-                        <Command shouldFilter={false} className="rounded-none border-0">
-                          <CommandInput
-                            placeholder="Search specialties…"
-                            value={specialtySearch}
-                            onValueChange={setSpecialtySearch}
-                            className="h-9"
-                          />
-                        </Command>
-                        <div className="max-h-[240px] overflow-y-auto p-1">
-                          <DropdownMenuLabel>Specialty</DropdownMenuLabel>
-                          {filteredSpecialties.length === 0 ? (
-                            <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
-                          ) : (
-                            filteredSpecialties.map((specialty) => (
-                              <DropdownMenuCheckboxItem
-                                key={specialty}
-                                checked={selectedSpecialties.includes(specialty)}
-                                onCheckedChange={(checked) =>
-                                  onSetSelectedSpecialties(
-                                    checked ? [...selectedSpecialties, specialty] : selectedSpecialties.filter((s) => s !== specialty)
-                                  )
-                                }
-                              >
-                                {specialty}
-                              </DropdownMenuCheckboxItem>
-                            ))
-                          )}
+
+                    {showAdvancedExclusions ? (
+                      <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2 min-w-0">
+                          <Label className="text-xs font-medium text-muted-foreground">Exclude provider types</Label>
+                          <DropdownMenu onOpenChange={(open) => open && setProviderTypeExcludeSearch('')}>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full min-w-0 justify-between gap-2">
+                                {excludedProviderTypes.length === 0
+                                  ? 'None excluded'
+                                  : `${excludedProviderTypes.length} type(s) excluded`}
+                                <ChevronDown className="size-4 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="max-h-[320px] overflow-hidden p-0">
+                              <Command shouldFilter={false} className="rounded-none border-0">
+                                <CommandInput
+                                  placeholder="Search provider types…"
+                                  value={providerTypeExcludeSearch}
+                                  onValueChange={setProviderTypeExcludeSearch}
+                                  className="h-9"
+                                />
+                              </Command>
+                              <div className="max-h-[240px] overflow-y-auto p-1">
+                                <DropdownMenuLabel>Exclude provider types (role)</DropdownMenuLabel>
+                                {filteredProviderTypesForExclusion.length === 0 ? (
+                                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                ) : (
+                                  filteredProviderTypesForExclusion.map((providerType) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={providerType}
+                                      checked={excludedProviderTypes.includes(providerType)}
+                                      onCheckedChange={(checked) =>
+                                        onSetExcludedProviderTypes(
+                                          checked
+                                            ? [...excludedProviderTypes, providerType]
+                                            : excludedProviderTypes.filter((t) => t !== providerType)
+                                        )
+                                      }
+                                    >
+                                      {providerType}
+                                    </DropdownMenuCheckboxItem>
+                                  ))
+                                )}
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
+
+                        <div className="space-y-2 min-w-0">
+                          <Label className="text-xs font-medium text-muted-foreground">Exclude providers</Label>
+                          <DropdownMenu onOpenChange={(open) => open && setProviderExcludeSearch('')}>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full min-w-0 justify-between gap-2">
+                                {excludedProviderIds.length === 0
+                                  ? 'None excluded'
+                                  : `${excludedProviderIds.length} provider(s) excluded`}
+                                <ChevronDown className="size-4 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="max-h-[320px] overflow-hidden p-0">
+                              <Command shouldFilter={false} className="rounded-none border-0">
+                                <CommandInput
+                                  placeholder="Search providers…"
+                                  value={providerExcludeSearch}
+                                  onValueChange={setProviderExcludeSearch}
+                                  className="h-9"
+                                />
+                              </Command>
+                              <div className="max-h-[240px] overflow-y-auto p-1">
+                                <DropdownMenuLabel>Exclude providers</DropdownMenuLabel>
+                                {filteredProvidersForExclusion.length === 0 ? (
+                                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                ) : (
+                                  filteredProvidersForExclusion.map((p) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={p.id}
+                                      checked={excludedProviderIds.includes(p.id)}
+                                      onCheckedChange={(checked) =>
+                                        onSetExcludedProviderIds(
+                                          checked
+                                            ? [...excludedProviderIds, p.id]
+                                            : excludedProviderIds.filter((id) => id !== p.id)
+                                        )
+                                      }
+                                    >
+                                      {p.name}
+                                    </DropdownMenuCheckboxItem>
+                                  ))
+                                )}
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                   <p className="border-t border-border/40 pt-2 text-xs text-muted-foreground">
                     {filteredProviderRowsCount} provider(s) in scope
                     {targetMode === 'custom' && selectedSpecialties.length > 0
                       ? ` across ${selectedSpecialties.length} specialty(ies)`
+                      : ''}
+                    {modelScopeMode === 'custom' && selectedModels.length > 0
+                      ? ` · ${selectedModels.length} model(s)`
+                      : ''}
+                    {providerTypeScopeMode === 'custom' && selectedProviderTypes.length > 0
+                      ? ` · ${selectedProviderTypes.length} provider type(s)`
+                      : ''}
+                    {providerScopeMode === 'custom' && selectedProviderIds.length > 0
+                      ? ` · ${selectedProviderIds.length} provider(s) selected`
+                      : ''}
+                    {excludedProviderTypes.length > 0
+                      ? ` · ${excludedProviderTypes.length} provider type(s) excluded`
+                      : ''}
+                    {excludedProviderIds.length > 0
+                      ? ` · ${excludedProviderIds.length} provider(s) excluded`
                       : ''}
                   </p>
                 </div>
               ) : null}
 
               {configStep === 2 ? (
-                <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
                   <SectionHeaderWithTooltip
+                    variant="section"
                     title="Target method"
                     tooltip="Approach A: group target = market wRVU at chosen percentile. Approach B: group target = market pay at percentile ÷ market $/wRVU at CF percentile. Same 1.0 cFTE target for everyone in the specialty; scaled by cFTE per provider."
                   />
@@ -359,12 +760,27 @@ export function ProductivityTargetConfigureStage({
               ) : null}
 
               {configStep === 3 ? (
-                <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-4">
-                  <h3 className="text-sm font-semibold">Summary</h3>
+                <div className="space-y-8 rounded-lg border border-border/60 bg-muted/20 p-4 [&>*:not(:first-child)]:border-t [&>*:not(:first-child)]:border-border/40">
+                  <h3 className="text-base font-semibold">Summary</h3>
                   <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
                     <li>
-                      Scope: {targetMode === 'all' ? 'All specialties' : `${selectedSpecialties.length} specialty(ies)`} ·{' '}
-                      {filteredProviderRowsCount} providers
+                      Scope: {targetMode === 'all' ? 'All specialties' : `${selectedSpecialties.length} specialty(ies)`}
+                      {availableModels.length > 0
+                        ? modelScopeMode === 'all'
+                          ? ' · All models'
+                          : ` · ${selectedModels.length} model(s)`
+                        : ''}
+                      {availableProviderTypes.length > 0
+                        ? providerTypeScopeMode === 'all'
+                          ? ' · All provider types'
+                          : ` · ${selectedProviderTypes.length} provider type(s)`
+                        : ''}
+                      {availableProviders.length > 0
+                        ? providerScopeMode === 'all'
+                          ? ' · All providers in scope'
+                          : ` · ${selectedProviderIds.length} provider(s)`
+                        : ''}{' '}
+                      · {filteredProviderRowsCount} providers
                     </li>
                     <li>
                       Target: Approach {settings.targetApproach === 'wrvu_percentile' ? 'A' : 'B'} at{' '}

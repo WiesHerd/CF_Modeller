@@ -32,7 +32,7 @@ const BATCH_CARDS: { id: BatchCardId; title: string; description: string; icon: 
   },
   {
     id: 'productivity-target',
-    title: 'Productivity Target Builder',
+    title: 'Target Optimizer',
     description: 'Set a group wRVU target per specialty (1.0 cFTE) and scale by cFTE; compare actuals to target, plan incentive, and export.',
     icon: <Target className="size-6" />,
   },

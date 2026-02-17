@@ -258,7 +258,7 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
             <CardContent className="pt-6 space-y-3">
               <h3 className="font-medium text-foreground flex items-center gap-2">
                 <Target className="size-4 text-primary" />
-                Productivity Target Builder
+                Target Optimizer
               </h3>
               <p className="text-muted-foreground text-sm">
                 Set a group wRVU target per specialty (1.0 cFTE) and scale by cFTE; compare actuals to target, plan incentive payout, and export.
@@ -266,7 +266,7 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
               <p className="text-muted-foreground text-xs">
                 <strong className="text-foreground">When:</strong> Setting productivity expectations by specialty; planning incentive without individualized salary-based targets.
               </p>
-              <GoToButton label="Productivity Target Builder" step="batch-scenario" batchCard="productivity-target" onNavigate={onNavigate} />
+              <GoToButton label="Target Optimizer" step="batch-scenario" batchCard="productivity-target" onNavigate={onNavigate} />
             </CardContent>
           </Card>
           <Card>

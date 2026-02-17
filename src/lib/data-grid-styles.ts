@@ -15,19 +15,19 @@ export const DATA_GRID = {
   wrapper:
     'rounded-md border border-border overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
 
-  /** Sticky table header row. Use on TableHeader. */
+  /** Sticky table header row. Use on TableHeader. Keep above sticky body cells. */
   header:
-    'sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground [&_th]:font-medium',
+    'sticky top-0 z-40 border-b border-border bg-background [&_tr]:bg-background [&_th]:bg-background [&_th]:text-foreground [&_th]:font-medium',
 
   /** Header and body cell padding (use on TableHead and TableCell). */
   cellPadding: 'px-3 py-2.5',
 
-  /** Sticky first column (header). Use on first TableHead when column is frozen. Higher z so it stays above body and scrolling content. */
+  /** Sticky first column (header). Use on first TableHead when column is frozen. isolate + explicit bg so body content never shows through. */
   stickyColHeader:
-    'sticky left-0 top-0 z-30 bg-muted shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]',
+    'sticky left-0 top-0 z-50 isolate bg-background [background-color:var(--background)] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]',
 
-  /** Sticky first column (body cell). Use on first TableCell when column is frozen. z-20 so it paints above scrolling cells (no z-index). */
-  stickyColCell: 'sticky left-0 z-20 bg-background',
+  /** Sticky first column (body cell). Use on first TableCell when column is frozen. Keep below sticky headers. */
+  stickyColCell: 'sticky left-0 z-10 bg-background',
 
   /** Striped row (alternate). Apply to TableRow when row.index % 2 === 1. */
   rowStriped: 'bg-muted/30',

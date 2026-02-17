@@ -552,11 +552,11 @@ export function CompareTargetScenariosContent({
                 <button
                   type="button"
                   onClick={() => setDrillDownMetric('incentive')}
-                  className="rounded-xl border border-border/60 bg-background px-4 py-3 shadow-sm text-left hover:bg-muted/30 hover:border-border transition-colors cursor-pointer group"
+                  className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm text-left hover:bg-primary/10 hover:border-primary/30 transition-colors cursor-pointer group"
                   aria-label="View planning incentive breakdown by specialty and provider"
                 >
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
+                    <span className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground', 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <DollarSign />
                     </span>
                     Total planning incentive
@@ -580,11 +580,11 @@ export function CompareTargetScenariosContent({
                 <button
                   type="button"
                   onClick={() => setDrillDownMetric('percentToTarget')}
-                  className="rounded-xl border border-border/60 bg-background px-4 py-3 shadow-sm text-left hover:bg-muted/30 hover:border-border transition-colors cursor-pointer group"
+                  className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm text-left hover:bg-primary/10 hover:border-primary/30 transition-colors cursor-pointer group"
                   aria-label="View mean % to target breakdown by specialty"
                 >
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
+                    <span className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground', 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <Target />
                     </span>
                     Mean % to target
@@ -608,11 +608,11 @@ export function CompareTargetScenariosContent({
                 <button
                   type="button"
                   onClick={() => setDrillDownMetric('bands')}
-                  className="rounded-xl border border-border/60 bg-background px-4 py-3 shadow-sm text-left hover:bg-muted/30 hover:border-border transition-colors cursor-pointer group"
+                  className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm text-left hover:bg-primary/10 hover:border-primary/30 transition-colors cursor-pointer group"
                   aria-label="View provider bands breakdown by specialty"
                 >
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
+                    <span className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground', 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <BarChart2 />
                     </span>
                     Below 80%
@@ -636,11 +636,11 @@ export function CompareTargetScenariosContent({
                 <button
                   type="button"
                   onClick={() => setDrillDownMetric('bands')}
-                  className="rounded-xl border border-border/60 bg-background px-4 py-3 shadow-sm text-left hover:bg-muted/30 hover:border-border transition-colors cursor-pointer group"
+                  className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm text-left hover:bg-primary/10 hover:border-primary/30 transition-colors cursor-pointer group"
                   aria-label="View provider bands breakdown by specialty"
                 >
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
+                    <span className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground', 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <BarChart2 />
                     </span>
                     At/above 120%

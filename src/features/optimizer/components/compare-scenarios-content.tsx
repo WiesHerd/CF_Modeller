@@ -703,11 +703,11 @@ export function CompareScenariosContent({
                 <button
                   type="button"
                   onClick={() => setDrillDownMetric('spend')}
-                  className="rounded-xl border border-border/60 bg-background px-4 py-3 shadow-sm text-left hover:bg-muted/30 hover:border-border transition-colors cursor-pointer group"
+                  className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm text-left hover:bg-primary/10 hover:border-primary/30 transition-colors cursor-pointer group"
                   aria-label="View spend change breakdown by specialty and provider"
                 >
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
+                    <span className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground', 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <DollarSign />
                     </span>
                     {isTwo ? 'Spend (B vs A)' : 'Spend impact'}
@@ -739,11 +739,11 @@ export function CompareScenariosContent({
                 <button
                   type="button"
                   onClick={() => setDrillDownMetric('alignment')}
-                  className="rounded-xl border border-border/60 bg-background px-4 py-3 shadow-sm text-left hover:bg-muted/30 hover:border-border transition-colors cursor-pointer group"
+                  className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm text-left hover:bg-primary/10 hover:border-primary/30 transition-colors cursor-pointer group"
                   aria-label="View specialties aligned breakdown"
                 >
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
+                    <span className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground', 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <Target />
                     </span>
                     Aligned
@@ -767,11 +767,11 @@ export function CompareScenariosContent({
                 <button
                   type="button"
                   onClick={() => setDrillDownMetric('alignment')}
-                  className="rounded-xl border border-border/60 bg-background px-4 py-3 shadow-sm text-left hover:bg-muted/30 hover:border-border transition-colors cursor-pointer group"
+                  className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm text-left hover:bg-primary/10 hover:border-primary/30 transition-colors cursor-pointer group"
                   aria-label="View mean TCC percentile (modeled) breakdown by specialty"
                 >
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
+                    <span className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground', 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <BarChart2 />
                     </span>
                     TCC % (modeled)
@@ -795,11 +795,11 @@ export function CompareScenariosContent({
                 <button
                   type="button"
                   onClick={() => setDrillDownMetric('incentive')}
-                  className="rounded-xl border border-border/60 bg-background px-4 py-3 shadow-sm text-left hover:bg-muted/30 hover:border-border transition-colors cursor-pointer group"
+                  className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 shadow-sm text-left hover:bg-primary/10 hover:border-primary/30 transition-colors cursor-pointer group"
                   aria-label="View incentive change breakdown by specialty and provider"
                 >
                   <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    <span className={cn(iconBoxClass, 'size-7 [&_svg]:size-3.5')} aria-hidden>
+                    <span className={cn('flex shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground', 'size-7 [&_svg]:size-3.5')} aria-hidden>
                       <DollarSign />
                     </span>
                     {isTwo ? 'Incentive (B vs A)' : 'Incentive'}

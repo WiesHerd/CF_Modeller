@@ -57,6 +57,14 @@ function getInitialState(config: ProductivityTargetConfigSnapshot | null) {
       result: null as ProductivityTargetRunResult | null,
       targetMode: 'all' as const,
       selectedSpecialties: [] as string[],
+      modelScopeMode: 'all' as const,
+      selectedModels: [] as string[],
+      providerTypeScopeMode: 'all' as const,
+      selectedProviderTypes: [] as string[],
+      excludedProviderTypes: [] as string[],
+      providerScopeMode: 'all' as const,
+      selectedProviderIds: [] as string[],
+      excludedProviderIds: [] as string[],
       configStep: 1,
     }
   }
@@ -65,6 +73,14 @@ function getInitialState(config: ProductivityTargetConfigSnapshot | null) {
     result: config.lastRunResult ?? null,
     targetMode: (config.targetMode ?? 'all') as 'all' | 'custom',
     selectedSpecialties: [...(config.selectedSpecialties ?? [])],
+    modelScopeMode: (config.modelScopeMode ?? 'all') as 'all' | 'custom',
+    selectedModels: [...(config.selectedModels ?? [])],
+    providerTypeScopeMode: (config.providerTypeScopeMode ?? 'all') as 'all' | 'custom',
+    selectedProviderTypes: [...(config.selectedProviderTypes ?? [])],
+    excludedProviderTypes: [...(config.excludedProviderTypes ?? [])],
+    providerScopeMode: (config.providerScopeMode ?? 'all') as 'all' | 'custom',
+    selectedProviderIds: [...(config.selectedProviderIds ?? [])],
+    excludedProviderIds: [...(config.excludedProviderIds ?? [])],
     configStep: Math.min(3, Math.max(1, config.configStep ?? 1)),
   }
 }
@@ -89,6 +105,14 @@ export function ProductivityTargetScreen({
   const [result, setResult] = useState<ProductivityTargetRunResult | null>(initial.result)
   const [targetMode, setTargetMode] = useState<'all' | 'custom'>(initial.targetMode)
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(initial.selectedSpecialties)
+  const [modelScopeMode, setModelScopeMode] = useState<'all' | 'custom'>(initial.modelScopeMode)
+  const [selectedModels, setSelectedModels] = useState<string[]>(initial.selectedModels)
+  const [providerTypeScopeMode, setProviderTypeScopeMode] = useState<'all' | 'custom'>(initial.providerTypeScopeMode)
+  const [selectedProviderTypes, setSelectedProviderTypes] = useState<string[]>(initial.selectedProviderTypes)
+  const [excludedProviderTypes, setExcludedProviderTypes] = useState<string[]>(initial.excludedProviderTypes)
+  const [providerScopeMode, setProviderScopeMode] = useState<'all' | 'custom'>(initial.providerScopeMode)
+  const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>(initial.selectedProviderIds)
+  const [excludedProviderIds, setExcludedProviderIds] = useState<string[]>(initial.excludedProviderIds)
   const [configStep, setConfigStep] = useState(initial.configStep)
   const [targetStep, setTargetStep] = useState<'configure' | 'run'>(initial.result ? 'run' : 'configure')
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
@@ -111,6 +135,14 @@ export function ProductivityTargetScreen({
     setResult(next.result)
     setTargetMode(next.targetMode)
     setSelectedSpecialties(next.selectedSpecialties)
+    setModelScopeMode(next.modelScopeMode)
+    setSelectedModels(next.selectedModels)
+    setProviderTypeScopeMode(next.providerTypeScopeMode)
+    setSelectedProviderTypes(next.selectedProviderTypes)
+    setExcludedProviderTypes(next.excludedProviderTypes)
+    setProviderScopeMode(next.providerScopeMode)
+    setSelectedProviderIds(next.selectedProviderIds)
+    setExcludedProviderIds(next.excludedProviderIds)
     setConfigStep(next.configStep)
     setTargetStep(next.result ? 'run' : 'configure')
   }, [productivityTargetConfig])
@@ -121,9 +153,31 @@ export function ProductivityTargetScreen({
       configStep,
       targetMode,
       selectedSpecialties: [...selectedSpecialties],
+      modelScopeMode,
+      selectedModels: [...selectedModels],
+      providerTypeScopeMode,
+      selectedProviderTypes: [...selectedProviderTypes],
+      excludedProviderTypes: [...excludedProviderTypes],
+      providerScopeMode,
+      selectedProviderIds: [...selectedProviderIds],
+      excludedProviderIds: [...excludedProviderIds],
       lastRunResult: result ?? undefined,
     }),
-    [settings, configStep, targetMode, selectedSpecialties, result]
+    [
+      settings,
+      configStep,
+      targetMode,
+      selectedSpecialties,
+      modelScopeMode,
+      selectedModels,
+      providerTypeScopeMode,
+      selectedProviderTypes,
+      excludedProviderTypes,
+      providerScopeMode,
+      selectedProviderIds,
+      excludedProviderIds,
+      result,
+    ]
   )
 
   useEffect(() => {
@@ -135,20 +189,130 @@ export function ProductivityTargetScreen({
 
   const hasData = providerRows.length > 0 && marketRows.length > 0
 
+  /** Specialties that are available given the current model scope (so dropdown shows only relevant options). */
   const availableSpecialties = useMemo(() => {
-    const set = new Set(providerRows.map((p) => (p.specialty ?? '').trim()).filter(Boolean))
+    let rows = providerRows
+    if (modelScopeMode === 'custom' && selectedModels.length > 0) {
+      const modelSet = new Set(selectedModels)
+      rows = rows.filter((p) => modelSet.has((p.productivityModel ?? '').trim()))
+    }
+    const set = new Set(rows.map((p) => (p.specialty ?? '').trim()).filter(Boolean))
     return [...set].sort()
-  }, [providerRows])
+  }, [providerRows, modelScopeMode, selectedModels])
+
+  /** Models that are available given the current specialty scope (so dropdown shows only relevant options). */
+  const availableModels = useMemo(() => {
+    let rows = providerRows
+    if (targetMode === 'custom' && selectedSpecialties.length > 0) {
+      const specialtySet = new Set(selectedSpecialties)
+      rows = rows.filter((p) => specialtySet.has((p.specialty ?? '').trim()))
+    }
+    const set = new Set(rows.map((p) => (p.productivityModel ?? '').trim()).filter(Boolean))
+    return [...set].sort()
+  }, [providerRows, targetMode, selectedSpecialties])
+
+  /** Providers in scope after specialty + model filter. */
+  const rowsAfterSpecialtyAndModel = useMemo(() => {
+    let rows = providerRows
+    if (targetMode === 'custom' && selectedSpecialties.length > 0) {
+      const specialtySet = new Set(selectedSpecialties)
+      rows = rows.filter((p) => specialtySet.has((p.specialty ?? '').trim()))
+    }
+    if (modelScopeMode === 'custom' && selectedModels.length > 0) {
+      const modelSet = new Set(selectedModels)
+      rows = rows.filter((p) => modelSet.has((p.productivityModel ?? '').trim()))
+    }
+    return rows
+  }, [providerRows, targetMode, selectedSpecialties, modelScopeMode, selectedModels])
+
+  /** Provider types (roles) available in current specialty+model scope. */
+  const availableProviderTypes = useMemo(() => {
+    const set = new Set(rowsAfterSpecialtyAndModel.map((p) => (p.providerType ?? '').trim()).filter(Boolean))
+    return [...set].sort()
+  }, [rowsAfterSpecialtyAndModel])
+
+  /** Providers in scope after specialty + model + provider type filter. */
+  const rowsAfterSpecialtyModelAndProviderType = useMemo(() => {
+    let rows = rowsAfterSpecialtyAndModel
+    if (providerTypeScopeMode === 'custom' && selectedProviderTypes.length > 0) {
+      const typeSet = new Set(selectedProviderTypes)
+      rows = rows.filter((p) => typeSet.has((p.providerType ?? '').trim()))
+    }
+    return rows
+  }, [rowsAfterSpecialtyAndModel, providerTypeScopeMode, selectedProviderTypes])
+
+  /** For provider scope dropdown: list of providers in scope (after specialty + model + provider type), deduped by id. */
+  const availableProvidersForSelection = useMemo(() => {
+    const seen = new Set<string>()
+    return rowsAfterSpecialtyModelAndProviderType
+      .map((p) => {
+        const id = (p.providerId ?? p.providerName ?? '').toString().trim()
+        const name = (p.providerName ?? p.providerId ?? (id || '—')).toString()
+        return { id, name }
+      })
+      .filter((x) => x.id && !seen.has(x.id) && (seen.add(x.id), true))
+  }, [rowsAfterSpecialtyModelAndProviderType])
+
+  /** Prune selections to only available values when the available lists change. */
+  useEffect(() => {
+    const availSpecSet = new Set(availableSpecialties)
+    const availModelSet = new Set(availableModels)
+    const availTypeSet = new Set(availableProviderTypes)
+    const availProviderSet = new Set(availableProvidersForSelection.map((x) => x.id))
+    const nextSpec = selectedSpecialties.filter((s) => availSpecSet.has(s))
+    const nextModels = selectedModels.filter((m) => availModelSet.has(m))
+    const nextTypes = selectedProviderTypes.filter((t) => availTypeSet.has(t))
+    const nextExcludedTypes = excludedProviderTypes.filter((t) => availTypeSet.has(t))
+    const nextProviders = selectedProviderIds.filter((id) => availProviderSet.has(id))
+    const nextExcludedProviders = excludedProviderIds.filter((id) => availProviderSet.has(id))
+    if (nextSpec.length !== selectedSpecialties.length) setSelectedSpecialties(nextSpec)
+    if (nextModels.length !== selectedModels.length) setSelectedModels(nextModels)
+    if (nextTypes.length !== selectedProviderTypes.length) setSelectedProviderTypes(nextTypes)
+    if (nextExcludedTypes.length !== excludedProviderTypes.length) setExcludedProviderTypes(nextExcludedTypes)
+    if (nextProviders.length !== selectedProviderIds.length) setSelectedProviderIds(nextProviders)
+    if (nextExcludedProviders.length !== excludedProviderIds.length) setExcludedProviderIds(nextExcludedProviders)
+  }, [
+    availableSpecialties,
+    availableModels,
+    availableProviderTypes,
+    availableProvidersForSelection,
+    selectedSpecialties,
+    selectedModels,
+    selectedProviderTypes,
+    excludedProviderTypes,
+    selectedProviderIds,
+    excludedProviderIds,
+  ])
 
   const filteredProviderRowsForRun = useMemo(() => {
-    if (targetMode !== 'custom' || selectedSpecialties.length === 0) return providerRows
-    const set = new Set(selectedSpecialties)
-    return providerRows.filter((p) => set.has((p.specialty ?? '').trim()))
-  }, [providerRows, targetMode, selectedSpecialties])
+    let rows = rowsAfterSpecialtyModelAndProviderType
+    if (providerScopeMode === 'custom' && selectedProviderIds.length > 0) {
+      const idSet = new Set(selectedProviderIds)
+      rows = rows.filter((p) => idSet.has((p.providerId ?? p.providerName ?? '').toString().trim()))
+    }
+    if (excludedProviderTypes.length > 0) {
+      const excludedTypeSet = new Set(excludedProviderTypes)
+      rows = rows.filter((p) => !excludedTypeSet.has((p.providerType ?? '').trim()))
+    }
+    if (excludedProviderIds.length > 0) {
+      const excludedIdSet = new Set(excludedProviderIds)
+      rows = rows.filter((p) => !excludedIdSet.has((p.providerId ?? p.providerName ?? '').toString().trim()))
+    }
+    return rows
+  }, [
+    rowsAfterSpecialtyModelAndProviderType,
+    providerScopeMode,
+    selectedProviderIds,
+    excludedProviderTypes,
+    excludedProviderIds,
+  ])
 
   const runDisabled =
     !hasData ||
     (targetMode === 'custom' && selectedSpecialties.length === 0) ||
+    (modelScopeMode === 'custom' && selectedModels.length === 0) ||
+    (providerTypeScopeMode === 'custom' && selectedProviderTypes.length === 0) ||
+    (providerScopeMode === 'custom' && selectedProviderIds.length === 0) ||
     filteredProviderRowsForRun.length === 0
 
   const handleRun = useCallback(() => {
@@ -173,6 +337,14 @@ export function ProductivityTargetScreen({
     setResult(null)
     setTargetMode('all')
     setSelectedSpecialties([])
+    setModelScopeMode('all')
+    setSelectedModels([])
+    setProviderTypeScopeMode('all')
+    setSelectedProviderTypes([])
+    setExcludedProviderTypes([])
+    setProviderScopeMode('all')
+    setSelectedProviderIds([])
+    setExcludedProviderIds([])
     setConfigStep(1)
     setTargetStep('configure')
     lastPushedSnapshotRef.current = null
@@ -182,7 +354,7 @@ export function ProductivityTargetScreen({
   return (
     <div className="space-y-6">
       <SectionTitleWithIcon icon={<Target className="size-5 text-muted-foreground" />}>
-        Productivity Target Builder
+        Target Optimizer
       </SectionTitleWithIcon>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -377,6 +549,25 @@ export function ProductivityTargetScreen({
           targetMode={targetMode}
           selectedSpecialties={selectedSpecialties}
           availableSpecialties={availableSpecialties}
+          modelScopeMode={modelScopeMode}
+          selectedModels={selectedModels}
+          availableModels={availableModels}
+          onSetModelScopeMode={setModelScopeMode}
+          onSetSelectedModels={setSelectedModels}
+          providerTypeScopeMode={providerTypeScopeMode}
+          selectedProviderTypes={selectedProviderTypes}
+          excludedProviderTypes={excludedProviderTypes}
+          availableProviderTypes={availableProviderTypes}
+          onSetProviderTypeScopeMode={setProviderTypeScopeMode}
+          onSetSelectedProviderTypes={setSelectedProviderTypes}
+          onSetExcludedProviderTypes={setExcludedProviderTypes}
+          providerScopeMode={providerScopeMode}
+          selectedProviderIds={selectedProviderIds}
+          excludedProviderIds={excludedProviderIds}
+          availableProviders={availableProvidersForSelection}
+          onSetProviderScopeMode={setProviderScopeMode}
+          onSetSelectedProviderIds={setSelectedProviderIds}
+          onSetExcludedProviderIds={setExcludedProviderIds}
           onRun={handleRun}
           onSetTargetMode={setTargetMode}
           onSetSelectedSpecialties={setSelectedSpecialties}

@@ -120,6 +120,19 @@ export interface ProductivityTargetConfigSnapshot {
   configStep: number
   targetMode?: 'all' | 'custom'
   selectedSpecialties?: string[]
+  /** When 'custom', only providers whose productivityModel is in selectedModels are in scope. */
+  modelScopeMode?: 'all' | 'custom'
+  selectedModels?: string[]
+  /** When 'custom', only providers whose providerType (role) is in selectedProviderTypes are in scope. */
+  providerTypeScopeMode?: 'all' | 'custom'
+  selectedProviderTypes?: string[]
+  /** Provider types (roles) to exclude after inclusion filters. */
+  excludedProviderTypes?: string[]
+  /** When 'custom', only providers whose id is in selectedProviderIds are in scope. */
+  providerScopeMode?: 'all' | 'custom'
+  selectedProviderIds?: string[]
+  /** Provider IDs to exclude after inclusion filters. */
+  excludedProviderIds?: string[]
   selectedDivisions?: string[]
   lastRunResult?: ProductivityTargetRunResult | null
 }

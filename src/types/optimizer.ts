@@ -566,6 +566,9 @@ export interface OptimizerConfigSnapshot {
   targetMode: 'all' | 'custom'
   selectedSpecialties: string[]
   selectedDivisions: string[]
+  /** When 'custom', only providers whose providerType is in selectedProviderTypes are in scope (inclusion). */
+  providerTypeScopeMode?: 'all' | 'custom'
+  selectedProviderTypes?: string[]
   /** Provider types (roles) to exclude from the run, e.g. Division Chief, Medical Director. */
   excludedProviderTypes: string[]
   settings: OptimizerSettings

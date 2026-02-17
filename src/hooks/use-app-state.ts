@@ -52,7 +52,7 @@ export interface AppState {
   loadedOptimizerConfigId: string | null
   /** Saved optimizer scenarios for save/recall (persisted). */
   savedOptimizerConfigs: SavedOptimizerConfig[]
-  /** Productivity Target Builder form state (in-memory). */
+  /** Target Optimizer form state (in-memory). */
   productivityTargetConfig: ProductivityTargetConfigSnapshot | null
   /** When set, the current target config was loaded from this saved config. */
   loadedProductivityTargetConfigId: string | null

@@ -46,7 +46,7 @@ import { cn } from '@/lib/utils'
 import { DATA_GRID } from '@/lib/data-grid-styles'
 import { loadDataBrowserFilters, saveDataBrowserFilters, type DataBrowserFilters } from '@/lib/storage'
 import { formatCurrency, formatNumber } from '@/utils/format'
-import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, Maximize2, Pencil, Plus, Table2 } from 'lucide-react'
+import { ArrowLeftRight, ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, Pencil, Plus, Table2 } from 'lucide-react'
 import {
   Command,
   CommandEmpty,
@@ -285,9 +285,17 @@ function ProviderDataTable({
   const [dropTargetColId, setDropTargetColId] = useState<string | null>(null)
   const dragColIdRef = useRef<string | null>(null)
   const tableScrollRef = useRef<HTMLDivElement>(null)
+  const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
+  const focusedCellRef = useRef<HTMLTableCellElement>(null)
 
   const SCROLL_STEP = 120
   const handleTableKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (focusedCell != null) return
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      setFocusedCell({ rowIndex: 0, columnIndex: 0 })
+      e.preventDefault()
+      return
+    }
     const el = tableScrollRef.current
     if (!el) return
     switch (e.key) {
@@ -330,7 +338,7 @@ function ProviderDataTable({
       default:
         break
     }
-  }, [])
+  }, [focusedCell])
 
   // Filters (state lifted to DataTablesScreen for persistence; search strings stay local)
   const [specialtySearch, setSpecialtySearch] = useState('')
@@ -518,6 +526,80 @@ function ProviderDataTable({
   const { pageIndex, pageSize } = table.getState().pagination
   const pageCount = table.getPageCount()
 
+  useEffect(() => {
+    if (focusedCell == null || rowCount === 0 || colCount === 0) return
+    const el = focusedCellRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.focus()
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
+    })
+  }, [focusedCell, rowCount, colCount])
+
+  useEffect(() => {
+    if (rowCount === 0 || colCount === 0) {
+      setFocusedCell(null)
+      return
+    }
+    setFocusedCell((prev) => {
+      if (prev == null) return null
+      const r = Math.min(prev.rowIndex, Math.max(0, rowCount - 1))
+      const c = Math.min(prev.columnIndex, Math.max(0, colCount - 1))
+      return r === prev.rowIndex && c === prev.columnIndex ? prev : { rowIndex: r, columnIndex: c }
+    })
+  }, [rowCount, colCount])
+
+  const handleProviderCellKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTableCellElement>, rowIndex: number, columnIndex: number) => {
+      if (rowCount === 0 || colCount === 0) return
+      const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
+      if (isArrow) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+      switch (e.key) {
+        case 'ArrowLeft':
+          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.max(0, columnIndex - 1) } : null))
+          break
+        case 'ArrowRight':
+          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.min(colCount - 1, columnIndex + 1) } : null))
+          break
+        case 'ArrowUp':
+          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.max(0, rowIndex - 1) } : null))
+          break
+        case 'ArrowDown':
+          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.min(rowCount - 1, rowIndex + 1) } : null))
+          break
+        case 'Home':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: 0 } : null))
+          }
+          break
+        case 'End':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: colCount - 1 } : null))
+          }
+          break
+        case 'Enter':
+          e.preventDefault()
+          e.stopPropagation()
+          if (onUpdateProvider && pageRows[rowIndex]) {
+            setProviderEditRow(pageRows[rowIndex].original)
+            setProviderModalMode('edit')
+            setProviderModalOpen(true)
+          }
+          break
+        default:
+          break
+      }
+    },
+    [rowCount, colCount, onUpdateProvider, pageRows]
+  )
+
   const handleAutoResize = useCallback(() => {
     const cols = table.getAllLeafColumns()
     const sizing: ColumnSizingState = {}
@@ -702,21 +784,12 @@ function ProviderDataTable({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Drag column headers to reorder; drag right edge to resize. Focus the table and use arrow keys to scroll.
+        Drag column headers to reorder; drag right edge to resize. Focus the table and use arrow keys to scroll. Click a cell, then use arrow keys to move; Enter opens edit.
       </p>
-      <div
-        ref={tableScrollRef}
-        role="grid"
-        aria-label="Provider data table"
-        aria-rowcount={rowCount}
-        aria-colcount={colCount}
-        tabIndex={0}
-        className="rounded-md border flex flex-col focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        onKeyDown={handleTableKeyDown}
-      >
+      <div className="rounded-md border flex flex-col">
         <div className="flex justify-end gap-0.5 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleAutoResize} title="Size columns to fit content" aria-label="Auto-resize columns">
-            <Maximize2 className="size-4" />
+            <ArrowLeftRight className="size-4" />
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -740,11 +813,19 @@ function ProviderDataTable({
           </DropdownMenu>
         </div>
         <div
-          className="rounded-md border border-border overflow-x-auto overflow-y-auto min-h-0"
+          ref={tableScrollRef}
+          role="grid"
+          aria-label="Provider data table"
+          aria-rowcount={rowCount}
+          aria-colcount={colCount}
+          tabIndex={0}
+          className="rounded-b-md border border-t-0 border-border overflow-x-auto overflow-y-auto min-h-0 bg-background isolate focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           style={{ maxHeight: 'min(880px, 65vh)' }}
+          onKeyDown={handleTableKeyDown}
+          onFocus={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusedCell(null) }}
         >
         <table className="w-full caption-bottom text-sm" style={{ minWidth: 'max-content' }}>
-          <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+          <TableHeader className={DATA_GRID.header}>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>
                 {hg.headers.map((h) => {
@@ -798,19 +879,25 @@ function ProviderDataTable({
                 {row.getVisibleCells().map((cell, colIndex) => {
                   const isStickyCol = (cell.column.columnDef.meta as { sticky?: boolean })?.sticky === true
                   const stickyBg = isStickyCol && (row.index % 2 === 1 ? 'bg-muted/30' : 'bg-background')
+                  const isFocused = focusedCell?.rowIndex === row.index && focusedCell?.columnIndex === colIndex
                   return (
                     <TableCell
                       key={cell.id}
+                      ref={isFocused ? focusedCellRef : undefined}
                       role="gridcell"
+                      tabIndex={isFocused ? 0 : -1}
                       aria-rowindex={row.index + 1}
                       aria-colindex={colIndex + 1}
                       className={cn(
                         (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
-                        'px-3 py-2.5',
+                        'px-3 py-2.5 outline-none cursor-cell',
                         isStickyCol && DATA_GRID.stickyColCell,
-                        stickyBg
+                        stickyBg,
+                        isFocused && 'ring-2 ring-primary ring-inset bg-primary/5'
                       )}
                       style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
+                      onClick={() => setFocusedCell({ rowIndex: row.index, columnIndex: colIndex })}
+                      onKeyDown={(e) => handleProviderCellKeyDown(e, row.index, colIndex)}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
@@ -878,9 +965,17 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
   const [dropTargetColId, setDropTargetColId] = useState<string | null>(null)
   const dragColIdRef = useRef<string | null>(null)
   const tableScrollRef = useRef<HTMLDivElement>(null)
+  const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
+  const focusedCellRef = useRef<HTMLTableCellElement>(null)
 
   const SCROLL_STEP = 120
   const handleTableKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (focusedCell != null) return
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      setFocusedCell({ rowIndex: 0, columnIndex: 0 })
+      e.preventDefault()
+      return
+    }
     const el = tableScrollRef.current
     if (!el) return
     switch (e.key) {
@@ -923,7 +1018,7 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
       default:
         break
     }
-  }, [])
+  }, [focusedCell])
 
   const specialties = useMemo(() => {
     const set = new Set(rows.map((r) => r.specialty).filter(Boolean))
@@ -1075,6 +1170,83 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
   const pageCount = table.getPageCount()
   const start = filteredCount === 0 ? 0 : pageIndex * pageSize + 1
   const end = Math.min((pageIndex + 1) * pageSize, filteredCount)
+  const marketPageRows = table.getRowModel().rows
+  const marketRowCount = marketPageRows.length
+  const marketColCount = marketPageRows[0]?.getVisibleCells().length ?? 0
+
+  useEffect(() => {
+    if (focusedCell == null || marketRowCount === 0 || marketColCount === 0) return
+    const el = focusedCellRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.focus()
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
+    })
+  }, [focusedCell, marketRowCount, marketColCount])
+
+  useEffect(() => {
+    if (marketRowCount === 0 || marketColCount === 0) {
+      setFocusedCell(null)
+      return
+    }
+    setFocusedCell((prev) => {
+      if (prev == null) return null
+      const r = Math.min(prev.rowIndex, Math.max(0, marketRowCount - 1))
+      const c = Math.min(prev.columnIndex, Math.max(0, marketColCount - 1))
+      return r === prev.rowIndex && c === prev.columnIndex ? prev : { rowIndex: r, columnIndex: c }
+    })
+  }, [marketRowCount, marketColCount])
+
+  const handleMarketCellKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTableCellElement>, rowIndex: number, columnIndex: number) => {
+      if (marketRowCount === 0 || marketColCount === 0) return
+      const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
+      if (isArrow) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+      switch (e.key) {
+        case 'ArrowLeft':
+          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.max(0, columnIndex - 1) } : null))
+          break
+        case 'ArrowRight':
+          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.min(marketColCount - 1, columnIndex + 1) } : null))
+          break
+        case 'ArrowUp':
+          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.max(0, rowIndex - 1) } : null))
+          break
+        case 'ArrowDown':
+          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.min(marketRowCount - 1, rowIndex + 1) } : null))
+          break
+        case 'Home':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: 0 } : null))
+          }
+          break
+        case 'End':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault()
+            e.stopPropagation()
+            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: marketColCount - 1 } : null))
+          }
+          break
+        case 'Enter':
+          e.preventDefault()
+          e.stopPropagation()
+          if (onUpdateMarketRow && marketPageRows[rowIndex]) {
+            setMarketEditRow(marketPageRows[rowIndex].original)
+            setMarketModalMode('edit')
+            setMarketModalOpen(true)
+          }
+          break
+        default:
+          break
+      }
+    },
+    [marketRowCount, marketColCount, onUpdateMarketRow, marketPageRows]
+  )
 
   return (
     <div className="space-y-3">
@@ -1141,19 +1313,12 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Drag column headers to reorder; drag right edge to resize. Focus the table and use arrow keys to scroll.
+        Drag column headers to reorder; drag right edge to resize. Focus the table and use arrow keys to scroll. Click a cell, then use arrow keys to move; Enter opens edit.
       </p>
-      <div
-        ref={tableScrollRef}
-        role="region"
-        aria-label="Market data table"
-        tabIndex={0}
-        className="rounded-md border flex flex-col focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        onKeyDown={handleTableKeyDown}
-      >
+      <div className="rounded-md border flex flex-col">
         <div className="flex justify-end gap-0.5 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleAutoResize} title="Size columns to fit content" aria-label="Auto-resize columns">
-            <Maximize2 className="size-4" />
+            <ArrowLeftRight className="size-4" />
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1172,9 +1337,20 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="rounded-md border border-border overflow-x-auto overflow-y-auto min-h-0" style={{ maxHeight: 'min(880px, 65vh)' }}>
+        <div
+          ref={tableScrollRef}
+          role="grid"
+          aria-label="Market data table"
+          aria-rowcount={marketRowCount}
+          aria-colcount={marketColCount}
+          tabIndex={0}
+          className="rounded-b-md border border-t-0 border-border overflow-x-auto overflow-y-auto min-h-0 bg-background isolate focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          style={{ maxHeight: 'min(880px, 65vh)' }}
+          onKeyDown={handleTableKeyDown}
+          onFocus={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusedCell(null) }}
+        >
         <table className="w-full caption-bottom text-sm" style={{ minWidth: 'max-content' }}>
-          <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+          <TableHeader className={DATA_GRID.header}>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>
                 {hg.headers.map((h) => {
@@ -1224,20 +1400,29 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
           </TableHeader>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')}>
-                {row.getVisibleCells().map((cell) => {
+              <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')} role="row">
+                {row.getVisibleCells().map((cell, colIndex) => {
                   const isStickyCol = (cell.column.columnDef.meta as { sticky?: boolean })?.sticky === true
                   const stickyBg = isStickyCol && (row.index % 2 === 1 ? 'bg-muted/30' : 'bg-background')
+                  const isFocused = focusedCell?.rowIndex === row.index && focusedCell?.columnIndex === colIndex
                   return (
                     <TableCell
                       key={cell.id}
+                      ref={isFocused ? focusedCellRef : undefined}
+                      role="gridcell"
+                      tabIndex={isFocused ? 0 : -1}
+                      aria-rowindex={row.index + 1}
+                      aria-colindex={colIndex + 1}
                       className={cn(
                         (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
-                        'px-3 py-2.5',
+                        'px-3 py-2.5 outline-none cursor-cell',
                         isStickyCol && DATA_GRID.stickyColCell,
-                        stickyBg
+                        stickyBg,
+                        isFocused && 'ring-2 ring-primary ring-inset bg-primary/5'
                       )}
                       style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
+                      onClick={() => setFocusedCell({ rowIndex: row.index, columnIndex: colIndex })}
+                      onKeyDown={(e) => handleMarketCellKeyDown(e, row.index, colIndex)}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
