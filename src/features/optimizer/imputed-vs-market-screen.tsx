@@ -1219,7 +1219,7 @@ export function ImputedVsMarketScreen({
                               const lastPinned = isLastPinnedLeft(colId)
                               const stickyBg =
                                 isPinnedLeft && rowIndex % 2 === 1
-                                  ? 'bg-muted/30'
+                                  ? 'bg-muted'
                                   : isPinnedLeft
                                     ? 'bg-background'
                                     : ''

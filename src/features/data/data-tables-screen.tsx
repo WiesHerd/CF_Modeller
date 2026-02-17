@@ -13,6 +13,7 @@ import {
   type SortingState,
   type ColumnOrderState,
   type ColumnSizingState,
+  type ColumnPinningState,
   type VisibilityState,
 } from '@tanstack/react-table'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
@@ -43,10 +44,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
-import { DATA_GRID } from '@/lib/data-grid-styles'
+import { DATA_GRID, getPinnedCellStyles, PINNED_HEADER_CLASS, PINNED_CELL_CLASS, PINNED_CELL_STRIPED_CLASS } from '@/lib/data-grid-styles'
 import { loadDataBrowserFilters, saveDataBrowserFilters, type DataBrowserFilters } from '@/lib/storage'
 import { formatCurrency, formatNumber } from '@/utils/format'
-import { ArrowLeftRight, ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, Pencil, Plus, Table2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, LayoutList, Pencil, Pin, PinOff, Plus, Table2 } from 'lucide-react'
 import {
   Command,
   CommandEmpty,
@@ -62,11 +63,34 @@ import { MarketEditModal } from '@/features/data/market-edit-modal'
 
 const EMPTY = '—'
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
-/** Approximate px per character (text-sm) for auto-resize. */
-const PX_PER_CHAR = 8
-const AUTO_RESIZE_PADDING = 32
+/** Generous px per character fallback (covers most Latin fonts at 14px). */
+const PX_PER_CHAR = 9
+/** Extra px for body cells: px-3 L+R (24) + breathing room (16). */
+const AUTO_RESIZE_CELL_PADDING = 40
+/** Extra px for header cells: px-3 L+R (24) + grip icon (20) + gap (4) + resize handle + safety (24). */
+const AUTO_RESIZE_HEADER_PADDING = 72
 const COL_MIN = 60
 const COL_MAX = 500
+/** Approximate row and header heights for dynamic table container (px). */
+const TABLE_ROW_HEIGHT = 41
+const TABLE_HEADER_HEIGHT = 41
+
+let _measureCtx: CanvasRenderingContext2D | null = null
+/**
+ * Measure text width. Returns the MAXIMUM of canvas measurement and a
+ * character-count fallback so we never underestimate when the web font
+ * hasn't loaded or canvas returns stale metrics.
+ */
+function measureTextPx(text: string): number {
+  const charEstimate = Math.ceil(text.length * PX_PER_CHAR)
+  if (typeof document !== 'undefined' && !_measureCtx) {
+    const canvas = document.createElement('canvas')
+    _measureCtx = canvas.getContext('2d')
+    if (_measureCtx) _measureCtx.font = '500 14px Inter, ui-sans-serif, system-ui, sans-serif'
+  }
+  if (_measureCtx) return Math.max(Math.ceil(_measureCtx.measureText(text).width), charEstimate)
+  return charEstimate
+}
 
 function fmtCur(n: number | undefined, decimals = 0): string {
   if (n == null || !Number.isFinite(n)) return EMPTY
@@ -280,22 +304,15 @@ function ProviderDataTable({
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
+  const [columnPinning, setColumnPinning] = useState<ColumnPinningState>({ left: ['providerName'], right: [] })
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [draggedColId, setDraggedColId] = useState<string | null>(null)
   const [dropTargetColId, setDropTargetColId] = useState<string | null>(null)
   const dragColIdRef = useRef<string | null>(null)
   const tableScrollRef = useRef<HTMLDivElement>(null)
-  const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
-  const focusedCellRef = useRef<HTMLTableCellElement>(null)
 
   const SCROLL_STEP = 120
-  const handleTableKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (focusedCell != null) return
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-      setFocusedCell({ rowIndex: 0, columnIndex: 0 })
-      e.preventDefault()
-      return
-    }
+  const handleScrollKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     const el = tableScrollRef.current
     if (!el) return
     switch (e.key) {
@@ -327,18 +344,10 @@ function ProviderDataTable({
           e.preventDefault()
         }
         break
-      case 'PageUp':
-        el.scrollBy({ top: -el.clientHeight, behavior: 'smooth' })
-        e.preventDefault()
-        break
-      case 'PageDown':
-        el.scrollBy({ top: el.clientHeight, behavior: 'smooth' })
-        e.preventDefault()
-        break
       default:
         break
     }
-  }, [focusedCell])
+  }, [])
 
   // Filters (state lifted to DataTablesScreen for persistence; search strings stay local)
   const [specialtySearch, setSpecialtySearch] = useState('')
@@ -385,7 +394,7 @@ function ProviderDataTable({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack Table column value types vary per column
   const columns = useMemo<ColumnDef<ProviderRow, any>[]>(
     () => [
-      providerHelper.accessor('providerName', { header: 'Name', cell: (c) => c.getValue() ?? EMPTY, meta: { wrap: true, sticky: true }, size: 180, minSize: 100 }),
+      providerHelper.accessor('providerName', { header: 'Name', cell: (c) => c.getValue() ?? EMPTY, meta: { wrap: true }, size: 180, minSize: 100 }),
       providerHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, size: 220, minSize: 120 }),
       providerHelper.accessor('division', { header: 'Division', cell: (c) => c.getValue() ?? EMPTY, size: 200, minSize: 100 }),
       providerHelper.accessor('providerType', { header: 'Type / Role', cell: (c) => c.getValue() ?? EMPTY, size: 140, minSize: 90 }),
@@ -503,12 +512,13 @@ function ProviderDataTable({
   const table = useReactTable({
     data: filteredRows,
     columns,
-    state: { sorting, globalFilter, pagination, columnOrder, columnSizing, columnVisibility },
+    state: { sorting, globalFilter, pagination, columnOrder, columnSizing, columnPinning, columnVisibility },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
     onColumnOrderChange: setColumnOrder,
     onColumnSizingChange: setColumnSizing,
+    onColumnPinningChange: setColumnPinning,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -520,110 +530,32 @@ function ProviderDataTable({
     defaultColumn: { minSize: COL_MIN, maxSize: COL_MAX },
   })
 
-  const pageRows = table.getRowModel().rows
-  const rowCount = pageRows.length
-  const colCount = pageRows[0]?.getVisibleCells().length ?? 0
   const { pageIndex, pageSize } = table.getState().pagination
   const pageCount = table.getPageCount()
 
-  useEffect(() => {
-    if (focusedCell == null || rowCount === 0 || colCount === 0) return
-    const el = focusedCellRef.current
-    if (!el) return
-    requestAnimationFrame(() => {
-      el.focus()
-      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
-    })
-  }, [focusedCell, rowCount, colCount])
-
-  useEffect(() => {
-    if (rowCount === 0 || colCount === 0) {
-      setFocusedCell(null)
-      return
-    }
-    setFocusedCell((prev) => {
-      if (prev == null) return null
-      const r = Math.min(prev.rowIndex, Math.max(0, rowCount - 1))
-      const c = Math.min(prev.columnIndex, Math.max(0, colCount - 1))
-      return r === prev.rowIndex && c === prev.columnIndex ? prev : { rowIndex: r, columnIndex: c }
-    })
-  }, [rowCount, colCount])
-
-  const handleProviderCellKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTableCellElement>, rowIndex: number, columnIndex: number) => {
-      if (rowCount === 0 || colCount === 0) return
-      const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
-      if (isArrow) {
-        e.preventDefault()
-        e.stopPropagation()
-      }
-      switch (e.key) {
-        case 'ArrowLeft':
-          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.max(0, columnIndex - 1) } : null))
-          break
-        case 'ArrowRight':
-          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.min(colCount - 1, columnIndex + 1) } : null))
-          break
-        case 'ArrowUp':
-          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.max(0, rowIndex - 1) } : null))
-          break
-        case 'ArrowDown':
-          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.min(rowCount - 1, rowIndex + 1) } : null))
-          break
-        case 'Home':
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault()
-            e.stopPropagation()
-            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: 0 } : null))
-          }
-          break
-        case 'End':
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault()
-            e.stopPropagation()
-            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: colCount - 1 } : null))
-          }
-          break
-        case 'Enter':
-          e.preventDefault()
-          e.stopPropagation()
-          if (onUpdateProvider && pageRows[rowIndex]) {
-            setProviderEditRow(pageRows[rowIndex].original)
-            setProviderModalMode('edit')
-            setProviderModalOpen(true)
-          }
-          break
-        default:
-          break
-      }
-    },
-    [rowCount, colCount, onUpdateProvider, pageRows]
-  )
-
   const handleAutoResize = useCallback(() => {
-    const cols = table.getAllLeafColumns()
+    const cols = table.getVisibleLeafColumns()
     const sizing: ColumnSizingState = {}
     for (const col of cols) {
       const headerStr = typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id
-      let maxLen = headerStr.length
+      let maxPx = measureTextPx(headerStr) + AUTO_RESIZE_HEADER_PADDING
       for (const row of filteredRows) {
         const s = getProviderCellDisplayString(col.id, row)
-        if (s.length > maxLen) maxLen = s.length
+        maxPx = Math.max(maxPx, measureTextPx(s) + AUTO_RESIZE_CELL_PADDING)
       }
       const minSz = (col.columnDef.minSize as number) ?? COL_MIN
       const maxSz = (col.columnDef.maxSize as number) ?? COL_MAX
-      const w = Math.max(minSz, Math.min(maxSz, maxLen * PX_PER_CHAR + AUTO_RESIZE_PADDING))
-      sizing[col.id] = w
+      sizing[col.id] = Math.max(minSz, Math.min(maxSz, maxPx))
     }
     setColumnSizing(sizing)
   }, [table, filteredRows])
 
   const didAutoResizeOnMount = useRef(false)
   useEffect(() => {
-    if (didAutoResizeOnMount.current) return
+    if (didAutoResizeOnMount.current || filteredRows.length === 0) return
     didAutoResizeOnMount.current = true
-    handleAutoResize()
-  }, [handleAutoResize])
+    requestAnimationFrame(() => handleAutoResize())
+  }, [handleAutoResize, filteredRows.length])
 
   const filteredCount = table.getFilteredRowModel().rows.length
   const start = filteredCount === 0 ? 0 : pageIndex * pageSize + 1
@@ -643,21 +575,6 @@ function ProviderDataTable({
           className="h-9 w-full sm:max-w-[220px]"
         />
         <div className="flex flex-wrap items-center gap-2">
-          {onAddProvider && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1.5"
-              onClick={() => {
-                setProviderEditRow(null)
-                setProviderModalMode('add')
-                setProviderModalOpen(true)
-              }}
-            >
-              <Plus className="size-4" />
-              Add provider
-            </Button>
-          )}
           <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-9 w-[160px] justify-between gap-2">
@@ -742,15 +659,6 @@ function ProviderDataTable({
               </Command>
             </DropdownMenuContent>
           </DropdownMenu>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="provider-page-size" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
-            <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
-              <SelectTrigger id="provider-page-size" className="h-9 w-[85px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </div>
       {/* Ranges: 2x2 grid so they don't stretch in one long line */}
@@ -784,23 +692,41 @@ function ProviderDataTable({
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Drag column headers to reorder; drag right edge to resize. Focus the table and use arrow keys to scroll. Click a cell, then use arrow keys to move; Enter opens edit.
+        Drag column headers to reorder; drag right edge to resize. Click the pin icon to freeze a column. Click the table, then use arrow keys to scroll.
       </p>
       <div className="rounded-md border flex flex-col">
-        <div className="flex justify-end gap-0.5 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleAutoResize} title="Size columns to fit content" aria-label="Auto-resize columns">
-            <ArrowLeftRight className="size-4" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" title="Show / hide columns" aria-label="Column visibility">
-                <Columns3 className="size-4" />
+        <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
+          <div className="flex items-center gap-1">
+            {onAddProvider && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 border border-border bg-primary/15 text-primary hover:bg-primary/25 hover:text-primary"
+                onClick={() => {
+                  setProviderEditRow(null)
+                  setProviderModalMode('add')
+                  setProviderModalOpen(true)
+                }}
+              >
+                <Plus className="size-4" />
+                Add provider
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Show / hide columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {table.getAllLeafColumns().filter((c) => c.id !== 'expand').map((col) => (
+            )}
+          </div>
+          <div className="flex gap-0.5">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleAutoResize} title="Size columns to fit content" aria-label="Auto-resize columns">
+              <Columns3 className="size-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Show / hide columns" aria-label="Column visibility">
+                  <LayoutList className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Show / hide columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {table.getAllLeafColumns().filter((c) => c.id !== 'expand').map((col) => (
                 <DropdownMenuCheckboxItem
                   key={col.id}
                   checked={col.getIsVisible()}
@@ -811,18 +737,16 @@ function ProviderDataTable({
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
         <div
           ref={tableScrollRef}
-          role="grid"
-          aria-label="Provider data table"
-          aria-rowcount={rowCount}
-          aria-colcount={colCount}
           tabIndex={0}
-          className="rounded-b-md border border-t-0 border-border overflow-x-auto overflow-y-auto min-h-0 bg-background isolate focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          style={{ maxHeight: 'min(880px, 65vh)' }}
-          onKeyDown={handleTableKeyDown}
-          onFocus={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusedCell(null) }}
+          role="region"
+          aria-label="Table body: use arrow keys to scroll"
+          className="rounded-b-md border border-t-0 border-border overflow-x-auto overflow-y-auto min-h-0 bg-background isolate focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          style={{ maxHeight: `min(${TABLE_HEADER_HEIGHT + pageSize * TABLE_ROW_HEIGHT}px, 90vh)` }}
+          onKeyDown={handleScrollKeyDown}
         >
         <table className="w-full caption-bottom text-sm" style={{ minWidth: 'max-content' }}>
           <TableHeader className={DATA_GRID.header}>
@@ -831,18 +755,18 @@ function ProviderDataTable({
                 {hg.headers.map((h) => {
                   const colId = h.column.id
                   const canResize = h.column.getCanResize()
-                  const isStickyCol = (h.column.columnDef.meta as { sticky?: boolean })?.sticky === true
+                  const isPinned = h.column.getIsPinned()
                   return (
                     <TableHead
                       key={h.id}
                       className={cn(
                         (h.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right' : 'text-left',
-                        'px-3 py-2.5 whitespace-normal break-words relative group',
-                        isStickyCol && DATA_GRID.stickyColHeader,
+                        'px-3 py-2.5 whitespace-nowrap relative group',
+                        isPinned && PINNED_HEADER_CLASS,
                         draggedColId === colId && 'opacity-60',
                         dropTargetColId === colId && 'ring-1 ring-primary'
                       )}
-                      style={{ width: h.getSize(), minWidth: h.getSize(), maxWidth: h.getSize() }}
+                      style={{ width: h.getSize(), minWidth: h.getSize(), maxWidth: h.getSize(), ...getPinnedCellStyles(h.column, true) }}
                     >
                       <div className="flex items-center gap-1 min-w-0">
                         <span
@@ -857,11 +781,26 @@ function ProviderDataTable({
                             <GripVertical className="size-4 text-muted-foreground" />
                           </span>
                         {h.column.getCanSort() ? (
-                          <button type="button" onClick={() => h.column.toggleSorting()} className="hover:underline text-left flex-1 min-w-0 break-words">
+                          <button type="button" onClick={() => h.column.toggleSorting()} className="hover:underline text-left flex-1 min-w-0 truncate">
                             {flexRender(h.column.columnDef.header, h.getContext())}
                           </button>
                         ) : (
-                          <span className="flex-1 min-w-0 break-words">{flexRender(h.column.columnDef.header, h.getContext())}</span>
+                          <span className="flex-1 min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>
+                        )}
+                        {colId !== 'actions' && (
+                          <button
+                            type="button"
+                            onClick={() => h.column.pin(isPinned ? false : 'left')}
+                            className={cn(
+                              'shrink-0 rounded p-0.5 transition-colors',
+                              isPinned
+                                ? 'text-primary hover:text-primary/70'
+                                : 'text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary'
+                            )}
+                            title={isPinned ? 'Unpin column' : 'Pin column to left'}
+                          >
+                            {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+                          </button>
                         )}
                       </div>
                       {canResize && (
@@ -874,30 +813,19 @@ function ProviderDataTable({
             ))}
           </TableHeader>
           <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')} role="row">
-                {row.getVisibleCells().map((cell, colIndex) => {
-                  const isStickyCol = (cell.column.columnDef.meta as { sticky?: boolean })?.sticky === true
-                  const stickyBg = isStickyCol && (row.index % 2 === 1 ? 'bg-muted/30' : 'bg-background')
-                  const isFocused = focusedCell?.rowIndex === row.index && focusedCell?.columnIndex === colIndex
+            {table.getRowModel().rows.map((row, pageRowIdx) => (
+              <TableRow key={row.id} className={cn(pageRowIdx % 2 === 1 && 'bg-muted/30', 'hover:bg-muted/50 transition-colors')}>
+                {row.getVisibleCells().map((cell) => {
+                  const isPinned = cell.column.getIsPinned()
                   return (
                     <TableCell
                       key={cell.id}
-                      ref={isFocused ? focusedCellRef : undefined}
-                      role="gridcell"
-                      tabIndex={isFocused ? 0 : -1}
-                      aria-rowindex={row.index + 1}
-                      aria-colindex={colIndex + 1}
                       className={cn(
                         (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
-                        'px-3 py-2.5 outline-none cursor-cell',
-                        isStickyCol && DATA_GRID.stickyColCell,
-                        stickyBg,
-                        isFocused && 'ring-2 ring-primary ring-inset bg-primary/5'
+                        'px-3 py-2.5',
+                        isPinned && (pageRowIdx % 2 === 1 ? PINNED_CELL_STRIPED_CLASS : PINNED_CELL_CLASS)
                       )}
-                      style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
-                      onClick={() => setFocusedCell({ rowIndex: row.index, columnIndex: colIndex })}
-                      onKeyDown={(e) => handleProviderCellKeyDown(e, row.index, colIndex)}
+                      style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize(), ...getPinnedCellStyles(cell.column) }}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
@@ -914,14 +842,25 @@ function ProviderDataTable({
           Showing {start}–{end} of {filteredCount} row{filteredCount !== 1 ? 's' : ''}
           {(globalFilter || hasActiveFilters) && ` (from ${rows.length})`}
         </p>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" className="h-8 gap-1" disabled={pageIndex === 0} onClick={() => table.previousPage()}>
-            <ChevronLeft className="size-4" /> Previous
-          </Button>
-          <span className="px-2 text-xs text-muted-foreground tabular-nums">Page {pageIndex + 1} of {pageCount}</span>
-          <Button variant="outline" size="sm" className="h-8 gap-1" disabled={pageIndex >= pageCount - 1} onClick={() => table.nextPage()}>
-            Next <ChevronRight className="size-4" />
-          </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="provider-page-size" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
+            <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
+              <SelectTrigger id="provider-page-size" className="h-8 w-[75px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 gap-1" disabled={pageIndex === 0} onClick={() => table.previousPage()}>
+              <ChevronLeft className="size-4" /> Previous
+            </Button>
+            <span className="px-2 text-xs text-muted-foreground tabular-nums">Page {pageIndex + 1} of {pageCount}</span>
+            <Button variant="outline" size="sm" className="h-8 gap-1" disabled={pageIndex >= pageCount - 1} onClick={() => table.nextPage()}>
+              Next <ChevronRight className="size-4" />
+            </Button>
+          </div>
         </div>
       </div>
       {(onUpdateProvider ?? onAddProvider) && (
@@ -959,23 +898,16 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
   const [columnOrder, setColumnOrder] = useState<ColumnOrderState>([])
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
+  const [columnPinning, setColumnPinning] = useState<ColumnPinningState>({ left: ['specialty'], right: [] })
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [specialtySearch, setSpecialtySearch] = useState('')
   const [draggedColId, setDraggedColId] = useState<string | null>(null)
   const [dropTargetColId, setDropTargetColId] = useState<string | null>(null)
   const dragColIdRef = useRef<string | null>(null)
   const tableScrollRef = useRef<HTMLDivElement>(null)
-  const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
-  const focusedCellRef = useRef<HTMLTableCellElement>(null)
 
   const SCROLL_STEP = 120
-  const handleTableKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (focusedCell != null) return
-    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
-      setFocusedCell({ rowIndex: 0, columnIndex: 0 })
-      e.preventDefault()
-      return
-    }
+  const handleScrollKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     const el = tableScrollRef.current
     if (!el) return
     switch (e.key) {
@@ -1007,18 +939,10 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
           e.preventDefault()
         }
         break
-      case 'PageUp':
-        el.scrollBy({ top: -el.clientHeight, behavior: 'smooth' })
-        e.preventDefault()
-        break
-      case 'PageDown':
-        el.scrollBy({ top: el.clientHeight, behavior: 'smooth' })
-        e.preventDefault()
-        break
       default:
         break
     }
-  }, [focusedCell])
+  }, [])
 
   const specialties = useMemo(() => {
     const set = new Set(rows.map((r) => r.specialty).filter(Boolean))
@@ -1033,17 +957,17 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack Table column value types vary per column
   const columns = useMemo<ColumnDef<MarketRow, any>[]>(
     () => [
-      marketHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, meta: { sticky: true }, size: 200, minSize: 120 }),
-      marketHelper.accessor('providerType', { header: 'Type', cell: (c) => c.getValue() ?? EMPTY, size: 100, minSize: 70 }),
-      marketHelper.accessor('region', { header: 'Region', cell: (c) => c.getValue() ?? EMPTY, size: 100, minSize: 70 }),
+      marketHelper.accessor('specialty', { header: 'Specialty', cell: (c) => c.getValue() ?? EMPTY, size: 220, minSize: 140 }),
+      marketHelper.accessor('providerType', { header: 'Type', cell: (c) => c.getValue() ?? EMPTY, size: 120, minSize: 90 }),
+      marketHelper.accessor('region', { header: 'Region', cell: (c) => c.getValue() ?? EMPTY, size: 120, minSize: 90 }),
       ...(['TCC_25', 'TCC_50', 'TCC_75', 'TCC_90'] as const).map((k) =>
-        marketHelper.accessor(k, { header: k, cell: (c) => fmtCur(c.getValue() as number), meta: { align: 'right' }, size: 110, minSize: 90 })
+        marketHelper.accessor(k, { header: k, cell: (c) => fmtCur(c.getValue() as number), meta: { align: 'right' }, size: 120, minSize: 100 })
       ),
       ...(['WRVU_25', 'WRVU_50', 'WRVU_75', 'WRVU_90'] as const).map((k) =>
-        marketHelper.accessor(k, { header: k, cell: (c) => fmtNum(c.getValue() as number), meta: { align: 'right' }, size: 100, minSize: 85 })
+        marketHelper.accessor(k, { header: k, cell: (c) => fmtNum(c.getValue() as number), meta: { align: 'right' }, size: 115, minSize: 95 })
       ),
       ...(['CF_25', 'CF_50', 'CF_75', 'CF_90'] as const).map((k) =>
-        marketHelper.accessor(k, { header: k, cell: (c) => fmtCur(c.getValue() as number, 2), meta: { align: 'right' }, size: 100, minSize: 85 })
+        marketHelper.accessor(k, { header: k, cell: (c) => fmtCur(c.getValue() as number, 2), meta: { align: 'right' }, size: 115, minSize: 95 })
       ),
       ...(onUpdateMarketRow
         ? [
@@ -1123,11 +1047,12 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
   const table = useReactTable({
     data: filteredBySpecialty,
     columns,
-    state: { sorting, globalFilter, pagination, columnOrder, columnSizing, columnVisibility },
+    state: { sorting, globalFilter, pagination, columnOrder, columnSizing, columnPinning, columnVisibility },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     onPaginationChange: setPagination,
     onColumnOrderChange: setColumnOrder,
+    onColumnPinningChange: setColumnPinning,
     onColumnSizingChange: setColumnSizing,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
@@ -1141,112 +1066,34 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
   })
 
   const handleAutoResize = useCallback(() => {
-    const cols = table.getAllLeafColumns()
+    const cols = table.getVisibleLeafColumns()
     const sizing: ColumnSizingState = {}
     for (const col of cols) {
       const headerStr = typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id
-      let maxLen = headerStr.length
+      let maxPx = measureTextPx(headerStr) + AUTO_RESIZE_HEADER_PADDING
       for (const row of filteredBySpecialty) {
         const s = getMarketCellDisplayString(col.id, row)
-        if (s.length > maxLen) maxLen = s.length
+        maxPx = Math.max(maxPx, measureTextPx(s) + AUTO_RESIZE_CELL_PADDING)
       }
       const minSz = (col.columnDef.minSize as number) ?? COL_MIN
       const maxSz = (col.columnDef.maxSize as number) ?? COL_MAX
-      const w = Math.max(minSz, Math.min(maxSz, maxLen * PX_PER_CHAR + AUTO_RESIZE_PADDING))
-      sizing[col.id] = w
+      sizing[col.id] = Math.max(minSz, Math.min(maxSz, maxPx))
     }
     setColumnSizing(sizing)
   }, [table, filteredBySpecialty])
 
   const didAutoResizeOnMount = useRef(false)
   useEffect(() => {
-    if (didAutoResizeOnMount.current) return
+    if (didAutoResizeOnMount.current || filteredBySpecialty.length === 0) return
     didAutoResizeOnMount.current = true
-    handleAutoResize()
-  }, [handleAutoResize])
+    requestAnimationFrame(() => handleAutoResize())
+  }, [handleAutoResize, filteredBySpecialty.length])
 
   const filteredCount = table.getFilteredRowModel().rows.length
   const { pageIndex, pageSize } = table.getState().pagination
   const pageCount = table.getPageCount()
   const start = filteredCount === 0 ? 0 : pageIndex * pageSize + 1
   const end = Math.min((pageIndex + 1) * pageSize, filteredCount)
-  const marketPageRows = table.getRowModel().rows
-  const marketRowCount = marketPageRows.length
-  const marketColCount = marketPageRows[0]?.getVisibleCells().length ?? 0
-
-  useEffect(() => {
-    if (focusedCell == null || marketRowCount === 0 || marketColCount === 0) return
-    const el = focusedCellRef.current
-    if (!el) return
-    requestAnimationFrame(() => {
-      el.focus()
-      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' })
-    })
-  }, [focusedCell, marketRowCount, marketColCount])
-
-  useEffect(() => {
-    if (marketRowCount === 0 || marketColCount === 0) {
-      setFocusedCell(null)
-      return
-    }
-    setFocusedCell((prev) => {
-      if (prev == null) return null
-      const r = Math.min(prev.rowIndex, Math.max(0, marketRowCount - 1))
-      const c = Math.min(prev.columnIndex, Math.max(0, marketColCount - 1))
-      return r === prev.rowIndex && c === prev.columnIndex ? prev : { rowIndex: r, columnIndex: c }
-    })
-  }, [marketRowCount, marketColCount])
-
-  const handleMarketCellKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTableCellElement>, rowIndex: number, columnIndex: number) => {
-      if (marketRowCount === 0 || marketColCount === 0) return
-      const isArrow = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
-      if (isArrow) {
-        e.preventDefault()
-        e.stopPropagation()
-      }
-      switch (e.key) {
-        case 'ArrowLeft':
-          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.max(0, columnIndex - 1) } : null))
-          break
-        case 'ArrowRight':
-          setFocusedCell((prev) => (prev ? { ...prev, columnIndex: Math.min(marketColCount - 1, columnIndex + 1) } : null))
-          break
-        case 'ArrowUp':
-          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.max(0, rowIndex - 1) } : null))
-          break
-        case 'ArrowDown':
-          setFocusedCell((prev) => (prev ? { ...prev, rowIndex: Math.min(marketRowCount - 1, rowIndex + 1) } : null))
-          break
-        case 'Home':
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault()
-            e.stopPropagation()
-            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: 0 } : null))
-          }
-          break
-        case 'End':
-          if (!e.ctrlKey && !e.metaKey) {
-            e.preventDefault()
-            e.stopPropagation()
-            setFocusedCell((prev) => (prev ? { ...prev, columnIndex: marketColCount - 1 } : null))
-          }
-          break
-        case 'Enter':
-          e.preventDefault()
-          e.stopPropagation()
-          if (onUpdateMarketRow && marketPageRows[rowIndex]) {
-            setMarketEditRow(marketPageRows[rowIndex].original)
-            setMarketModalMode('edit')
-            setMarketModalOpen(true)
-          }
-          break
-        default:
-          break
-      }
-    },
-    [marketRowCount, marketColCount, onUpdateMarketRow, marketPageRows]
-  )
 
   return (
     <div className="space-y-3">
@@ -1258,21 +1105,6 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
           className="h-9 w-full sm:max-w-[220px]"
         />
         <div className="flex flex-wrap items-center gap-2">
-          {onAddMarketRow && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1.5"
-              onClick={() => {
-                setMarketEditRow(null)
-                setMarketModalMode('add')
-                setMarketModalOpen(true)
-              }}
-            >
-              <Plus className="size-4" />
-              Add market line
-            </Button>
-          )}
           <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-9 w-[160px] justify-between gap-2">
@@ -1301,53 +1133,60 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
               </Command>
             </DropdownMenuContent>
           </DropdownMenu>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="market-page-size" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
-            <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
-              <SelectTrigger id="market-page-size" className="h-9 w-[85px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Drag column headers to reorder; drag right edge to resize. Focus the table and use arrow keys to scroll. Click a cell, then use arrow keys to move; Enter opens edit.
+        Drag column headers to reorder; drag right edge to resize. Click the pin icon to freeze a column. Click the table, then use arrow keys to scroll.
       </p>
       <div className="rounded-md border flex flex-col">
-        <div className="flex justify-end gap-0.5 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleAutoResize} title="Size columns to fit content" aria-label="Auto-resize columns">
-            <ArrowLeftRight className="size-4" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" title="Show / hide columns" aria-label="Column visibility">
-                <Columns3 className="size-4" />
+        <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
+          <div className="flex items-center gap-1">
+            {onAddMarketRow && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 border border-border bg-primary/15 text-primary hover:bg-primary/25 hover:text-primary"
+                onClick={() => {
+                  setMarketEditRow(null)
+                  setMarketModalMode('add')
+                  setMarketModalOpen(true)
+                }}
+              >
+                <Plus className="size-4" />
+                Add Market Data
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Show / hide columns</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {table.getAllLeafColumns().map((col) => (
-                <DropdownMenuCheckboxItem key={col.id} checked={col.getIsVisible()} onCheckedChange={(v) => col.toggleVisibility(!!v)}>
-                  {typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            )}
+          </div>
+          <div className="flex gap-0.5">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleAutoResize} title="Size columns to fit content" aria-label="Auto-resize columns">
+              <Columns3 className="size-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" title="Show / hide columns" aria-label="Column visibility">
+                  <LayoutList className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Show / hide columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {table.getAllLeafColumns().map((col) => (
+                  <DropdownMenuCheckboxItem key={col.id} checked={col.getIsVisible()} onCheckedChange={(v) => col.toggleVisibility(!!v)}>
+                    {typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
         <div
           ref={tableScrollRef}
-          role="grid"
-          aria-label="Market data table"
-          aria-rowcount={marketRowCount}
-          aria-colcount={marketColCount}
           tabIndex={0}
-          className="rounded-b-md border border-t-0 border-border overflow-x-auto overflow-y-auto min-h-0 bg-background isolate focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          style={{ maxHeight: 'min(880px, 65vh)' }}
-          onKeyDown={handleTableKeyDown}
-          onFocus={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setFocusedCell(null) }}
+          role="region"
+          aria-label="Table body: use arrow keys to scroll"
+          className="rounded-b-md border border-t-0 border-border overflow-x-auto overflow-y-auto min-h-0 bg-background isolate focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+          style={{ maxHeight: `min(${TABLE_HEADER_HEIGHT + pageSize * TABLE_ROW_HEIGHT}px, 90vh)` }}
+          onKeyDown={handleScrollKeyDown}
         >
         <table className="w-full caption-bottom text-sm" style={{ minWidth: 'max-content' }}>
           <TableHeader className={DATA_GRID.header}>
@@ -1356,18 +1195,18 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
                 {hg.headers.map((h) => {
                   const colId = h.column.id
                   const canResize = h.column.getCanResize()
-                  const isStickyCol = (h.column.columnDef.meta as { sticky?: boolean })?.sticky === true
+                  const isPinned = h.column.getIsPinned()
                   return (
                     <TableHead
                       key={h.id}
                       className={cn(
                         (h.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right' : 'text-left',
-                        'px-3 py-2.5 whitespace-normal break-words relative group',
-                        isStickyCol && DATA_GRID.stickyColHeader,
+                        'px-3 py-2.5 whitespace-nowrap relative group',
+                        isPinned && PINNED_HEADER_CLASS,
                         draggedColId === colId && 'opacity-60',
                         dropTargetColId === colId && 'ring-1 ring-primary'
                       )}
-                      style={{ width: h.getSize(), minWidth: h.getSize(), maxWidth: h.getSize() }}
+                      style={{ width: h.getSize(), minWidth: h.getSize(), maxWidth: h.getSize(), ...getPinnedCellStyles(h.column, true) }}
                     >
                       <div className="flex items-center gap-1 min-w-0">
                         <span
@@ -1382,11 +1221,26 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
                           <GripVertical className="size-4 text-muted-foreground" />
                         </span>
                         {h.column.getCanSort() ? (
-                          <button type="button" onClick={() => h.column.toggleSorting()} className="hover:underline text-left flex-1 min-w-0 break-words">
+                          <button type="button" onClick={() => h.column.toggleSorting()} className="hover:underline text-left flex-1 min-w-0 truncate">
                             {flexRender(h.column.columnDef.header, h.getContext())}
                           </button>
                         ) : (
-                          <span className="flex-1 min-w-0 break-words">{flexRender(h.column.columnDef.header, h.getContext())}</span>
+                          <span className="flex-1 min-w-0 truncate">{flexRender(h.column.columnDef.header, h.getContext())}</span>
+                        )}
+                        {colId !== 'actions' && (
+                          <button
+                            type="button"
+                            onClick={() => h.column.pin(isPinned ? false : 'left')}
+                            className={cn(
+                              'shrink-0 rounded p-0.5 transition-colors',
+                              isPinned
+                                ? 'text-primary hover:text-primary/70'
+                                : 'text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary'
+                            )}
+                            title={isPinned ? 'Unpin column' : 'Pin column to left'}
+                          >
+                            {isPinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+                          </button>
                         )}
                       </div>
                       {canResize && (
@@ -1399,30 +1253,19 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
             ))}
           </TableHeader>
           <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} className={cn(row.index % 2 === 1 && 'bg-muted/30')} role="row">
-                {row.getVisibleCells().map((cell, colIndex) => {
-                  const isStickyCol = (cell.column.columnDef.meta as { sticky?: boolean })?.sticky === true
-                  const stickyBg = isStickyCol && (row.index % 2 === 1 ? 'bg-muted/30' : 'bg-background')
-                  const isFocused = focusedCell?.rowIndex === row.index && focusedCell?.columnIndex === colIndex
+            {table.getRowModel().rows.map((row, pageRowIdx) => (
+              <TableRow key={row.id} className={cn(pageRowIdx % 2 === 1 && 'bg-muted/30', 'hover:bg-muted/50 transition-colors')}>
+                {row.getVisibleCells().map((cell) => {
+                  const isPinned = cell.column.getIsPinned()
                   return (
                     <TableCell
                       key={cell.id}
-                      ref={isFocused ? focusedCellRef : undefined}
-                      role="gridcell"
-                      tabIndex={isFocused ? 0 : -1}
-                      aria-rowindex={row.index + 1}
-                      aria-colindex={colIndex + 1}
                       className={cn(
                         (cell.column.columnDef.meta as { align?: string })?.align === 'right' ? 'text-right tabular-nums' : '',
-                        'px-3 py-2.5 outline-none cursor-cell',
-                        isStickyCol && DATA_GRID.stickyColCell,
-                        stickyBg,
-                        isFocused && 'ring-2 ring-primary ring-inset bg-primary/5'
+                        'px-3 py-2.5',
+                        isPinned && (pageRowIdx % 2 === 1 ? PINNED_CELL_STRIPED_CLASS : PINNED_CELL_CLASS)
                       )}
-                      style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize() }}
-                      onClick={() => setFocusedCell({ rowIndex: row.index, columnIndex: colIndex })}
-                      onKeyDown={(e) => handleMarketCellKeyDown(e, row.index, colIndex)}
+                      style={{ width: cell.column.getSize(), minWidth: cell.column.getSize(), maxWidth: cell.column.getSize(), ...getPinnedCellStyles(cell.column) }}
                     >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
@@ -1439,14 +1282,25 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
           Showing {start}–{end} of {filteredCount} row{filteredCount !== 1 ? 's' : ''}
           {(globalFilter || specialtyFilter !== 'all') && ` (from ${rows.length})`}
         </p>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" className="h-8 gap-1" disabled={pageIndex === 0} onClick={() => table.previousPage()}>
-            <ChevronLeft className="size-4" /> Previous
-          </Button>
-          <span className="px-2 text-xs text-muted-foreground tabular-nums">Page {pageIndex + 1} of {pageCount}</span>
-          <Button variant="outline" size="sm" className="h-8 gap-1" disabled={pageIndex >= pageCount - 1} onClick={() => table.nextPage()}>
-            Next <ChevronRight className="size-4" />
-          </Button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="market-page-size" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
+            <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
+              <SelectTrigger id="market-page-size" className="h-8 w-[75px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 gap-1" disabled={pageIndex === 0} onClick={() => table.previousPage()}>
+              <ChevronLeft className="size-4" /> Previous
+            </Button>
+            <span className="px-2 text-xs text-muted-foreground tabular-nums">Page {pageIndex + 1} of {pageCount}</span>
+            <Button variant="outline" size="sm" className="h-8 gap-1" disabled={pageIndex >= pageCount - 1} onClick={() => table.nextPage()}>
+              Next <ChevronRight className="size-4" />
+            </Button>
+          </div>
         </div>
       </div>
       {(onUpdateMarketRow ?? onAddMarketRow) && (
