@@ -176,22 +176,40 @@ export function ExistingProviderAndMarketCard({
               <BarChart3 className="size-3.5 shrink-0" />
               <span>Market</span>
             </Label>
-            <Select
-              value={selectedSpecialty ?? ''}
-              onValueChange={(v) => onSelectSpecialty(v || null)}
-              disabled={specialties.length === 0}
-            >
-              <SelectTrigger className="min-h-[44px] w-full touch-manipulation text-sm">
-                <SelectValue placeholder="Choose market…" />
-              </SelectTrigger>
-              <SelectContent>
-                {specialties.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex min-w-0 gap-2">
+              <Select
+                value={selectedSpecialty ?? ''}
+                onValueChange={(v) =>
+                  onSelectSpecialty(!v || v === '__clear__' ? null : v)
+                }
+                disabled={specialties.length === 0}
+              >
+                <SelectTrigger className="min-h-[44px] w-full touch-manipulation text-sm">
+                  <SelectValue placeholder="Choose market…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__clear__">Clear market selection</SelectItem>
+                  {specialties.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedSpecialty && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-9 shrink-0 touch-manipulation"
+                  onClick={() => onSelectSpecialty(null)}
+                  title="Clear market"
+                  aria-label="Clear market"
+                >
+                  <X className="size-4" />
+                </Button>
+              )}
+            </div>
           </div>
           <div className="flex min-h-[4.5rem] flex-col justify-end gap-2">
             <Label className="text-muted-foreground flex h-5 min-h-5 items-center gap-2 text-xs font-medium">

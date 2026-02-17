@@ -41,13 +41,14 @@ export function SpecialtySelect({
         </Label>
         <Select
           value={selectedSpecialty ?? ''}
-          onValueChange={(v) => onSelect(v || null)}
+          onValueChange={(v) => onSelect(!v || v === '__clear__' ? null : v)}
           disabled={specialties.length === 0}
         >
           <SelectTrigger className="min-h-[44px] w-full max-w-xs touch-manipulation">
             <SelectValue placeholder="Choose market from survey…" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="__clear__">Clear market selection</SelectItem>
             {specialties.map((s) => (
               <SelectItem key={s} value={s}>
                 {s}

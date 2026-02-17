@@ -68,11 +68,12 @@ import { HelpScreen } from '@/features/help/help-screen'
 import { ReportsScreen } from '@/features/reports/reports-screen'
 import { LegalPage } from '@/components/legal-page'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
-import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
+import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, FileSpreadsheet, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { BatchResults, BatchRowResult, BatchScenarioSnapshot } from '@/types/batch'
 import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
 import { DEFAULT_SCENARIO_INPUTS } from '@/types/scenario'
+import { exportSingleScenarioXLSX } from '@/lib/single-scenario-export'
 
 type ModelMode = 'existing' | 'new'
 
@@ -309,10 +310,11 @@ export default function App() {
     setSelectedSpecialty,
   ])
 
-  // Default specialty when no provider selected (existing) or when in new mode with no specialty
+  // Default specialty only in new mode when user has not chosen one yet.
+  // In existing mode, allow market to be explicitly cleared without auto-reselect loop.
   useEffect(() => {
     if (!state.marketRows.length) return
-    if (modelMode === 'existing' && state.selectedProviderId) return
+    if (modelMode !== 'new') return
     if (state.selectedSpecialty) return
     const first = state.marketRows[0]
     if (first?.specialty) setSelectedSpecialty(first.specialty)
@@ -529,7 +531,48 @@ export default function App() {
                 <ArrowLeft className="size-4" />
                 Back
               </Button>
+              {modellerStep === 'results' && canShowScenario && state.lastResults && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() =>
+                    exportSingleScenarioXLSX({
+                      provider: effectiveProvider,
+                      marketRow,
+                      results: state.lastResults,
+                      scenarioInputs: state.scenarioInputs,
+                      mode: modelMode,
+                    })
+                  }
+                  aria-label="Export single scenario Excel report"
+                >
+                  <FileSpreadsheet className="size-4" />
+                  Export Excel Report
+                </Button>
+              )}
               <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedProvider(null)
+                        setSelectedSpecialty(null)
+                        setNewProviderForm(DEFAULT_NEW_PROVIDER)
+                        setModellerStep('provider')
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="Reset form"
+                    >
+                      <RotateCcw className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Reset form</TooltipContent>
+                </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

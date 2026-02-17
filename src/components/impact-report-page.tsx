@@ -74,7 +74,7 @@ export function ImpactReportPage({
   return (
     <div className="impact-report w-full max-w-full space-y-5 pb-12">
       <header className="space-y-2">
-        <p className="text-muted-foreground text-xs font-medium uppercase tracking-widest">
+        <p className="text-foreground text-sm font-semibold uppercase tracking-wide">
           {providerLabel ? (
             <>
               Compensation impact report <span className="font-normal normal-case tracking-normal">·</span>{' '}
