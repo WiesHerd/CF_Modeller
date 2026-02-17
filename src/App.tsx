@@ -68,7 +68,7 @@ import { HelpScreen } from '@/features/help/help-screen'
 import { ReportsScreen } from '@/features/reports/reports-screen'
 import { LegalPage } from '@/components/legal-page'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
-import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, FileSpreadsheet, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
+import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, Eraser, FileSpreadsheet, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { BatchResults, BatchRowResult, BatchScenarioSnapshot } from '@/types/batch'
 import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
@@ -553,26 +553,30 @@ export default function App() {
                 </Button>
               )}
               <TooltipProvider delayDuration={300}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedProvider(null)
-                        setSelectedSpecialty(null)
-                        setNewProviderForm(DEFAULT_NEW_PROVIDER)
-                        setModellerStep('provider')
-                      }}
-                      className="text-muted-foreground hover:text-foreground"
-                      aria-label="Reset form"
-                    >
-                      <RotateCcw className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Reset form</TooltipContent>
-                </Tooltip>
+                {(modellerStep === 'provider' || modellerStep === 'results') && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProvider(null)
+                          setSelectedSpecialty(null)
+                          setNewProviderForm(DEFAULT_NEW_PROVIDER)
+                          setModellerStep('provider')
+                        }}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label={modellerStep === 'results' ? 'Start over' : 'Reset form'}
+                      >
+                        <Eraser className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {modellerStep === 'results' ? 'Start over' : 'Reset form'}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -635,21 +639,23 @@ export default function App() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 ) : null}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setScenarioInputs({ ...DEFAULT_SCENARIO_INPUTS })}
-                      className="text-muted-foreground hover:text-foreground"
-                      aria-label="Reset scenario"
-                    >
-                      <RotateCcw className="size-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">Reset scenario</TooltipContent>
-                </Tooltip>
+                {modellerStep === 'scenario' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setScenarioInputs({ ...DEFAULT_SCENARIO_INPUTS })}
+                        className="text-muted-foreground hover:text-foreground"
+                        aria-label="Reset scenario"
+                      >
+                        <RotateCcw className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Reset scenario</TooltipContent>
+                  </Tooltip>
+                )}
               </TooltipProvider>
             </div>
           </div>
@@ -823,7 +829,7 @@ export default function App() {
 
           {/* Screen 4: Results — impact report first, then detailed comparison */}
           {modellerStep === 'results' && (
-            <div className="space-y-10">
+            <div className="space-y-6">
               {canShowScenario && state.lastResults ? (
                 <>
                   <ImpactReportPage
@@ -836,11 +842,11 @@ export default function App() {
                         : undefined
                     }
                   />
-                  <section className="border-border/60 border-t pt-8">
-                    <SectionTitleWithIcon icon={<Layers className="size-5 text-muted-foreground" />} className="mb-4">
+                  <section className="border-border/60 border-t pt-5">
+                    <SectionTitleWithIcon icon={<Layers className="size-5 text-muted-foreground" />} className="mb-3">
                       Market position & governance
                     </SectionTitleWithIcon>
-                    <div className="grid gap-6 md:grid-cols-1">
+                    <div className="grid gap-4 md:grid-cols-1">
                       <MarketPositionTable results={state.lastResults} />
                       <GovernanceFlags results={state.lastResults} />
                     </div>

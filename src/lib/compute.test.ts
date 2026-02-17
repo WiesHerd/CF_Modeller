@@ -62,8 +62,26 @@ describe('computeScenario', () => {
       otherIncentives: 0,
     }
     const result = computeScenario(provider, minimalMarket, DEFAULT_SCENARIO_INPUTS)
-    // currentTCC = base + incentive + PSQ + quality + other. currentIncentive = (5000-3000)*50 = 100_000; PSQ 0.
+    // currentTCC = totalBase + incentive + PSQ + quality + other. totalBase = 100k; currentIncentive = (5000-3000)*50 = 100k; PSQ 0.
     const expected = 100_000 + 100_000 + 0 + 10_000 + 0
     expect(result.currentTCC).toBe(expected)
+  })
+
+  it('includes nonClinicalPay in computed currentTCC when file has no currentTCC', () => {
+    const provider: ProviderRow = {
+      providerName: 'Test, Provider',
+      baseSalary: 200_000,
+      nonClinicalPay: 15_000,
+      totalFTE: 1,
+      clinicalFTE: 1,
+      totalWRVUs: 4000,
+      currentCF: 50,
+      currentThreshold: 5000, // above wRVUs so incentive = 0
+      qualityPayments: 5_000,
+      otherIncentives: 0,
+    }
+    const result = computeScenario(provider, minimalMarket, DEFAULT_SCENARIO_INPUTS)
+    // totalBasePay = 200k + 15k = 215k; incentive 0; PSQ 0; quality 5k; other 0.
+    expect(result.currentTCC).toBe(215_000 + 0 + 0 + 5_000 + 0)
   })
 })

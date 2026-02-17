@@ -142,8 +142,12 @@ export function computeScenario(
   const wRVUsAboveThreshold = modeledTotalWRVUs - annualThreshold
   const annualIncentive = wRVUsAboveThreshold * modeledCF
 
-  // Base salary = total salary (includes non-clinical as a component). Do not add non-clinical on top.
-  // TCC = base salary (total) + wRVU incentives (if positive) + PSQ + quality payments + other incentives.
+  // Total base pay = base salary + non-clinical (stipend/admin). When basePayComponents exist, their sum is already total base.
+  // TCC = total base + wRVU incentive (if positive) + PSQ + quality payments + other incentives.
+  const nonClinicalPay = num(provider.nonClinicalPay) || 0
+  const totalBasePay =
+    baseSalaryFromComponents > 0 ? baseSalaryFromComponents : baseSalary + nonClinicalPay
+
   const currentIncentiveForTCC = currentIncentive > 0 ? currentIncentive : 0
   const annualIncentiveForTCC = annualIncentive > 0 ? annualIncentive : 0
   // Quality payments: use qualityPayments column only. Do not use currentTCC as fallback (file Current TCC is total, not a component).
@@ -156,20 +160,21 @@ export function computeScenario(
   if (psqBasis === 'total_pay') {
     const otherComp = modeledBase + annualIncentiveForTCC
     psqDollars = psqPercent > 0 && psqPercent < 100 ? (otherComp * (psqPercent / 100)) / (1 - psqPercent / 100) : 0
-    const currentOther = baseSalary + currentIncentiveForTCC
+    const currentOther = totalBasePay + currentIncentiveForTCC
     currentPsqDollars = currentPsqPercent > 0 && currentPsqPercent < 100 ? (currentOther * (currentPsqPercent / 100)) / (1 - currentPsqPercent / 100) : 0
   } else {
-    const psqBase = baseSalary
+    const psqBase = totalBasePay
     currentPsqDollars = psqBase * (currentPsqPercent / 100)
     const modeledPsqBase = modeledBase
     psqDollars = modeledPsqBase * (psqPercent / 100)
   }
 
   // When the file supplies Current TCC, use it as the total. Otherwise compute from components.
-  const computedCurrentTCC = baseSalary + currentIncentiveForTCC + currentPsqDollars + qualityPayments + otherIncentives
+  const computedCurrentTCC = totalBasePay + currentIncentiveForTCC + currentPsqDollars + qualityPayments + otherIncentives
   const fileCurrentTCCVal = num(provider.currentTCC)
   const fileCurrentTCC = fileCurrentTCCVal > 0 ? fileCurrentTCCVal : null
   const currentTCC = fileCurrentTCC ?? computedCurrentTCC
+  const currentTCCFromFile = fileCurrentTCC != null
   const modeledTCC = modeledBase + annualIncentiveForTCC + psqDollars
   const changeInTCC = modeledTCC - currentTCC
 
@@ -292,6 +297,7 @@ export function computeScenario(
     psqDollars,
     currentPsqDollars,
     currentTCC,
+    currentTCCFromFile,
     modeledTCC,
     changeInTCC,
     alignmentGapBaseline,

@@ -151,11 +151,11 @@ export function MarketPositionTable({ results }: MarketPositionTableProps) {
 
   return (
     <Card className="overflow-hidden rounded-2xl border-2 border-border shadow-sm">
-      <CardHeader className="pb-0 pt-6">
+      <CardHeader className="pb-2 pt-4">
         <CardTitle className="text-base font-semibold tracking-tight text-foreground">
           Market position
         </CardTitle>
-        <p className="text-muted-foreground mt-1 text-xs font-normal">
+        <p className="text-muted-foreground mt-0.5 text-xs font-normal">
           Baseline vs. modeled — for compensation and alignment review
         </p>
       </CardHeader>

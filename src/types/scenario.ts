@@ -112,6 +112,8 @@ export interface ScenarioResults {
   /** PSQ dollars in baseline (when PSQ basis is total_pay, differs from psqDollars). */
   currentPsqDollars?: number
   currentTCC: number
+  /** True when currentTCC was taken from the provider file (Current TCC column) instead of computed from components. */
+  currentTCCFromFile?: boolean
   modeledTCC: number
   changeInTCC: number
   /** TCC percentile − wRVU percentile (baseline). */

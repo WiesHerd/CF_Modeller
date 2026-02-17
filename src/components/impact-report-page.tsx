@@ -77,7 +77,7 @@ export function ImpactReportPage({
   const reportSpecialty = provider?.specialty ?? normalizedSpecialtyFromLabel
 
   return (
-    <div className="impact-report w-full max-w-full space-y-5 pb-12">
+    <div className="impact-report w-full max-w-full space-y-5 pb-6">
       <header className="space-y-3">
         <div className="max-w-2xl space-y-0.5">
           <p className="text-muted-foreground text-sm font-semibold uppercase tracking-[0.16em]">
