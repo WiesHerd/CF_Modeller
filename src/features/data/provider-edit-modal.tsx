@@ -37,6 +37,9 @@ export interface ProviderEditFormState {
   nonClinicalPay: string
   qualityPayments: string
   otherIncentives: string
+  otherIncentive1: string
+  otherIncentive2: string
+  otherIncentive3: string
   productivityModel: string
 }
 
@@ -57,6 +60,9 @@ const emptyForm: ProviderEditFormState = {
   nonClinicalPay: '',
   qualityPayments: '',
   otherIncentives: '',
+  otherIncentive1: '',
+  otherIncentive2: '',
+  otherIncentive3: '',
   productivityModel: '',
 }
 
@@ -108,6 +114,9 @@ export function ProviderEditModal({
           nonClinicalPay: toStr(initialRow.nonClinicalPay),
           qualityPayments: toStr(initialRow.qualityPayments),
           otherIncentives: toStr(initialRow.otherIncentives),
+          otherIncentive1: toStr(initialRow.otherIncentive1),
+          otherIncentive2: toStr(initialRow.otherIncentive2),
+          otherIncentive3: toStr(initialRow.otherIncentive3),
           productivityModel: toStr(initialRow.productivityModel),
         })
       } else {
@@ -147,6 +156,12 @@ export function ProviderEditModal({
       if (qualityPayments !== undefined) updates.qualityPayments = qualityPayments
       const otherIncentives = parseNum(form.otherIncentives)
       if (otherIncentives !== undefined) updates.otherIncentives = otherIncentives
+      const otherIncentive1 = parseNum(form.otherIncentive1)
+      if (otherIncentive1 !== undefined) updates.otherIncentive1 = otherIncentive1
+      const otherIncentive2 = parseNum(form.otherIncentive2)
+      if (otherIncentive2 !== undefined) updates.otherIncentive2 = otherIncentive2
+      const otherIncentive3 = parseNum(form.otherIncentive3)
+      if (otherIncentive3 !== undefined) updates.otherIncentive3 = otherIncentive3
       if (form.productivityModel.trim() !== '') updates.productivityModel = form.productivityModel.trim()
       return updates
     },
@@ -335,6 +350,54 @@ export function ProviderEditModal({
                     step={100}
                     value={form.otherIncentives}
                     onChange={(e) => setForm((f) => ({ ...f, otherIncentives: e.target.value }))}
+                    placeholder="0"
+                    className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prov-edit-otherIncentive1">Other incentive 1</Label>
+                <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                  <Input
+                    id="prov-edit-otherIncentive1"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={form.otherIncentive1}
+                    onChange={(e) => setForm((f) => ({ ...f, otherIncentive1: e.target.value }))}
+                    placeholder="0"
+                    className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prov-edit-otherIncentive2">Other incentive 2</Label>
+                <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                  <Input
+                    id="prov-edit-otherIncentive2"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={form.otherIncentive2}
+                    onChange={(e) => setForm((f) => ({ ...f, otherIncentive2: e.target.value }))}
+                    placeholder="0"
+                    className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prov-edit-otherIncentive3">Other incentive 3</Label>
+                <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                  <Input
+                    id="prov-edit-otherIncentive3"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={form.otherIncentive3}
+                    onChange={(e) => setForm((f) => ({ ...f, otherIncentive3: e.target.value }))}
                     placeholder="0"
                     className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   />

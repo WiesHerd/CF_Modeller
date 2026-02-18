@@ -54,7 +54,7 @@ type RawFileState = { rows: RawRow[]; headers: string[]; fileName?: string }
 const PROVIDER_COLUMN_GROUPS: { label: string; keys: readonly string[] }[] = [
   { label: 'Identity', keys: ['providerName', 'specialty', 'division', 'providerType'] },
   { label: 'FTE (CART)', keys: ['totalFTE', 'clinicalFTE', 'adminFTE', 'researchFTE', 'teachingFTE'] },
-  { label: 'Compensation & wRVUs', keys: ['baseSalary', 'qualityPayments', 'otherIncentives', 'currentTCC', 'workRVUs', 'outsideWRVUs', 'currentCF', 'nonClinicalPay'] },
+  { label: 'Compensation & wRVUs', keys: ['baseSalary', 'qualityPayments', 'otherIncentives', 'otherIncentive1', 'otherIncentive2', 'otherIncentive3', 'currentTCC', 'workRVUs', 'outsideWRVUs', 'currentCF', 'nonClinicalPay'] },
   { label: 'Model', keys: ['productivityModel'] },
 ]
 
@@ -122,6 +122,9 @@ export function UploadAndMapping({
     nonClinicalPay: string
     qualityPayments: string
     otherIncentives: string
+    otherIncentive1: string
+    otherIncentive2: string
+    otherIncentive3: string
     productivityModel: string
   }
   const emptyEditForm: EditFormState = {
@@ -141,6 +144,9 @@ export function UploadAndMapping({
     nonClinicalPay: '',
     qualityPayments: '',
     otherIncentives: '',
+    otherIncentive1: '',
+    otherIncentive2: '',
+    otherIncentive3: '',
     productivityModel: '',
   }
   const [editForm, setEditForm] = useState<EditFormState>(emptyEditForm)
@@ -170,6 +176,9 @@ export function UploadAndMapping({
         nonClinicalPay: toStr(editingProvider.nonClinicalPay),
         qualityPayments: toStr(editingProvider.qualityPayments),
         otherIncentives: toStr(editingProvider.otherIncentives),
+        otherIncentive1: toStr(editingProvider.otherIncentive1),
+        otherIncentive2: toStr(editingProvider.otherIncentive2),
+        otherIncentive3: toStr(editingProvider.otherIncentive3),
         productivityModel: toStr(editingProvider.productivityModel),
       })
     }
@@ -300,6 +309,12 @@ export function UploadAndMapping({
     if (qualityPayments !== undefined) updates.qualityPayments = qualityPayments
     const otherIncentives = parseNum(editForm.otherIncentives)
     if (otherIncentives !== undefined) updates.otherIncentives = otherIncentives
+    const otherIncentive1 = parseNum(editForm.otherIncentive1)
+    if (otherIncentive1 !== undefined) updates.otherIncentive1 = otherIncentive1
+    const otherIncentive2 = parseNum(editForm.otherIncentive2)
+    if (otherIncentive2 !== undefined) updates.otherIncentive2 = otherIncentive2
+    const otherIncentive3 = parseNum(editForm.otherIncentive3)
+    if (otherIncentive3 !== undefined) updates.otherIncentive3 = otherIncentive3
     if (editForm.productivityModel.trim() !== '') updates.productivityModel = editForm.productivityModel.trim()
     onUpdateProviderRow(providerId, updates)
     setEditingProvider(null)
@@ -521,6 +536,54 @@ export function UploadAndMapping({
                       step={100}
                       value={editForm.otherIncentives}
                       onChange={(e) => setEditForm((f) => ({ ...f, otherIncentives: e.target.value }))}
+                      placeholder="0"
+                      className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-otherIncentive1">Other incentive 1</Label>
+                  <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                    <Input
+                      id="edit-otherIncentive1"
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={editForm.otherIncentive1}
+                      onChange={(e) => setEditForm((f) => ({ ...f, otherIncentive1: e.target.value }))}
+                      placeholder="0"
+                      className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-otherIncentive2">Other incentive 2</Label>
+                  <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                    <Input
+                      id="edit-otherIncentive2"
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={editForm.otherIncentive2}
+                      onChange={(e) => setEditForm((f) => ({ ...f, otherIncentive2: e.target.value }))}
+                      placeholder="0"
+                      className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-otherIncentive3">Other incentive 3</Label>
+                  <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                    <Input
+                      id="edit-otherIncentive3"
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={editForm.otherIncentive3}
+                      onChange={(e) => setEditForm((f) => ({ ...f, otherIncentive3: e.target.value }))}
                       placeholder="0"
                       className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
@@ -905,7 +968,7 @@ export function UploadAndMapping({
                   {group.keys.map((key) => (
                     <div key={key} className="flex flex-col gap-1.5">
                       <Label className="text-[13px] font-medium text-foreground">
-                        {key === 'workRVUs' ? 'Work RVUs (or wRVUs)' : key === 'productivityModel' ? 'Productivity model' : key === 'researchFTE' ? 'Research FTE' : key === 'teachingFTE' ? 'Teaching FTE' : key === 'qualityPayments' ? 'Quality payments' : key === 'otherIncentives' ? 'Other incentives' : key === 'currentTCC' ? 'Current TCC (legacy)' : key}
+                        {key === 'workRVUs' ? 'Work RVUs (or wRVUs)' : key === 'productivityModel' ? 'Productivity model' : key === 'researchFTE' ? 'Research FTE' : key === 'teachingFTE' ? 'Teaching FTE' : key === 'qualityPayments' ? 'Quality payments' : key === 'otherIncentives' ? 'Other incentives' : key === 'otherIncentive1' ? 'Other incentive 1' : key === 'otherIncentive2' ? 'Other incentive 2' : key === 'otherIncentive3' ? 'Other incentive 3' : key === 'currentTCC' ? 'Current TCC (legacy)' : key}
                       </Label>
                       <Select
                         value={providerMapping[key] || SKIP_VALUE}
