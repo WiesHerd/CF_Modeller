@@ -72,16 +72,19 @@ describe('computeGroupTargetWRVU', () => {
     expect(computeGroupTargetWRVU('Unknown', settings, null)).toBeNull()
   })
 
-  it('Approach B: group target = TCC_50 / CF_50', () => {
+  it('Approach B: returns manualTargetWRVU (gross at 1.0 cFTE, prorated in computeProviderTargets)', () => {
     const settings: ProductivityTargetSettings = {
       ...DEFAULT_PRODUCTIVITY_TARGET_SETTINGS,
       targetApproach: 'pay_per_wrvu',
-      targetPercentile: 50,
-      cfPercentile: 50,
+      manualTargetWRVU: 4500,
     }
-    const result = computeGroupTargetWRVU('Cardiology', settings, market)
-    expect(result).toBe(400000 / 50)
-    expect(result).toBe(8000)
+    const result = computeGroupTargetWRVU('Cardiology', settings, null)
+    expect(result).toBe(4500)
+  })
+
+  it('Approach B: returns null when manualTargetWRVU is missing or invalid', () => {
+    expect(computeGroupTargetWRVU('X', { ...DEFAULT_PRODUCTIVITY_TARGET_SETTINGS, targetApproach: 'pay_per_wrvu' }, null)).toBeNull()
+    expect(computeGroupTargetWRVU('X', { ...DEFAULT_PRODUCTIVITY_TARGET_SETTINGS, targetApproach: 'pay_per_wrvu', manualTargetWRVU: -1 }, null)).toBeNull()
   })
 })
 

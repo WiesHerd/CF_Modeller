@@ -44,40 +44,26 @@ export function getProviderTargetStatus(percentToTarget: number): ProviderTarget
 /**
  * Compute group wRVU target at 1.0 cFTE for a specialty.
  * Approach A: market wRVU at targetPercentile.
- * Approach B: market TCC at targetPercentile / market $/wRVU at cfPercentile.
+ * Approach B: manual entry — gross target wRVU at 1.0 cFTE (prorated by cFTE per provider in computeProviderTargets).
  */
 export function computeGroupTargetWRVU(
   _specialty: string,
   settings: ProductivityTargetSettings,
   marketRow: MarketRow | null
 ): number | null {
+  if (settings.targetApproach === 'pay_per_wrvu') {
+    const manual = settings.manualTargetWRVU
+    return manual != null && Number.isFinite(manual) && manual >= 0 ? manual : null
+  }
   if (!marketRow) return null
   const p = settings.targetPercentile
-  if (settings.targetApproach === 'wrvu_percentile') {
-    return interpPercentile(
-      p,
-      marketRow.WRVU_25,
-      marketRow.WRVU_50,
-      marketRow.WRVU_75,
-      marketRow.WRVU_90
-    )
-  }
-  const marketPay = interpPercentile(
+  return interpPercentile(
     p,
-    marketRow.TCC_25,
-    marketRow.TCC_50,
-    marketRow.TCC_75,
-    marketRow.TCC_90
+    marketRow.WRVU_25,
+    marketRow.WRVU_50,
+    marketRow.WRVU_75,
+    marketRow.WRVU_90
   )
-  const dollarPerWRVU = interpPercentile(
-    settings.cfPercentile,
-    marketRow.CF_25,
-    marketRow.CF_50,
-    marketRow.CF_75,
-    marketRow.CF_90
-  )
-  if (dollarPerWRVU <= 0) return null
-  return marketPay / dollarPerWRVU
 }
 
 // ---------------------------------------------------------------------------

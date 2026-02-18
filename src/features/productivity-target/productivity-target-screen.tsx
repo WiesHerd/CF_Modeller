@@ -313,7 +313,11 @@ export function ProductivityTargetScreen({
     (modelScopeMode === 'custom' && selectedModels.length === 0) ||
     (providerTypeScopeMode === 'custom' && selectedProviderTypes.length === 0) ||
     (providerScopeMode === 'custom' && selectedProviderIds.length === 0) ||
-    filteredProviderRowsForRun.length === 0
+    filteredProviderRowsForRun.length === 0 ||
+    (settings.targetApproach === 'pay_per_wrvu' &&
+      (settings.manualTargetWRVU == null ||
+        !Number.isFinite(settings.manualTargetWRVU) ||
+        settings.manualTargetWRVU < 0))
 
   const handleRun = useCallback(() => {
     if (!hasData || runDisabled) return

@@ -110,6 +110,9 @@ export function applyProviderMapping(
           'currentTCC',
           'qualityPayments',
           'otherIncentives',
+          'otherIncentive1',
+          'otherIncentive2',
+          'otherIncentive3',
           'workRVUs',
           'outsideWRVUs',
           'currentCF',
@@ -171,8 +174,11 @@ const PROVIDER_ALIASES: Record<string, string[]> = {
   adminFTE: ['adminfte', 'admin fte', 'adminftes'],
   researchFTE: ['researchfte', 'research fte', 'researchftes'],
   teachingFTE: ['teachingfte', 'teaching fte', 'teachingftes'],
-  qualityPayments: ['qualitypayments', 'quality payments'],
+  qualityPayments: ['qualitypayments', 'quality payments', 'quality payment', 'value-based', 'value based payment'],
   otherIncentives: ['otherincentives', 'other incentives'],
+  otherIncentive1: ['otherincentive1', 'other incentive 1', 'other incentive1'],
+  otherIncentive2: ['otherincentive2', 'other incentive 2', 'other incentive2'],
+  otherIncentive3: ['otherincentive3', 'other incentive 3', 'other incentive3'],
 }
 
 /**

@@ -418,8 +418,11 @@ function ProviderDataTable({
       providerHelper.accessor('totalWRVUs', { header: 'Total wRVUs', cell: (c) => fmtNum(c.getValue() as number | undefined, 0), meta: { align: 'right' }, size: 115, minSize: 95 }),
       providerHelper.accessor('currentCF', { header: 'Current CF', cell: (c) => fmtCur(c.getValue() as number | undefined, 2), meta: { align: 'right' }, size: 108, minSize: 90 }),
       providerHelper.accessor('currentThreshold', { header: 'Threshold', cell: (c) => fmtNum(c.getValue() as number | undefined, 0), meta: { align: 'right' }, size: 95, minSize: 80 }),
-      providerHelper.accessor('qualityPayments', { header: 'Quality', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 105, minSize: 85 }),
+      providerHelper.accessor('qualityPayments', { header: 'Quality payment', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 120, minSize: 95 }),
       providerHelper.accessor('otherIncentives', { header: 'Other incentives', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 130, minSize: 100 }),
+      providerHelper.accessor('otherIncentive1', { header: 'Other incentive 1', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 120, minSize: 95 }),
+      providerHelper.accessor('otherIncentive2', { header: 'Other incentive 2', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 120, minSize: 95 }),
+      providerHelper.accessor('otherIncentive3', { header: 'Other incentive 3', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 120, minSize: 95 }),
       providerHelper.accessor('currentTCC', { header: 'Current TCC', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 125, minSize: 100 }),
       providerHelper.accessor('productivityModel', { header: 'Model', cell: (c) => c.getValue() ?? EMPTY, size: 110, minSize: 80 }),
       ...(onUpdateProvider || onDeleteProvider
@@ -598,24 +601,30 @@ function ProviderDataTable({
 
   return (
     <div className="space-y-3">
-      {/* Toolbar: search + filters in a compact layout */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <Input
-          placeholder="Search table..."
-          value={globalFilter ?? ''}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="h-9 w-full sm:max-w-[220px]"
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 w-[160px] justify-between gap-2">
-                <span className="truncate">
-                  {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter}
-                </span>
-                <ChevronDown className="size-4 shrink-0 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
+      {/* Toolbar: search + filters distributed across width like Ranges */}
+      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+        <span className="mb-2 block text-xs font-medium text-muted-foreground">Filters</span>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Search table</Label>
+            <Input
+              placeholder="Search table..."
+              value={globalFilter ?? ''}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="h-9 w-full min-w-0"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Specialty</Label>
+            <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
+                  <span className="truncate">
+                    {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter}
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
               <Command shouldFilter={false} className="rounded-none border-0">
                 <CommandInput placeholder="Search specialties…" value={specialtySearch} onValueChange={setSpecialtySearch} className="h-9" />
@@ -634,63 +643,70 @@ function ProviderDataTable({
                 </CommandList>
               </Command>
             </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu onOpenChange={(open) => !open && setDivisionSearch('')}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 w-[130px] justify-between gap-2">
-                <span className="truncate">
-                  {divisionFilter === 'all' ? 'All divisions' : divisionFilter}
-                </span>
-                <ChevronDown className="size-4 shrink-0 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
-              <Command shouldFilter={false} className="rounded-none border-0">
-                <CommandInput placeholder="Search divisions…" value={divisionSearch} onValueChange={setDivisionSearch} className="h-9" />
-                <CommandList>
-                  <CommandEmpty>No division found.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem value="all" onSelect={() => setDivisionFilter('all')}>
-                      All divisions
-                    </CommandItem>
-                    {filteredDivisions.map((d) => (
-                      <CommandItem key={d} value={String(d)} onSelect={() => setDivisionFilter(String(d))}>
-                        {d}
+            </DropdownMenu>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Division</Label>
+            <DropdownMenu onOpenChange={(open) => !open && setDivisionSearch('')}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
+                  <span className="truncate">
+                    {divisionFilter === 'all' ? 'All divisions' : divisionFilter}
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
+                <Command shouldFilter={false} className="rounded-none border-0">
+                  <CommandInput placeholder="Search divisions…" value={divisionSearch} onValueChange={setDivisionSearch} className="h-9" />
+                  <CommandList>
+                    <CommandEmpty>No division found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem value="all" onSelect={() => setDivisionFilter('all')}>
+                        All divisions
                       </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu onOpenChange={(open) => !open && setModelSearch('')}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 w-[120px] justify-between gap-2">
-                <span className="truncate">
-                  {modelFilter === 'all' ? 'All models' : modelFilter}
-                </span>
-                <ChevronDown className="size-4 shrink-0 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
-              <Command shouldFilter={false} className="rounded-none border-0">
-                <CommandInput placeholder="Search models…" value={modelSearch} onValueChange={setModelSearch} className="h-9" />
-                <CommandList>
-                  <CommandEmpty>No model found.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem value="all" onSelect={() => setModelFilter('all')}>
-                      All models
-                    </CommandItem>
-                    {filteredModels.map((m) => (
-                      <CommandItem key={m} value={String(m)} onSelect={() => setModelFilter(String(m))}>
-                        {m}
+                      {filteredDivisions.map((d) => (
+                        <CommandItem key={d} value={String(d)} onSelect={() => setDivisionFilter(String(d))}>
+                          {d}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Model</Label>
+            <DropdownMenu onOpenChange={(open) => !open && setModelSearch('')}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
+                  <span className="truncate">
+                    {modelFilter === 'all' ? 'All models' : modelFilter}
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
+                <Command shouldFilter={false} className="rounded-none border-0">
+                  <CommandInput placeholder="Search models…" value={modelSearch} onValueChange={setModelSearch} className="h-9" />
+                  <CommandList>
+                    <CommandEmpty>No model found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem value="all" onSelect={() => setModelFilter('all')}>
+                        All models
                       </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                      {filteredModels.map((m) => (
+                        <CommandItem key={m} value={String(m)} onSelect={() => setModelFilter(String(m))}>
+                          {m}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
       {/* Ranges: 2x2 grid so they don't stretch in one long line */}
@@ -1154,42 +1170,49 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <Input
-          placeholder="Search table..."
-          value={globalFilter ?? ''}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="h-9 w-full sm:max-w-[220px]"
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 w-[160px] justify-between gap-2">
-                <span className="truncate">
-                  {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter}
-                </span>
-                <ChevronDown className="size-4 shrink-0 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
-              <Command shouldFilter={false} className="rounded-none border-0">
-                <CommandInput placeholder="Search specialties…" value={specialtySearch} onValueChange={setSpecialtySearch} className="h-9" />
-                <CommandList>
-                  <CommandEmpty>No specialty found.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem value="all" onSelect={() => onSpecialtyFilterChange('all')}>
-                      All specialties
-                    </CommandItem>
-                    {filteredSpecialties.map((s) => (
-                      <CommandItem key={s} value={String(s)} onSelect={() => onSpecialtyFilterChange(String(s))}>
-                        {s}
+      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
+        <span className="mb-2 block text-xs font-medium text-muted-foreground">Filters</span>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Search table</Label>
+            <Input
+              placeholder="Search table..."
+              value={globalFilter ?? ''}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="h-9 w-full min-w-0"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Specialty</Label>
+            <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
+                  <span className="truncate">
+                    {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter}
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
+                <Command shouldFilter={false} className="rounded-none border-0">
+                  <CommandInput placeholder="Search specialties…" value={specialtySearch} onValueChange={setSpecialtySearch} className="h-9" />
+                  <CommandList>
+                    <CommandEmpty>No specialty found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem value="all" onSelect={() => onSpecialtyFilterChange('all')}>
+                        All specialties
                       </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                      {filteredSpecialties.map((s) => (
+                        <CommandItem key={s} value={String(s)} onSelect={() => onSpecialtyFilterChange(String(s))}>
+                          {s}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
       <p className="text-xs text-muted-foreground">

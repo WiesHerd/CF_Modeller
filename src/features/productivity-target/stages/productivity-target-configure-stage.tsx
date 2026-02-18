@@ -682,103 +682,94 @@ export function ProductivityTargetConfigureStage({
                     </p>
                   </div>
 
-                  <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
-                    <div className="space-y-1">
-                      <Label className="text-sm font-semibold text-primary/90">Choose target approach</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Use market wRVU percentile (A) or enter a gross target wRVU at 1.0 cFTE (B).
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <LabelWithTooltip
-                        label="Approach"
-                        tooltip={settings.targetApproach === 'wrvu_percentile'
-                          ? 'Target = market work RVU at your chosen percentile from your loaded market (survey) data. Same productivity benchmark for everyone in the specialty (e.g. 50th = median wRVU).'
-                          : 'You enter the gross target wRVU at 1.0 cFTE. Provider targets are prorated by cFTE (e.g. 0.8 cFTE gets 0.8 × this target). No survey math—you set the number.'}
-                      />
-                      <Select
-                        value={settings.targetApproach}
-                        onValueChange={(v: TargetApproach) => onSetSettings((s) => ({ ...s, targetApproach: v }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="wrvu_percentile">A: Target = market wRVU at a percentile</SelectItem>
-                          <SelectItem value="pay_per_wrvu">B: Enter gross target wRVU (at 1.0 cFTE, prorated)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {settings.targetApproach === 'wrvu_percentile'
-                        ? 'Approach A uses your loaded market survey percentile.'
-                        : 'Approach B lets you enter one gross target; provider targets are prorated by cFTE.'}
+                  <div className="rounded-lg border border-border/50 bg-background/70 p-4">
+                    <Label className="text-sm font-semibold text-primary/90">Choose target approach & set inputs</Label>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Use market wRVU percentile (A) or enter a gross target wRVU at 1.0 cFTE (B). Set the target value and alignment tolerance.
                     </p>
-                  </div>
-
-                  <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
-                    <div className="space-y-1">
-                      <Label className="text-sm font-semibold text-primary/90">Set target inputs</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Enter the target value for the chosen approach, then define alignment tolerance.
-                      </p>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {settings.targetApproach === 'wrvu_percentile' ? (
+                    <div className="mt-4 grid gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                      <div className="space-y-2">
+                        <LabelWithTooltip
+                          label="Approach"
+                          tooltip={settings.targetApproach === 'wrvu_percentile'
+                            ? 'Target = market work RVU at your chosen percentile from your loaded market (survey) data. Same productivity benchmark for everyone in the specialty (e.g. 50th = median wRVU).'
+                            : 'You enter the gross target wRVU at 1.0 cFTE. Provider targets are prorated by cFTE (e.g. 0.8 cFTE gets 0.8 × this target). No survey math—you set the number.'}
+                        />
+                        <Select
+                          value={settings.targetApproach}
+                          onValueChange={(v: TargetApproach) => onSetSettings((s) => ({ ...s, targetApproach: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="wrvu_percentile">A: Target = market wRVU at a percentile</SelectItem>
+                            <SelectItem value="pay_per_wrvu">B: Enter gross target wRVU (at 1.0 cFTE, prorated)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          {settings.targetApproach === 'wrvu_percentile'
+                            ? 'Approach A uses your loaded market survey percentile.'
+                            : 'Approach B lets you enter one gross target; provider targets are prorated by cFTE.'}
+                        </p>
+                      </div>
+                      <div className="space-y-4 border-t border-border/40 pt-4 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-6">
+                        {settings.targetApproach === 'wrvu_percentile' ? (
+                          <div className="space-y-2">
+                            <LabelWithTooltip
+                              label="Target percentile (wRVU)"
+                              tooltip="Which percentile of market wRVU to use as the target (e.g. 50 = median productivity)."
+                            />
+                            <Input
+                              type="number"
+                              min={1}
+                              max={99}
+                              value={settings.targetPercentile}
+                              onChange={(e) => {
+                                const n = Math.min(99, Math.max(1, Number(e.target.value) || 50))
+                                onSetSettings((s) => ({ ...s, targetPercentile: n }))
+                              }}
+                              className="w-24"
+                            />
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <LabelWithTooltip
+                              label="Target wRVU (at 1.0 cFTE)"
+                              tooltip="Gross target wRVU at 1.0 cFTE. Each provider's target = this value × their cFTE (e.g. 0.8 cFTE → 0.8 × this number). You enter the amount; we prorate for calculations."
+                            />
+                            <Input
+                              type="number"
+                              min={0}
+                              step={1}
+                              value={settings.manualTargetWRVU ?? ''}
+                              onChange={(e) => {
+                                const raw = e.target.value
+                                const n = raw === '' ? undefined : Number(raw)
+                                onSetSettings((s) => ({ ...s, manualTargetWRVU: n != null && !Number.isNaN(n) ? n : undefined }))
+                              }}
+                              placeholder="e.g. 4500"
+                              className="w-28"
+                            />
+                          </div>
+                        )}
                         <div className="space-y-2">
                           <LabelWithTooltip
-                            label="Target percentile (wRVU)"
-                            tooltip="Which percentile of market wRVU to use as the target (e.g. 50 = median productivity)."
-                          />
-                          <Input
-                            type="number"
-                            min={1}
-                            max={99}
-                            value={settings.targetPercentile}
-                            onChange={(e) => {
-                              const n = Math.min(99, Math.max(1, Number(e.target.value) || 50))
-                              onSetSettings((s) => ({ ...s, targetPercentile: n }))
-                            }}
-                            className="w-24"
-                          />
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <LabelWithTooltip
-                            label="Target wRVU (at 1.0 cFTE)"
-                            tooltip="Gross target wRVU at 1.0 cFTE. Each provider's target = this value × their cFTE (e.g. 0.8 cFTE → 0.8 × this number). You enter the amount; we prorate for calculations."
+                            label="Alignment tolerance (± percentile pts)"
+                            tooltip="Providers within ± this many percentile points of the target count as aligned. Larger = more providers considered on target."
                           />
                           <Input
                             type="number"
                             min={0}
-                            step={1}
-                            value={settings.manualTargetWRVU ?? ''}
+                            max={30}
+                            value={settings.alignmentTolerance}
                             onChange={(e) => {
-                              const raw = e.target.value
-                              const n = raw === '' ? undefined : Number(raw)
-                              onSetSettings((s) => ({ ...s, manualTargetWRVU: n != null && !Number.isNaN(n) ? n : undefined }))
+                              const n = Math.min(30, Math.max(0, Number(e.target.value) || 10))
+                              onSetSettings((s) => ({ ...s, alignmentTolerance: n }))
                             }}
-                            placeholder="e.g. 4500"
-                            className="w-28"
+                            className="w-24"
                           />
                         </div>
-                      )}
-                      <div className="space-y-2">
-                        <LabelWithTooltip
-                          label="Alignment tolerance (± percentile pts)"
-                          tooltip="Providers within ± this many percentile points of the target count as aligned. Larger = more providers considered on target."
-                        />
-                        <Input
-                          type="number"
-                          min={0}
-                          max={30}
-                          value={settings.alignmentTolerance}
-                          onChange={(e) => {
-                            const n = Math.min(30, Math.max(0, Number(e.target.value) || 10))
-                            onSetSettings((s) => ({ ...s, alignmentTolerance: n }))
-                          }}
-                          className="w-24"
-                        />
                       </div>
                     </div>
                   </div>

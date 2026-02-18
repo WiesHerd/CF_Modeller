@@ -298,7 +298,12 @@ export function getBaselineTCCForOptimizer(
   const incentive = config.includeWorkRVUIncentive
     ? getIncentiveDerived(clinicalBase, getTotalWRVUs(provider), config.currentCF)
     : 0
-  const otherRaw = config.includeOtherIncentives ? num(provider.otherIncentives) : 0
+  const otherRaw = config.includeOtherIncentives
+    ? (num(provider.otherIncentives) || 0) +
+      (num(provider.otherIncentive1) || 0) +
+      (num(provider.otherIncentive2) || 0) +
+      (num(provider.otherIncentive3) || 0)
+    : 0
   const other = resolveFromFileAmount(otherRaw, 'otherIncentives', cFTE, config.componentOptions)
   const stipendRaw = config.includeStipend ? num(provider.nonClinicalPay) : 0
   const stipend = resolveFromFileAmount(stipendRaw, 'stipend', cFTE, config.componentOptions)
@@ -345,7 +350,12 @@ export function getBaselineTCCBreakdown(
   const workRVUIncentive = config.includeWorkRVUIncentive
     ? getIncentiveDerived(clinicalBase, getTotalWRVUs(provider), config.currentCF)
     : 0
-  const otherRaw = config.includeOtherIncentives ? num(provider.otherIncentives) : 0
+  const otherRaw = config.includeOtherIncentives
+    ? (num(provider.otherIncentives) || 0) +
+      (num(provider.otherIncentive1) || 0) +
+      (num(provider.otherIncentive2) || 0) +
+      (num(provider.otherIncentive3) || 0)
+    : 0
   const otherIncentives = resolveFromFileAmount(otherRaw, 'otherIncentives', cFTE, config.componentOptions)
   const stipendRaw = config.includeStipend ? num(provider.nonClinicalPay) : 0
   const stipend = resolveFromFileAmount(stipendRaw, 'stipend', cFTE, config.componentOptions)

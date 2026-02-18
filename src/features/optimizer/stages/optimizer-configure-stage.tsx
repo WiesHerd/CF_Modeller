@@ -1125,9 +1125,9 @@ export function OptimizerConfigureStage({
                       }
                       const optionalComponents: { id: keyof TCCComponentInclusion; label: string }[] = [
                         { id: 'workRVUIncentive', label: 'Productivity' },
-                        { id: 'quality', label: 'Quality' },
+                        { id: 'quality', label: 'Quality payment' },
                         { id: 'otherIncentives', label: 'Other incentives' },
-                        { id: 'stipend', label: 'Stipend' },
+                        { id: 'stipend', label: 'Non-clinical pay' },
                       ]
                       return (
                         <div className="flex flex-col gap-3">
@@ -1175,7 +1175,7 @@ export function OptimizerConfigureStage({
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent side="bottom" className="max-w-[280px] text-xs">
-                                Base = Base salary (upload). Productivity = computed from Work RVUs + CF. Quality = column Quality Payments or override %. Other incentives = column Other incentives. Stipend = column Non-clinical pay (optional; leave off if not in your upload).
+                                Base = Base salary (upload). Productivity = computed from Work RVUs + CF. Quality = column Quality payment (value-based) or override %. Other incentives = column Other incentives plus Other incentive 1/2/3 if mapped. Non-clinical pay = column from provider upload (admin, teaching, carve-out). Leave off if not in your upload. Stipend is separate (over and above); not sourced from the upload file.
                               </TooltipContent>
                             </Tooltip>
                           </div>
@@ -1339,7 +1339,7 @@ export function OptimizerConfigureStage({
                                       : 'border border-border bg-background text-muted-foreground hover:bg-muted/50'
                                   )}
                                 >
-                                  Quality
+                                  Quality payment
                                 </button>
                               )}
                               {inc.otherIncentives?.included && (
@@ -1369,7 +1369,7 @@ export function OptimizerConfigureStage({
                                       : 'border border-border bg-background text-muted-foreground hover:bg-muted/50'
                                   )}
                                 >
-                                  Stipend
+                                  Non-clinical pay
                                 </button>
                               )}
                             </div>
@@ -1392,7 +1392,7 @@ export function OptimizerConfigureStage({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-[280px] text-xs">
-                  Add named layers on top of the selected components. Each layer can be percent of base, dollar per 1.0 FTE, flat dollar, or From provider file (e.g. otherIncentives or nonClinicalPay).
+                  Add named layers on top of the selected components. Each layer can be percent of base, dollar per 1.0 FTE, flat dollar, or From provider file (e.g. otherIncentives or nonClinicalPay for admin/teaching/non-clinical).
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -1487,7 +1487,10 @@ export function OptimizerConfigureStage({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="otherIncentives">otherIncentives (retention, sign-on, etc.)</SelectItem>
-                            <SelectItem value="nonClinicalPay">nonClinicalPay (stipend / admin)</SelectItem>
+                            <SelectItem value="otherIncentive1">otherIncentive1</SelectItem>
+                            <SelectItem value="otherIncentive2">otherIncentive2</SelectItem>
+                            <SelectItem value="otherIncentive3">otherIncentive3</SelectItem>
+                            <SelectItem value="nonClinicalPay">nonClinicalPay (admin / teaching / non-clinical)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

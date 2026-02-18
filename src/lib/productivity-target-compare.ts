@@ -22,7 +22,7 @@ export function canCompareProductivityTargetConfig(
 }
 
 function targetApproachLabel(approach: string): string {
-  return approach === 'wrvu_percentile' ? 'wRVU percentile' : approach === 'pay_per_wrvu' ? 'Pay per wRVU' : approach
+  return approach === 'wrvu_percentile' ? 'wRVU percentile' : approach === 'pay_per_wrvu' ? 'Manual wRVU (at 1.0 cFTE)' : approach
 }
 
 function buildRollupN(

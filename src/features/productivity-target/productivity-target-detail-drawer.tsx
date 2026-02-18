@@ -104,8 +104,13 @@ export function ProductivityTargetDetailDrawer({
                   wRVUs
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  Approach {row.targetApproach === 'wrvu_percentile' ? 'A' : 'B'} at {row.targetPercentile}th
-                  percentile. Target is scaled by each provider’s cFTE.
+                  Approach {row.targetApproach === 'wrvu_percentile' ? 'A' : 'B'}
+                  {row.targetApproach === 'wrvu_percentile'
+                    ? ` at ${row.targetPercentile}th percentile`
+                    : row.groupTargetWRVU_1cFTE != null
+                      ? `: ${row.groupTargetWRVU_1cFTE.toLocaleString()} wRVU (at 1.0 cFTE, prorated)`
+                      : ''}
+                  . Target is scaled by each provider’s cFTE.
                 </p>
               </div>
 

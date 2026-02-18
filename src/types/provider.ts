@@ -33,10 +33,16 @@ export interface ProviderRow {
   /** Optional; when present overrides calculated clinical FTE salary. */
   clinicalFTESalary?: number
   currentTCC?: number
-  /** Quality / value-based payments (e.g. quality bonuses). */
+  /** Quality payment / value-based payment (e.g. quality bonuses). */
   qualityPayments?: number
   /** Other incentives (e.g. retention, sign-on). */
   otherIncentives?: number
+  /** Extra incentive column 1 (name in upload; map as needed). */
+  otherIncentive1?: number
+  /** Extra incentive column 2 (name in upload; map as needed). */
+  otherIncentive2?: number
+  /** Extra incentive column 3 (name in upload; map as needed). */
+  otherIncentive3?: number
   /** Work RVUs (main); totalWRVUs = workRVUs + outsideWRVUs when not provided. */
   workRVUs?: number
   /** Legacy; prefer workRVUs. */
@@ -70,6 +76,9 @@ export const PROVIDER_EXPECTED_COLUMNS = [
   'nonClinicalPay',
   'qualityPayments',
   'otherIncentives',
+  'otherIncentive1',
+  'otherIncentive2',
+  'otherIncentive3',
   'currentTCC',
   'productivityModel',
 ] as const

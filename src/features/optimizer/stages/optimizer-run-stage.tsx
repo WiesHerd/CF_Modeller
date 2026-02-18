@@ -29,6 +29,7 @@ function getTotalIncentiveDollars(result: OptimizerRunResult): number {
 }
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { EXCLUSION_REASON_LABELS } from '@/features/optimizer/components/optimizer-constants'
+import { OptimizerTargetExplanation } from '@/features/optimizer/components/optimizer-target-explanation'
 import { OptimizerReviewWorkspace } from '@/features/optimizer/components/optimizer-review-workspace'
 
 export function OptimizerRunStage({
@@ -196,6 +197,8 @@ export function OptimizerRunStage({
                     capDollars={settings.budgetConstraint.capDollars}
                   />
                 ) : null}
+
+                <OptimizerTargetExplanation result={result} settings={settings} />
 
                 <OptimizerReviewWorkspace
                   rows={result.bySpecialty}

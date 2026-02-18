@@ -19,8 +19,8 @@ export interface TCCComponentDefinition {
 export const TCC_BUILTIN_COMPONENTS: TCCComponentDefinition[] = [
   {
     id: 'quality',
-    label: 'Quality payments',
-    description: 'From provider file (e.g. quality bonuses).',
+    label: 'Quality payment',
+    description: 'From provider file (value-based payment).',
     type: 'from_file',
     supportsNormalizeForFTE: true,
   },
@@ -39,8 +39,8 @@ export const TCC_BUILTIN_COMPONENTS: TCCComponentDefinition[] = [
   },
   {
     id: 'stipend',
-    label: 'Stipend / non-clinical pay',
-    description: 'From provider file (admin carveouts, stipends).',
+    label: 'Non-clinical pay',
+    description: 'From provider file (admin, teaching, carve-out). Stipend is separate (not from upload).',
     type: 'from_file',
     supportsNormalizeForFTE: true,
   },

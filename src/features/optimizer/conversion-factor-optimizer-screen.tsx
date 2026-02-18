@@ -493,6 +493,38 @@ export function ConversionFactorOptimizerScreen({
     (providerTypeScopeMode === 'custom' && selectedProviderTypes.length === 0) ||
     filteredProviderRowsForRun.length === 0
 
+  const runDisabledReasons = useMemo(() => {
+    if (isRunning) return []
+    const reasons: string[] = []
+    if (!hasData) {
+      reasons.push('Upload provider and market data first.')
+    } else {
+      if (targetMode === 'custom' && selectedSpecialties.length === 0) {
+        reasons.push('Select at least one specialty in Target population (step 1).')
+      }
+      if (providerTypeScopeMode === 'custom' && selectedProviderTypes.length === 0) {
+        reasons.push('Select at least one provider type in Target population (step 1).')
+      }
+      const scopeOk =
+        (targetMode !== 'custom' || selectedSpecialties.length > 0) &&
+        (providerTypeScopeMode !== 'custom' || selectedProviderTypes.length > 0)
+      if (scopeOk && filteredProviderRowsForRun.length === 0) {
+        reasons.push(
+          'No providers match your scope and filters. Adjust Target population or exclusions so at least one provider is included.'
+        )
+      }
+    }
+    return reasons
+  }, [
+    isRunning,
+    hasData,
+    targetMode,
+    selectedSpecialties.length,
+    providerTypeScopeMode,
+    selectedProviderTypes.length,
+    filteredProviderRowsForRun.length,
+  ])
+
   const handleRunAndOpenReview = useCallback(() => {
     setOptimizerStep('run')
     handleRun()
@@ -709,6 +741,7 @@ export function ConversionFactorOptimizerScreen({
           hasData={hasData}
           settings={settings}
           runDisabled={runDisabled}
+          runDisabledReasons={runDisabledReasons}
           filteredProviderRowsCount={filteredProviderRowsForRun.length}
           targetMode={targetMode}
           selectedSpecialties={selectedSpecialties}

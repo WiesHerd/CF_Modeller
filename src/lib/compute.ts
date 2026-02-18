@@ -150,9 +150,13 @@ export function computeScenario(
 
   const currentIncentiveForTCC = currentIncentive > 0 ? currentIncentive : 0
   const annualIncentiveForTCC = annualIncentive > 0 ? annualIncentive : 0
-  // Quality payments: use qualityPayments column only. Do not use currentTCC as fallback (file Current TCC is total, not a component).
+  // Quality payment (value-based): use qualityPayments column only. Do not use currentTCC as fallback (file Current TCC is total, not a component).
   const qualityPayments = num(provider.qualityPayments) || 0
-  const otherIncentives = num(provider.otherIncentives) || 0
+  const otherIncentives =
+    (num(provider.otherIncentives) || 0) +
+    (num(provider.otherIncentive1) || 0) +
+    (num(provider.otherIncentive2) || 0) +
+    (num(provider.otherIncentive3) || 0)
 
   // PSQ dollars: current uses currentPsqPercent, modeled uses psqPercent. Same basis for both.
   let psqDollars: number
