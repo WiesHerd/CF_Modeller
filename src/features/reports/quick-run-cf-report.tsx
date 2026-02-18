@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { ArrowLeft, ChevronDown, Eraser, FileDown, FileSpreadsheet, Gauge, Play, Printer, Search, Users } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Eraser, FileDown, FileSpreadsheet, Gauge, Play, Printer, Search, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -102,6 +102,14 @@ function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
+function getProviderScopeKey(p: ProviderRow): string {
+  const id = (p.providerId ?? '').toString().trim()
+  const name = (p.providerName ?? '').toString().trim()
+  const specialty = (p.specialty ?? '').toString().trim()
+  const division = (p.division ?? '').toString().trim()
+  return `${id}|${name}|${specialty}|${division}`
+}
+
 /** Trigger label for scope dropdown (matches Compensation type pattern). emptyLabel when size 0, else allLabel when all selected, else count. */
 function scopeSelectLabel(
   selected: Set<string>,
@@ -121,6 +129,7 @@ export interface QuickRunCFReportProps {
   scenarioInputs: ScenarioInputs
   batchSynonymMap: SynonymMap
   onBack: () => void
+  onNavigateToCfOptimizer?: () => void
 }
 
 export function QuickRunCFReport({
@@ -129,6 +138,7 @@ export function QuickRunCFReport({
   scenarioInputs,
   batchSynonymMap,
   onBack,
+  onNavigateToCfOptimizer,
 }: QuickRunCFReportProps) {
   const [result, setResult] = useState<OptimizerRunResult | null>(null)
   const [isRunning, setIsRunning] = useState(false)
@@ -140,13 +150,20 @@ export function QuickRunCFReport({
   } | null>(null)
   const workerRef = useRef<Worker | null>(null)
 
+  // --- Scope panel visibility ---
+  const [scopeCollapsed, setScopeCollapsed] = useState(false)
+
   // --- Scope selection ---
   const [selectedModels, setSelectedModels] = useState<Set<string>>(() => new Set(['productivity']))
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(() => new Set())
+  const [selectedSpecialties, setSelectedSpecialties] = useState<Set<string>>(() => new Set())
+  const [excludedProviderKeys, setExcludedProviderKeys] = useState<Set<string>>(() => new Set())
 
   // Search state inside each dropdown
   const [modelSearch, setModelSearch] = useState('')
   const [typeSearch, setTypeSearch] = useState('')
+  const [specialtySearch, setSpecialtySearch] = useState('')
+  const [excludeProviderSearch, setExcludeProviderSearch] = useState('')
 
   // Derived option lists from uploaded data
   const availableModels = useMemo(() => {
@@ -169,8 +186,7 @@ export function QuickRunCFReport({
     [availableTypes, typeSearch]
   )
 
-  // Providers matching current scope
-  const scopedProviders = useMemo(() => {
+  const providersByModelAndType = useMemo(() => {
     return providerRows.filter((p) => {
       const model = (p.productivityModel ?? '').trim().toLowerCase()
       const type = (p.providerType ?? '').trim().toLowerCase()
@@ -181,19 +197,65 @@ export function QuickRunCFReport({
     })
   }, [providerRows, selectedModels, selectedTypes])
 
+  const availableSpecialties = useMemo(() => {
+    const s = new Set(
+      providersByModelAndType
+        .map((p) => (p.specialty ?? '').trim())
+        .filter(Boolean)
+    )
+    return Array.from(s).sort()
+  }, [providersByModelAndType])
+
+  const filteredSpecialties = useMemo(
+    () => availableSpecialties.filter((s) => s.toLowerCase().includes(specialtySearch.trim().toLowerCase())),
+    [availableSpecialties, specialtySearch]
+  )
+
+  const providersInSpecialtyScope = useMemo(() => {
+    if (selectedSpecialties.size === 0) return providersByModelAndType
+    return providersByModelAndType.filter((p) => selectedSpecialties.has((p.specialty ?? '').trim()))
+  }, [providersByModelAndType, selectedSpecialties])
+
+  const filteredExcludedProviders = useMemo(() => {
+    const q = excludeProviderSearch.trim().toLowerCase()
+    const sorted = [...providersInSpecialtyScope].sort((a, b) =>
+      String(a.providerName ?? '').localeCompare(String(b.providerName ?? ''))
+    )
+    if (!q) return sorted
+    return sorted.filter((p) => {
+      const name = String(p.providerName ?? '').toLowerCase()
+      const specialty = String(p.specialty ?? '').toLowerCase()
+      const division = String(p.division ?? '').toLowerCase()
+      const id = String(p.providerId ?? '').toLowerCase()
+      return name.includes(q) || specialty.includes(q) || division.includes(q) || id.includes(q)
+    })
+  }, [providersInSpecialtyScope, excludeProviderSearch])
+
+  // Providers matching full scope
+  const scopedProviders = useMemo(() => {
+    if (excludedProviderKeys.size === 0) return providersInSpecialtyScope
+    return providersInSpecialtyScope.filter((p) => !excludedProviderKeys.has(getProviderScopeKey(p)))
+  }, [providersInSpecialtyScope, excludedProviderKeys])
+
   const hasData = providerRows.length > 0 && marketRows.length > 0
   const hasScopedProviders = scopedProviders.length > 0
 
   const isDefaultScope =
     selectedModels.size === 1 &&
     selectedModels.has('productivity') &&
-    selectedTypes.size === 0
+    selectedTypes.size === 0 &&
+    selectedSpecialties.size === 0 &&
+    excludedProviderKeys.size === 0
 
   const handleClearScope = () => {
     setSelectedModels(new Set(['productivity']))
     setSelectedTypes(new Set())
+    setSelectedSpecialties(new Set())
+    setExcludedProviderKeys(new Set())
     setModelSearch('')
     setTypeSearch('')
+    setSpecialtySearch('')
+    setExcludeProviderSearch('')
   }
 
   const toggleModel = (model: string) => {
@@ -216,6 +278,41 @@ export function QuickRunCFReport({
       return next
     })
   }
+
+  const toggleSpecialty = (specialty: string) => {
+    setSelectedSpecialties((prev) => {
+      const next = new Set(prev)
+      if (next.has(specialty)) next.delete(specialty)
+      else next.add(specialty)
+      return next
+    })
+  }
+
+  const toggleExcludedProvider = (provider: ProviderRow) => {
+    const key = getProviderScopeKey(provider)
+    setExcludedProviderKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  useEffect(() => {
+    const allowed = new Set(availableSpecialties)
+    setSelectedSpecialties((prev) => {
+      const next = new Set([...prev].filter((s) => allowed.has(s)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [availableSpecialties])
+
+  useEffect(() => {
+    const allowedKeys = new Set(providersInSpecialtyScope.map((p) => getProviderScopeKey(p)))
+    setExcludedProviderKeys((prev) => {
+      const next = new Set([...prev].filter((k) => allowedKeys.has(k)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [providersInSpecialtyScope])
 
   useEffect(() => {
     return () => {
@@ -297,39 +394,62 @@ export function QuickRunCFReport({
 
   // ── Scope panel ──────────────────────────────────────────────────────────
   const scopePanel = (
-    <div className="rounded-lg border border-border/70 bg-muted/30 p-4 space-y-4">
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+    <div className="rounded-lg border border-border/70 bg-muted/30">
+      {/* Header row — always visible, click to toggle */}
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+        onClick={() => setScopeCollapsed((c) => !c)}
+        aria-expanded={!scopeCollapsed}
+      >
+        <div className="flex items-center gap-2 flex-wrap">
           <Users className="size-4 text-muted-foreground shrink-0" />
-          <p className="text-sm font-medium text-foreground">Provider scope</p>
+          <span className="text-sm font-medium text-foreground">Provider scope</span>
           <Badge variant="secondary" className="tabular-nums text-xs">
             {scopedProviders.length} provider{scopedProviders.length !== 1 ? 's' : ''} in scope
           </Badge>
+          {excludedProviderKeys.size > 0 ? (
+            <Badge variant="outline" className="tabular-nums text-xs">
+              {excludedProviderKeys.size} excluded
+            </Badge>
+          ) : null}
+          {!isDefaultScope && scopeCollapsed && (
+            <Badge variant="outline" className="text-xs text-amber-700 border-amber-300 bg-amber-50 dark:text-amber-300 dark:border-amber-700 dark:bg-amber-950/30">
+              Custom scope
+            </Badge>
+          )}
         </div>
-        {!isDefaultScope && (
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  onClick={handleClearScope}
-                  aria-label="Reset scope to defaults"
-                >
-                  <Eraser className="size-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Reset to defaults</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {!isDefaultScope && !scopeCollapsed && (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent"
+                    onClick={(e) => { e.stopPropagation(); handleClearScope() }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleClearScope() }}}
+                    aria-label="Reset scope to defaults"
+                  >
+                    <Eraser className="size-4" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="left">Reset to defaults</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {scopeCollapsed
+            ? <ChevronDown className="size-4 text-muted-foreground" />
+            : <ChevronUp className="size-4 text-muted-foreground" />
+          }
+        </div>
+      </button>
 
-      {/* Filters grid */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* Filters grid — collapses */}
+      {!scopeCollapsed && (
+      <div className="px-4 pb-4 space-y-4 border-t border-border/50 pt-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
 
         {/* ── Compensation model (same input dropdown pattern as Compensation type) ── */}
         <div className="space-y-1.5 min-w-0">
@@ -455,12 +575,145 @@ export function QuickRunCFReport({
             Filter by provider type (MD, APP, etc.). Empty = all types.
           </p>
         </div>
+        <div className="space-y-1.5 min-w-0">
+          <Label className="text-xs text-muted-foreground">Specialty</Label>
+          <DropdownMenu onOpenChange={(open) => { if (!open) setSpecialtySearch('') }}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                className="w-full min-w-0 justify-between bg-white dark:bg-background h-9 font-normal"
+              >
+                <span className="truncate">{scopeSelectLabel(selectedSpecialties, availableSpecialties, 'All specialties')}</span>
+                <ChevronDown className="size-4 opacity-50 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="max-h-[280px] overflow-hidden p-0 w-[var(--radix-dropdown-menu-trigger-width)]"
+              onCloseAutoFocus={(e: Event) => e.preventDefault()}
+            >
+              <div className="flex h-9 items-center gap-2 border-b border-border px-3">
+                <Search className="size-4 shrink-0 opacity-50" />
+                <Input
+                  placeholder="Search specialties…"
+                  value={specialtySearch}
+                  onChange={(e) => setSpecialtySearch(e.target.value)}
+                  className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto p-1">
+                <DropdownMenuLabel>Specialty</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={selectedSpecialties.size === 0}
+                  onSelect={(e) => { e.preventDefault() }}
+                  onCheckedChange={(checked) => { if (checked) setSelectedSpecialties(new Set()) }}
+                >
+                  All specialties
+                </DropdownMenuCheckboxItem>
+                {availableSpecialties.length === 0 ? (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">No specialties in scope</div>
+                ) : filteredSpecialties.length === 0 ? (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                ) : (
+                  filteredSpecialties.map((specialty) => (
+                    <DropdownMenuCheckboxItem
+                      key={specialty}
+                      checked={selectedSpecialties.has(specialty)}
+                      onSelect={(e) => { e.preventDefault() }}
+                      onCheckedChange={() => toggleSpecialty(specialty)}
+                    >
+                      {specialty}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <p className="text-[11px] text-muted-foreground">
+            Narrow the run to one or more specialties.
+          </p>
+        </div>
+        <div className="space-y-1.5 min-w-0">
+          <Label className="text-xs text-muted-foreground">Exclude individuals</Label>
+          <DropdownMenu onOpenChange={(open) => { if (!open) setExcludeProviderSearch('') }}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                className="w-full min-w-0 justify-between bg-white dark:bg-background h-9 font-normal"
+              >
+                <span className="truncate">
+                  {excludedProviderKeys.size === 0
+                    ? 'No exclusions'
+                    : `${excludedProviderKeys.size} excluded`}
+                </span>
+                <ChevronDown className="size-4 opacity-50 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="max-h-[320px] overflow-hidden p-0 w-[var(--radix-dropdown-menu-trigger-width)]"
+              onCloseAutoFocus={(e: Event) => e.preventDefault()}
+            >
+              <div className="flex h-9 items-center gap-2 border-b border-border px-3">
+                <Search className="size-4 shrink-0 opacity-50" />
+                <Input
+                  placeholder="Search providers…"
+                  value={excludeProviderSearch}
+                  onChange={(e) => setExcludeProviderSearch(e.target.value)}
+                  className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div className="max-h-[240px] overflow-y-auto p-1">
+                <DropdownMenuLabel>Exclude providers</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={excludedProviderKeys.size === 0}
+                  onSelect={(e) => { e.preventDefault() }}
+                  onCheckedChange={(checked) => { if (checked) setExcludedProviderKeys(new Set()) }}
+                >
+                  No exclusions
+                </DropdownMenuCheckboxItem>
+                {providersInSpecialtyScope.length === 0 ? (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">No providers in current scope</div>
+                ) : filteredExcludedProviders.length === 0 ? (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                ) : (
+                  filteredExcludedProviders.map((provider) => {
+                    const key = getProviderScopeKey(provider)
+                    const name = String(provider.providerName ?? provider.providerId ?? 'Unknown provider')
+                    const subtitle = [provider.specialty, provider.division].filter(Boolean).join(' · ')
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={key}
+                        checked={excludedProviderKeys.has(key)}
+                        onSelect={(e) => { e.preventDefault() }}
+                        onCheckedChange={() => toggleExcludedProvider(provider)}
+                      >
+                        <span className="truncate">
+                          {name}{subtitle ? ` — ${subtitle}` : ''}
+                        </span>
+                      </DropdownMenuCheckboxItem>
+                    )
+                  })
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <p className="text-[11px] text-muted-foreground">
+            Exclude specific providers from this run.
+          </p>
+        </div>
       </div>
 
       {!hasScopedProviders && (
         <p className="text-sm text-amber-700 dark:text-amber-400">
           No providers match the current scope. Adjust the filters above.
         </p>
+      )}
+      </div>
       )}
     </div>
   )
@@ -487,7 +740,7 @@ export function QuickRunCFReport({
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Recommended conversion factors by specialty using default settings.
-                Adjust the scope above to include different provider types or compensation models.
+                Adjust provider scope by compensation model, provider type, specialty, or excluded individuals.
               </p>
               <Button onClick={handleRun} disabled={!hasScopedProviders} className="gap-2">
                 <Play className="size-4" /> Run
@@ -575,7 +828,19 @@ export function QuickRunCFReport({
                   />
 
                   <p className="text-xs text-muted-foreground">
-                    Want to customize objectives, governance, or TCC settings? Use <strong>CF Optimizer</strong> in Batch.
+                    Want to customize objectives, governance, or TCC settings? Use{' '}
+                    {onNavigateToCfOptimizer ? (
+                      <button
+                        type="button"
+                        onClick={onNavigateToCfOptimizer}
+                        className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80 transition-colors cursor-pointer"
+                      >
+                        CF Optimizer
+                      </button>
+                    ) : (
+                      <strong>CF Optimizer</strong>
+                    )}{' '}
+                    in Batch.
                   </p>
                 </div>
               ) : null}

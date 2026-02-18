@@ -264,6 +264,9 @@ export function ReportsScreen({
         scenarioInputs={scenarioInputs}
         batchSynonymMap={batchSynonymMap}
         onBack={() => setReportView('list')}
+        onNavigateToCfOptimizer={
+          onNavigateToBatchCard ? () => onNavigateToBatchCard('cf-optimizer') : undefined
+        }
       />
     )
   }
