@@ -104,17 +104,22 @@ export function saveSavedScenarios(scenarios: SavedScenario[]): void {
 }
 
 export interface DataBrowserFilters {
-  providerSpecialty: string
-  providerDivision: string
+  /** Multi-select: empty = all specialties. */
+  providerSpecialty: string[]
+  /** Multi-select: empty = all divisions. */
+  providerDivision: string[]
   providerModel: string
+  /** Multi-select: empty = all provider types. */
+  providerType: string[]
   marketSpecialty: string
   dataTab: 'providers' | 'market'
 }
 
 const defaultDataBrowserFilters: DataBrowserFilters = {
-  providerSpecialty: 'all',
-  providerDivision: 'all',
+  providerSpecialty: [],
+  providerDivision: [],
   providerModel: 'all',
+  providerType: [],
   marketSpecialty: 'all',
   dataTab: 'providers',
 }
@@ -126,10 +131,29 @@ export function loadDataBrowserFilters(): DataBrowserFilters {
     const data = JSON.parse(s) as unknown
     if (!data || typeof data !== 'object') return defaultDataBrowserFilters
     const d = data as Record<string, unknown>
+    const rawSpecialty = d.providerSpecialty
+    const providerSpecialty: string[] = Array.isArray(rawSpecialty)
+      ? rawSpecialty.filter((x): x is string => typeof x === 'string')
+      : typeof rawSpecialty === 'string'
+        ? rawSpecialty === 'all' || rawSpecialty === '' ? [] : [rawSpecialty]
+        : defaultDataBrowserFilters.providerSpecialty
+    const rawDivision = d.providerDivision
+    const providerDivision: string[] = Array.isArray(rawDivision)
+      ? rawDivision.filter((x): x is string => typeof x === 'string')
+      : typeof rawDivision === 'string'
+        ? rawDivision === 'all' || rawDivision === '' ? [] : [rawDivision]
+        : defaultDataBrowserFilters.providerDivision
+    const rawProviderType = d.providerType
+    const providerType: string[] = Array.isArray(rawProviderType)
+      ? rawProviderType.filter((x): x is string => typeof x === 'string')
+      : typeof rawProviderType === 'string'
+        ? rawProviderType === 'all' || rawProviderType === '' ? [] : [rawProviderType]
+        : defaultDataBrowserFilters.providerType
     return {
-      providerSpecialty: typeof d.providerSpecialty === 'string' ? d.providerSpecialty : defaultDataBrowserFilters.providerSpecialty,
-      providerDivision: typeof d.providerDivision === 'string' ? d.providerDivision : defaultDataBrowserFilters.providerDivision,
+      providerSpecialty,
+      providerDivision,
       providerModel: typeof d.providerModel === 'string' ? d.providerModel : defaultDataBrowserFilters.providerModel,
+      providerType,
       marketSpecialty: typeof d.marketSpecialty === 'string' ? d.marketSpecialty : defaultDataBrowserFilters.marketSpecialty,
       dataTab: d.dataTab === 'market' ? 'market' : 'providers',
     }

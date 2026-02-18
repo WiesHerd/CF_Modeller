@@ -33,6 +33,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -47,15 +48,7 @@ import { cn } from '@/lib/utils'
 import { DATA_GRID, getPinnedCellStyles, PINNED_HEADER_CLASS, PINNED_CELL_CLASS, PINNED_CELL_STRIPED_CLASS } from '@/lib/data-grid-styles'
 import { loadDataBrowserFilters, saveDataBrowserFilters, type DataBrowserFilters } from '@/lib/storage'
 import { formatCurrency, formatNumber } from '@/utils/format'
-import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, LayoutList, Pencil, Pin, PinOff, Plus, Table2, Trash2 } from 'lucide-react'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
+import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, Eraser, LayoutList, Pencil, Pin, PinOff, Plus, Search, Table2, Trash2 } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import { ProviderEditModal } from '@/features/data/provider-edit-modal'
@@ -223,6 +216,8 @@ export function DataTablesScreen({
               onDivisionFilterChange={(v) => setPersistedFilters((p: DataBrowserFilters) => ({ ...p, providerDivision: v }))}
               modelFilter={persistedFilters.providerModel}
               onModelFilterChange={(v) => setPersistedFilters((p: DataBrowserFilters) => ({ ...p, providerModel: v }))}
+              providerTypeFilter={persistedFilters.providerType}
+              onProviderTypeFilterChange={(v) => setPersistedFilters((p: DataBrowserFilters) => ({ ...p, providerType: v }))}
               onUpdateProvider={onUpdateProvider}
               onAddProvider={onAddProvider}
               onDeleteProvider={onDeleteProvider}
@@ -273,12 +268,17 @@ const providerHelper = createColumnHelper<ProviderRow>()
 
 interface ProviderDataTableProps {
   rows: ProviderRow[]
-  specialtyFilter?: string
-  onSpecialtyFilterChange?: (value: string) => void
-  divisionFilter?: string
-  onDivisionFilterChange?: (value: string) => void
+  /** Multi-select: empty = all specialties. */
+  specialtyFilter?: string[]
+  onSpecialtyFilterChange?: (value: string[]) => void
+  /** Multi-select: empty = all divisions. */
+  divisionFilter?: string[]
+  onDivisionFilterChange?: (value: string[]) => void
   modelFilter?: string
   onModelFilterChange?: (value: string) => void
+  /** Multi-select: empty = all provider types. */
+  providerTypeFilter?: string[]
+  onProviderTypeFilterChange?: (value: string[]) => void
   onUpdateProvider?: (providerId: string, updates: Partial<ProviderRow>) => void
   onAddProvider?: (row: ProviderRow) => void
   onDeleteProvider?: (providerId: string) => void
@@ -286,25 +286,45 @@ interface ProviderDataTableProps {
 
 function ProviderDataTable({
   rows,
-  specialtyFilter: specialtyFilterProp = 'all',
+  specialtyFilter: specialtyFilterProp,
   onSpecialtyFilterChange,
-  divisionFilter: divisionFilterProp = 'all',
+  divisionFilter: divisionFilterProp,
   onDivisionFilterChange,
   modelFilter: modelFilterProp = 'all',
   onModelFilterChange,
+  providerTypeFilter: providerTypeFilterProp,
+  onProviderTypeFilterChange,
   onUpdateProvider,
   onAddProvider,
   onDeleteProvider,
 }: ProviderDataTableProps) {
-  const [internalSpecialty, setInternalSpecialty] = useState('all')
-  const [internalDivision, setInternalDivision] = useState('all')
+  const [internalSpecialty, setInternalSpecialty] = useState<string[]>([])
+  const [internalDivision, setInternalDivision] = useState<string[]>([])
   const [internalModel, setInternalModel] = useState('all')
-  const specialtyFilter = specialtyFilterProp ?? internalSpecialty
+  const [internalProviderType, setInternalProviderType] = useState<string[]>([])
+  const rawSpecialty = specialtyFilterProp ?? internalSpecialty
+  const specialtyFilter = Array.isArray(rawSpecialty)
+    ? rawSpecialty
+    : rawSpecialty === 'all' || rawSpecialty === '' || rawSpecialty == null
+      ? []
+      : [rawSpecialty]
   const setSpecialtyFilter = onSpecialtyFilterChange ?? setInternalSpecialty
-  const divisionFilter = divisionFilterProp ?? internalDivision
+  const rawDivision = divisionFilterProp ?? internalDivision
+  const divisionFilter = Array.isArray(rawDivision)
+    ? rawDivision
+    : rawDivision === 'all' || rawDivision === '' || rawDivision == null
+      ? []
+      : [rawDivision]
   const setDivisionFilter = onDivisionFilterChange ?? setInternalDivision
   const modelFilter = modelFilterProp ?? internalModel
   const setModelFilter = onModelFilterChange ?? setInternalModel
+  const rawProviderType = providerTypeFilterProp ?? internalProviderType
+  const providerTypeFilter = Array.isArray(rawProviderType)
+    ? rawProviderType
+    : rawProviderType === 'all' || rawProviderType === '' || rawProviderType == null
+      ? []
+      : [rawProviderType]
+  const setProviderTypeFilter = onProviderTypeFilterChange ?? setInternalProviderType
 
   const [providerModalOpen, setProviderModalOpen] = useState(false)
   const [providerModalMode, setProviderModalMode] = useState<'edit' | 'add'>('edit')
@@ -364,6 +384,7 @@ function ProviderDataTable({
   const [specialtySearch, setSpecialtySearch] = useState('')
   const [divisionSearch, setDivisionSearch] = useState('')
   const [modelSearch, setModelSearch] = useState('')
+  const [providerTypeSearch, setProviderTypeSearch] = useState('')
   const [totalFTEMin, setTotalFTEMin] = useState<string>('')
   const [totalFTEMax, setTotalFTEMax] = useState<string>('')
   const [clinicalFTEMin, setClinicalFTEMin] = useState<string>('')
@@ -374,11 +395,19 @@ function ProviderDataTable({
   const [totalWRVUsMax, setTotalWRVUsMax] = useState<string>('')
 
   const specialties = useMemo(() => {
-    const set = new Set(rows.map((r) => r.specialty).filter(Boolean))
+    const set = new Set(
+      rows
+        .map((r) => r.specialty)
+        .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    )
     return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)))
   }, [rows])
   const divisions = useMemo(() => {
-    const set = new Set(rows.map((r) => r.division).filter(Boolean))
+    const set = new Set(
+      rows
+        .map((r) => r.division)
+        .filter((d): d is string => typeof d === 'string' && d.trim().length > 0)
+    )
     return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)))
   }, [rows])
   const models = useMemo(() => {
@@ -396,11 +425,43 @@ function ProviderDataTable({
     const q = divisionSearch.toLowerCase()
     return divisions.filter((d) => String(d).toLowerCase().includes(q))
   }, [divisions, divisionSearch])
+
+  const toggleSpecialty = useCallback((specialty: string) => {
+    const next = specialtyFilter.includes(specialty)
+      ? specialtyFilter.filter((s) => s !== specialty)
+      : [...specialtyFilter, specialty]
+    setSpecialtyFilter(next)
+  }, [specialtyFilter, setSpecialtyFilter])
+  const toggleDivision = useCallback((division: string) => {
+    const next = divisionFilter.includes(division)
+      ? divisionFilter.filter((d) => d !== division)
+      : [...divisionFilter, division]
+    setDivisionFilter(next)
+  }, [divisionFilter, setDivisionFilter])
   const filteredModels = useMemo(() => {
     if (!modelSearch.trim()) return models
     const q = modelSearch.toLowerCase()
     return models.filter((m) => String(m).toLowerCase().includes(q))
   }, [models, modelSearch])
+  const providerTypes = useMemo(() => {
+    const set = new Set(
+      rows
+        .map((r) => r.providerType)
+        .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+    )
+    return Array.from(set).sort((a, b) => String(a).localeCompare(String(b)))
+  }, [rows])
+  const filteredProviderTypes = useMemo(() => {
+    if (!providerTypeSearch.trim()) return providerTypes
+    const q = providerTypeSearch.toLowerCase()
+    return providerTypes.filter((t) => String(t).toLowerCase().includes(q))
+  }, [providerTypes, providerTypeSearch])
+  const toggleProviderType = useCallback((providerType: string) => {
+    const next = providerTypeFilter.includes(providerType)
+      ? providerTypeFilter.filter((t) => t !== providerType)
+      : [...providerTypeFilter, providerType]
+    setProviderTypeFilter(next)
+  }, [providerTypeFilter, setProviderTypeFilter])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- TanStack Table column value types vary per column
   const columns = useMemo<ColumnDef<ProviderRow, any>[]>(
@@ -487,9 +548,10 @@ function ProviderDataTable({
 
   const filteredRows = useMemo(() => {
     let out = rows
-    if (specialtyFilter && specialtyFilter !== 'all') out = out.filter((r) => (r.specialty ?? '') === specialtyFilter)
-    if (divisionFilter && divisionFilter !== 'all') out = out.filter((r) => (r.division ?? '') === divisionFilter)
+    if (specialtyFilter.length > 0) out = out.filter((r) => specialtyFilter.includes(r.specialty ?? ''))
+    if (divisionFilter.length > 0) out = out.filter((r) => divisionFilter.includes(r.division ?? ''))
     if (modelFilter && modelFilter !== 'all') out = out.filter((r) => (r.productivityModel ?? '') === modelFilter)
+    if (providerTypeFilter.length > 0) out = out.filter((r) => providerTypeFilter.includes(r.providerType ?? ''))
     const tMin = totalFTEMin !== '' ? Number(totalFTEMin) : null
     const tMax = totalFTEMax !== '' ? Number(totalFTEMax) : null
     if (tMin != null && Number.isFinite(tMin)) out = out.filter((r) => (r.totalFTE ?? 0) >= tMin)
@@ -508,7 +570,7 @@ function ProviderDataTable({
     if (twMin != null && Number.isFinite(twMin)) out = out.filter((r) => (r.totalWRVUs ?? 0) >= twMin)
     if (twMax != null && Number.isFinite(twMax)) out = out.filter((r) => (r.totalWRVUs ?? 0) <= twMax)
     return out
-  }, [rows, specialtyFilter, divisionFilter, modelFilter, totalFTEMin, totalFTEMax, clinicalFTEMin, clinicalFTEMax, workRVUsMin, workRVUsMax, totalWRVUsMin, totalWRVUsMax])
+  }, [rows, specialtyFilter, divisionFilter, modelFilter, providerTypeFilter, totalFTEMin, totalFTEMax, clinicalFTEMin, clinicalFTEMax, workRVUsMin, workRVUsMax, totalWRVUsMin, totalWRVUsMax])
 
   const getOrderedColumnIds = useCallback((table: ReturnType<typeof useReactTable<ProviderRow>>) => {
     const order = table.getState().columnOrder
@@ -601,7 +663,7 @@ function ProviderDataTable({
   const filteredCount = table.getFilteredRowModel().rows.length
   const start = filteredCount === 0 ? 0 : pageIndex * pageSize + 1
   const end = Math.min((pageIndex + 1) * pageSize, filteredCount)
-  const hasActiveFilters = specialtyFilter !== 'all' || divisionFilter !== 'all' || modelFilter !== 'all' ||
+  const hasActiveFilters = specialtyFilter.length > 0 || divisionFilter.length > 0 || modelFilter !== 'all' || providerTypeFilter.length > 0 ||
     totalFTEMin !== '' || totalFTEMax !== '' || clinicalFTEMin !== '' || clinicalFTEMax !== '' ||
     workRVUsMin !== '' || workRVUsMax !== '' || totalWRVUsMin !== '' || totalWRVUsMax !== ''
 
@@ -609,8 +671,35 @@ function ProviderDataTable({
     <div className="space-y-3">
       {/* Toolbar: search + filters distributed across width like Ranges */}
       <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-        <span className="mb-2 block text-xs font-medium text-muted-foreground">Filters</span>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Filters</span>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                setSpecialtyFilter([])
+                setDivisionFilter([])
+                setModelFilter('all')
+                setProviderTypeFilter([])
+                setGlobalFilter('')
+                setTotalFTEMin('')
+                setTotalFTEMax('')
+                setClinicalFTEMin('')
+                setClinicalFTEMax('')
+                setWorkRVUsMin('')
+                setWorkRVUsMax('')
+                setTotalWRVUsMin('')
+                setTotalWRVUsMax('')
+              }}
+            >
+              <Eraser className="size-3" />
+              Clear filters
+            </Button>
+          )}
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="flex flex-col gap-1.5">
             <Label className="text-xs text-muted-foreground">Search table</Label>
             <Input
@@ -626,28 +715,50 @@ function ProviderDataTable({
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
                   <span className="truncate">
-                    {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter}
+                    {specialtyFilter.length === 0
+                      ? 'All specialties'
+                      : specialtyFilter.length === 1
+                        ? specialtyFilter[0]
+                        : `${specialtyFilter.length} specialties selected`}
                   </span>
                   <ChevronDown className="size-4 shrink-0 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
-              <Command shouldFilter={false} className="rounded-none border-0">
-                <CommandInput placeholder="Search specialties…" value={specialtySearch} onValueChange={setSpecialtySearch} className="h-9" />
-                <CommandList>
-                  <CommandEmpty>No specialty found.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem value="all" onSelect={() => setSpecialtyFilter('all')}>
-                      All specialties
-                    </CommandItem>
-                    {filteredSpecialties.map((s) => (
-                      <CommandItem key={s} value={String(s)} onSelect={() => setSpecialtyFilter(String(s))}>
-                        {s}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+              <div className="flex h-9 items-center gap-2 border-b border-border px-3">
+                <Search className="size-4 shrink-0 opacity-50" />
+                <Input
+                  placeholder="Search specialties…"
+                  value={specialtySearch}
+                  onChange={(e) => setSpecialtySearch(e.target.value)}
+                  className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div className="max-h-[260px] overflow-y-auto p-1">
+                <DropdownMenuLabel className="sr-only">Specialty</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={specialtyFilter.length === 0}
+                  onSelect={(e) => { e.preventDefault() }}
+                  onCheckedChange={(checked) => { if (checked) setSpecialtyFilter([]) }}
+                >
+                  All specialties
+                </DropdownMenuCheckboxItem>
+                {filteredSpecialties.length === 0 ? (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">No specialty found.</div>
+                ) : (
+                  filteredSpecialties.map((s) => (
+                    <DropdownMenuCheckboxItem
+                      key={s}
+                      checked={specialtyFilter.includes(s)}
+                      onSelect={(e) => { e.preventDefault() }}
+                      onCheckedChange={() => toggleSpecialty(s)}
+                    >
+                      {s}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                )}
+              </div>
             </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -657,28 +768,50 @@ function ProviderDataTable({
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
                   <span className="truncate">
-                    {divisionFilter === 'all' ? 'All divisions' : divisionFilter}
+                    {divisionFilter.length === 0
+                      ? 'All divisions'
+                      : divisionFilter.length === 1
+                        ? divisionFilter[0]
+                        : `${divisionFilter.length} divisions selected`}
                   </span>
                   <ChevronDown className="size-4 shrink-0 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
-                <Command shouldFilter={false} className="rounded-none border-0">
-                  <CommandInput placeholder="Search divisions…" value={divisionSearch} onValueChange={setDivisionSearch} className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>No division found.</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem value="all" onSelect={() => setDivisionFilter('all')}>
-                        All divisions
-                      </CommandItem>
-                      {filteredDivisions.map((d) => (
-                        <CommandItem key={d} value={String(d)} onSelect={() => setDivisionFilter(String(d))}>
-                          {d}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
+                <div className="flex h-9 items-center gap-2 border-b border-border px-3">
+                  <Search className="size-4 shrink-0 opacity-50" />
+                  <Input
+                    placeholder="Search divisions…"
+                    value={divisionSearch}
+                    onChange={(e) => setDivisionSearch(e.target.value)}
+                    className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div className="max-h-[260px] overflow-y-auto p-1">
+                  <DropdownMenuLabel className="sr-only">Division</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={divisionFilter.length === 0}
+                    onSelect={(e) => { e.preventDefault() }}
+                    onCheckedChange={(checked) => { if (checked) setDivisionFilter([]) }}
+                  >
+                    All divisions
+                  </DropdownMenuCheckboxItem>
+                  {filteredDivisions.length === 0 ? (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">No division found.</div>
+                  ) : (
+                    filteredDivisions.map((d) => (
+                      <DropdownMenuCheckboxItem
+                        key={d}
+                        checked={divisionFilter.includes(d)}
+                        onSelect={(e) => { e.preventDefault() }}
+                        onCheckedChange={() => toggleDivision(d)}
+                      >
+                        {d}
+                      </DropdownMenuCheckboxItem>
+                    ))
+                  )}
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -694,22 +827,84 @@ function ProviderDataTable({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
-                <Command shouldFilter={false} className="rounded-none border-0">
-                  <CommandInput placeholder="Search models…" value={modelSearch} onValueChange={setModelSearch} className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>No model found.</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem value="all" onSelect={() => setModelFilter('all')}>
-                        All models
-                      </CommandItem>
-                      {filteredModels.map((m) => (
-                        <CommandItem key={m} value={String(m)} onSelect={() => setModelFilter(String(m))}>
-                          {m}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
+                <div className="flex h-9 items-center gap-2 border-b border-border px-3">
+                  <Search className="size-4 shrink-0 opacity-50" />
+                  <Input
+                    placeholder="Search models…"
+                    value={modelSearch}
+                    onChange={(e) => setModelSearch(e.target.value)}
+                    className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div className="max-h-[260px] overflow-y-auto p-1">
+                  <DropdownMenuLabel className="sr-only">Model</DropdownMenuLabel>
+                  <DropdownMenuItem onSelect={() => setModelFilter('all')}>
+                    All models
+                  </DropdownMenuItem>
+                  {filteredModels.length === 0 ? (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">No model found.</div>
+                  ) : (
+                    filteredModels.map((m) => (
+                      <DropdownMenuItem key={m} onSelect={() => setModelFilter(String(m))}>
+                        {m}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">Provider type</Label>
+            <DropdownMenu onOpenChange={(open) => !open && setProviderTypeSearch('')}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
+                  <span className="truncate">
+                    {providerTypeFilter.length === 0
+                      ? 'All types'
+                      : providerTypeFilter.length === 1
+                        ? providerTypeFilter[0]
+                        : `${providerTypeFilter.length} types selected`}
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
+                <div className="flex h-9 items-center gap-2 border-b border-border px-3">
+                  <Search className="size-4 shrink-0 opacity-50" />
+                  <Input
+                    placeholder="Search types…"
+                    value={providerTypeSearch}
+                    onChange={(e) => setProviderTypeSearch(e.target.value)}
+                    className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div className="max-h-[260px] overflow-y-auto p-1">
+                  <DropdownMenuLabel className="sr-only">Provider type</DropdownMenuLabel>
+                  <DropdownMenuCheckboxItem
+                    checked={providerTypeFilter.length === 0}
+                    onSelect={(e) => { e.preventDefault() }}
+                    onCheckedChange={(checked) => { if (checked) setProviderTypeFilter([]) }}
+                  >
+                    All types
+                  </DropdownMenuCheckboxItem>
+                  {filteredProviderTypes.length === 0 ? (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">No provider type found.</div>
+                  ) : (
+                    filteredProviderTypes.map((t) => (
+                      <DropdownMenuCheckboxItem
+                        key={t}
+                        checked={providerTypeFilter.includes(t)}
+                        onSelect={(e) => { e.preventDefault() }}
+                        onCheckedChange={() => toggleProviderType(t)}
+                      >
+                        {t}
+                      </DropdownMenuCheckboxItem>
+                    ))
+                  )}
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -1200,22 +1395,31 @@ function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange, onUpd
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden p-0" onCloseAutoFocus={(e: Event) => e.preventDefault()}>
-                <Command shouldFilter={false} className="rounded-none border-0">
-                  <CommandInput placeholder="Search specialties…" value={specialtySearch} onValueChange={setSpecialtySearch} className="h-9" />
-                  <CommandList>
-                    <CommandEmpty>No specialty found.</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem value="all" onSelect={() => onSpecialtyFilterChange('all')}>
-                        All specialties
-                      </CommandItem>
-                      {filteredSpecialties.map((s) => (
-                        <CommandItem key={s} value={String(s)} onSelect={() => onSpecialtyFilterChange(String(s))}>
-                          {s}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
+                <div className="flex h-9 items-center gap-2 border-b border-border px-3">
+                  <Search className="size-4 shrink-0 opacity-50" />
+                  <Input
+                    placeholder="Search specialties…"
+                    value={specialtySearch}
+                    onChange={(e) => setSpecialtySearch(e.target.value)}
+                    className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+                <div className="max-h-[260px] overflow-y-auto p-1">
+                  <DropdownMenuLabel className="sr-only">Specialty</DropdownMenuLabel>
+                  <DropdownMenuItem onSelect={() => onSpecialtyFilterChange('all')}>
+                    All specialties
+                  </DropdownMenuItem>
+                  {filteredSpecialties.length === 0 ? (
+                    <div className="px-2 py-2 text-sm text-muted-foreground">No specialty found.</div>
+                  ) : (
+                    filteredSpecialties.map((s) => (
+                      <DropdownMenuItem key={s} onSelect={() => onSpecialtyFilterChange(String(s))}>
+                        {s}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
