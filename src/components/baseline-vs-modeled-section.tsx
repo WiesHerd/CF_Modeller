@@ -314,7 +314,7 @@ function TCCBreakdownDrawer({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground mb-4">
-              Current TCC = base pay (total) + wRVU incentive (if positive) + PSQ/VBP + quality payments (from file) + other incentives. The table below shows each component.
+              Current TCC = base pay (total) + wRVU incentive (if positive) + PSQ/VBP + quality payments (from file) + other incentives (Other incentives + Other incentive 1/2/3 from your upload). The table below shows each component.
             </p>
           )}
           <Table className="w-full caption-bottom text-sm table-auto border border-border rounded-md">

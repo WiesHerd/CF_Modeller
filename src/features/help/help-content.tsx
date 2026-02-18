@@ -154,6 +154,9 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
             <p className="text-muted-foreground text-sm">
               <strong className="text-foreground">When to use:</strong> Start here for any workflow. Single scenario and all batch tools require provider and market data to be loaded first.
             </p>
+            <p className="text-muted-foreground text-sm">
+              <strong className="text-foreground">Total Cash Compensation (TCC)</strong> is built from: base pay (base salary + non-clinical) + wRVU incentive (if positive) + PSQ + quality payments + other incentives. &quot;Other incentives&quot; is the sum of the columns <strong className="text-foreground">Other incentives</strong> and <strong className="text-foreground">Other incentive 1, 2, 3</strong> when you map them on upload.
+            </p>
             <ul className="text-muted-foreground text-sm list-disc pl-5 space-y-1">
               <li>Upload provider and market CSVs</li>
               <li>Column mapping for required fields</li>

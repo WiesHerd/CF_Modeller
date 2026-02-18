@@ -964,6 +964,11 @@ export function UploadAndMapping({
                 <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {group.label}
                 </h4>
+                {group.label === 'Compensation & wRVUs' && (
+                  <p className="text-xs text-muted-foreground">
+                    Base salary, quality payments, and other incentives (including Other incentive 1, 2, 3) roll into <strong className="text-foreground">Total Cash Compensation (TCC)</strong> in the Modeller and Optimizer. Map each column to your file or skip if not used.
+                  </p>
+                )}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {group.keys.map((key) => (
                     <div key={key} className="flex flex-col gap-1.5">
