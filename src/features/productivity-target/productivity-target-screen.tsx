@@ -405,7 +405,7 @@ export function ProductivityTargetScreen({
                     </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    {result == null ? 'Run first, then save this scenario.' : 'Save scenario'}
+                    {result == null ? 'Run the optimizer first to enable saving.' : 'Save scenario'}
                   </TooltipContent>
                 </Tooltip>
                 {savedProductivityTargetConfigs.length > 0 && onLoadProductivityTargetConfig ? (

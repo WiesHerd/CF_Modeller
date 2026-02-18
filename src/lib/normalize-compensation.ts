@@ -6,6 +6,7 @@
 import type { ProviderRow } from '@/types/provider'
 import type { PSQBasis } from '@/types/scenario'
 import type { AdditionalTCCConfig, TCCLayerConfig } from '@/lib/tcc-components'
+import { computePSQForTotalPayBasis } from '@/lib/tcc-components'
 
 function num(x: unknown): number {
   if (typeof x === 'number' && !Number.isNaN(x)) return x
@@ -64,15 +65,18 @@ export function getClinicalBase(provider: ProviderRow): number {
 /**
  * PSQ dollars for baseline/modeled TCC.
  * If basis is percent of base: clinicalBase * (psqPercent/100).
+ * If basis is total_pay: (otherComp × pct%) / (1 − pct%) — pass otherComp (all TCC before PSQ).
+ *   When otherComp is not provided, falls back to clinicalBase.
  * If basis is fixed: psqFixedDollars (default 0 when not provided).
  */
 export function getPSQDollars(
   clinicalBase: number,
-  config: PSQConfig
+  config: PSQConfig,
+  otherComp?: number
 ): number {
   if (!config.include) return 0
   if (config.psqBasis === 'total_pay') {
-    return 0
+    return computePSQForTotalPayBasis(otherComp ?? clinicalBase, config.psqPercent ?? 0)
   }
   if (config.psqFixedDollars != null && Number.isFinite(config.psqFixedDollars)) {
     return config.psqFixedDollars
@@ -263,6 +267,7 @@ export function getQualityDollarsForOptimizerConfig(
 
 /**
  * Resolve a from-file amount: if componentOptions[id].normalizeForFTE is true, treat value as per 1.0 FTE (use value * cFTE).
+ * When normalizeForFTE is true and cFTE <= 0, returns 0 rather than the raw per-FTE amount.
  */
 function resolveFromFileAmount(
   rawValue: number,
@@ -270,15 +275,18 @@ function resolveFromFileAmount(
   cFTE: number,
   componentOptions?: Record<string, TCCComponentOptions>
 ): number {
-  if (rawValue === 0 || cFTE <= 0) return rawValue
+  if (rawValue === 0) return 0
   const opts = componentOptions?.[componentId]
-  if (opts?.normalizeForFTE) return rawValue * cFTE
+  if (opts?.normalizeForFTE) {
+    return cFTE > 0 ? rawValue * cFTE : 0
+  }
   return rawValue
 }
 
 /**
  * Baseline TCC for optimizer: clinical base + quality + work RVU incentive + (optional) other incentives + layered TCC.
  * Optimizer path does not pass includeOtherIncentives; other consumers (e.g. imputed-vs-market) may.
+ * PSQ is computed last so total_pay basis has a correct otherComp (all components before PSQ).
  */
 export function getBaselineTCCForOptimizer(
   provider: ProviderRow,
@@ -307,9 +315,11 @@ export function getBaselineTCCForOptimizer(
   const other = resolveFromFileAmount(otherRaw, 'otherIncentives', cFTE, config.componentOptions)
   const stipendRaw = config.includeStipend ? num(provider.nonClinicalPay) : 0
   const stipend = resolveFromFileAmount(stipendRaw, 'stipend', cFTE, config.componentOptions)
-  const psq = config.psqConfig ? getPSQDollars(clinicalBase, config.psqConfig) : 0
   const layered = getLayeredTCCAmount(config, provider, clinicalBase, cFTE)
-  return clinicalBase + psq + quality + incentive + other + stipend + layered
+  // Compute PSQ last: for total_pay basis, pass total before PSQ as otherComp
+  const beforePsq = clinicalBase + quality + incentive + other + stipend + layered
+  const psq = config.psqConfig ? getPSQDollars(clinicalBase, config.psqConfig, beforePsq) : 0
+  return beforePsq + psq
 }
 
 /** Breakdown of baseline TCC components for display (e.g. drawer build-up). */
@@ -337,7 +347,6 @@ export function getBaselineTCCBreakdown(
 ): BaselineTCCBreakdown {
   const clinicalBase = getClinicalBase(provider)
   const cFTE = getClinicalFTE(provider)
-  const psq = config.psqConfig ? getPSQDollars(clinicalBase, config.psqConfig) : 0
   const qualityRaw = config.includeQualityPayments
     ? config.qualityPaymentsSource === 'override_pct_of_base' && config.qualityPaymentsOverridePct != null
       ? clinicalBase * (config.qualityPaymentsOverridePct / 100)
@@ -361,7 +370,10 @@ export function getBaselineTCCBreakdown(
   const stipend = resolveFromFileAmount(stipendRaw, 'stipend', cFTE, config.componentOptions)
   const layeredTCC = getLayeredTCCAmount(config, provider, clinicalBase, cFTE)
   const additionalTCC = config.additionalTCCLayers?.length ? undefined : getAdditionalTCCAmount(config, clinicalBase, cFTE)
-  const total = clinicalBase + psq + qualityBreakdown + workRVUIncentive + otherIncentives + stipend + (layeredTCC ?? additionalTCC ?? 0)
+  // Compute PSQ last: for total_pay basis, pass total before PSQ as otherComp
+  const beforePsq = clinicalBase + qualityBreakdown + workRVUIncentive + otherIncentives + stipend + (layeredTCC ?? additionalTCC ?? 0)
+  const psq = config.psqConfig ? getPSQDollars(clinicalBase, config.psqConfig, beforePsq) : 0
+  const total = beforePsq + psq
   return { clinicalBase, psq, quality: qualityBreakdown, workRVUIncentive, otherIncentives, stipend, additionalTCC, layeredTCC, total }
 }
 

@@ -40,7 +40,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Command, CommandInput } from '@/components/ui/command'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ArrowLeft, ChevronLeft, ChevronRight, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, X } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, Eraser } from 'lucide-react'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
@@ -142,13 +142,6 @@ const DEFAULT_COL_WIDTH = 120
 const ROW_HEIGHT_PX = 40
 const TABLE_HEADER_HEIGHT_PX = 42
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
-
-const MIN_PROVIDERS_OPTIONS = [
-  { value: 0, label: 'All' },
-  { value: 2, label: 'At least 2' },
-  { value: 5, label: 'At least 5' },
-  { value: 10, label: 'At least 10' },
-] as const
 
 type PercentileFilterValue = 'all' | 'below25' | '25-50' | '50-75' | '75-90' | 'above90'
 const PERCENTILE_FILTER_OPTIONS: { value: PercentileFilterValue; label: string }[] = [
@@ -291,7 +284,6 @@ export function ImputedVsMarketScreen({
 
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([])
   const [specialtySearch, setSpecialtySearch] = useState('')
-  const [minProviders, setMinProviders] = useState(0)
   const [percentileFilter, setPercentileFilter] = useState<PercentileFilterValue>('all')
   const [selectedAlignmentFilters, setSelectedAlignmentFilters] = useState<GapInterpretation[]>([])
 
@@ -308,18 +300,16 @@ export function ImputedVsMarketScreen({
   const filteredRows = useMemo(() => {
     let list = rows
     if (selectedSpecialties.length > 0) list = list.filter((r) => selectedSpecialties.includes(r.specialty))
-    if (minProviders > 0) list = list.filter((r) => r.providerCount >= minProviders)
     if (percentileFilter !== 'all') list = list.filter((r) => getPercentileBucket(r) === percentileFilter)
     if (selectedAlignmentFilters.length > 0) {
       const alignmentSet = new Set(selectedAlignmentFilters)
       list = list.filter((r) => alignmentSet.has(getAlignmentForRow(r)))
     }
     return list
-  }, [rows, selectedSpecialties, minProviders, percentileFilter, selectedAlignmentFilters])
+  }, [rows, selectedSpecialties, percentileFilter, selectedAlignmentFilters])
 
   const isFiltered =
     selectedSpecialties.length > 0 ||
-    minProviders > 0 ||
     percentileFilter !== 'all' ||
     selectedAlignmentFilters.length > 0 ||
     selectedProviderTypes.length > 0
@@ -806,24 +796,6 @@ export function ImputedVsMarketScreen({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <div className="space-y-1.5 w-[100px] shrink-0">
-                      <Label className="text-xs text-muted-foreground">Min providers</Label>
-                      <Select
-                        value={minProviders === 0 ? 'all' : String(minProviders)}
-                        onValueChange={(v) => setMinProviders(v === 'all' ? 0 : Number(v))}
-                      >
-                        <SelectTrigger className="w-full h-9 bg-white dark:bg-background">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MIN_PROVIDERS_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value === 0 ? 'all' : String(opt.value)}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
                     <div className="space-y-1.5 w-[140px] shrink-0">
                       <Label className="text-xs text-muted-foreground">Provider type</Label>
                       <DropdownMenu onOpenChange={(open) => !open && setProviderTypeSearch('')}>
@@ -937,22 +909,28 @@ export function ImputedVsMarketScreen({
                       </DropdownMenu>
                     </div>
                     {isFiltered && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 shrink-0 gap-1.5 text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          setSelectedSpecialties([])
-                          setMinProviders(0)
-                          setPercentileFilter('all')
-                          setSelectedAlignmentFilters([])
-                          setSelectedProviderTypes([])
-                        }}
-                      >
-                        <X className="size-4" aria-hidden />
-                        Clear filters
-                      </Button>
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setSelectedSpecialties([])
+                                setPercentileFilter('all')
+                                setSelectedAlignmentFilters([])
+                                setSelectedProviderTypes([])
+                              }}
+                              aria-label="Clear filters"
+                            >
+                              <Eraser className="size-4" aria-hidden />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Clear filters</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                   </div>
                 </div>
@@ -1082,7 +1060,7 @@ export function ImputedVsMarketScreen({
                     onKeyDown={handleTableKeyDown}
                   >
                   <div
-                    className="flex-1 min-h-0 overflow-auto min-w-0"
+                    className="flex-1 min-h-0 overflow-auto min-w-0 pb-2"
                     onKeyDownCapture={(e) => {
                       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && (e.target as HTMLElement).closest?.('td[role="gridcell"]')) {
                         e.preventDefault()

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, FileDown, FileSpreadsheet, Printer, Lock } from 'lucide-react'
+import { ArrowLeft, Eraser, FileDown, FileSpreadsheet, Printer, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { TccWrvuSummaryTable } from './tcc-wrvu-summary-table'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
@@ -264,24 +265,32 @@ export function SavedBatchRunReport({
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="aligned">Aligned</SelectItem>
-                <SelectItem value="overpaid">Pay above productivity</SelectItem>
-                <SelectItem value="underpaid">Underpaid vs productivity</SelectItem>
+                <SelectItem value="overpaid">Above market productivity</SelectItem>
+                <SelectItem value="underpaid">Below market productivity</SelectItem>
               </SelectContent>
             </Select>
             {(specialtyFilter !== 'all' || providerSearch.trim() || payVsProdFilter !== 'all') && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => {
-                  setSpecialtyFilter('all')
-                  setProviderSearch('')
-                  setPayVsProdFilter('all')
-                }}
-              >
-                Clear filters
-              </Button>
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setSpecialtyFilter('all')
+                        setProviderSearch('')
+                        setPayVsProdFilter('all')
+                      }}
+                      aria-label="Clear filters"
+                    >
+                      <Eraser className="size-4" aria-hidden />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Clear filters</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
         )}

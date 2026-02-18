@@ -251,7 +251,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
       }),
       columnHelper.accessor((r) => r.results?.tccPercentile, {
         id: 'tccPercentile',
-        header: 'TCC %tile',
+        header: 'TCC %ile',
         cell: (c) => {
           const val = c.getValue() as number | undefined
           const text = numOrEmpty(val)
@@ -268,7 +268,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
       }),
       columnHelper.accessor((r) => r.results?.modeledTCCPercentile, {
         id: 'modeledTCCPercentile',
-        header: 'Modeled TCC %tile',
+        header: 'Modeled TCC %ile',
         cell: (c) => {
           const val = c.getValue() as number | undefined
           const text = numOrEmpty(val)
@@ -285,7 +285,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
       }),
       columnHelper.accessor((r) => r.results?.wrvuPercentile, {
         id: 'wrvuPercentile',
-        header: 'wRVU %tile',
+        header: 'wRVU %ile',
         cell: (c) => {
           const val = c.getValue() as number | undefined
           const text = numOrEmpty(val)

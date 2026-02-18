@@ -134,7 +134,7 @@ export function ManageScenariosScreen({
       <Tabs defaultValue={TAB_IDS.scenarios} className="min-w-0 flex flex-col">
         <TabsList className="w-full sm:w-auto grid grid-cols-2 lg:grid-cols-4">
           <TabsTrigger value={TAB_IDS.scenarios}>
-            Model scenarios{savedScenarios.length > 0 ? ` (${savedScenarios.length})` : ''}
+            Saved scenarios{savedScenarios.length > 0 ? ` (${savedScenarios.length})` : ''}
           </TabsTrigger>
           <TabsTrigger value={TAB_IDS.batchRuns}>
             Batch runs{savedBatchRuns.length > 0 ? ` (${savedBatchRuns.length})` : ''}
@@ -143,7 +143,7 @@ export function ManageScenariosScreen({
             Batch configs{savedBatchScenarioConfigs.length > 0 ? ` (${savedBatchScenarioConfigs.length})` : ''}
           </TabsTrigger>
           <TabsTrigger value={TAB_IDS.optimizerConfigs}>
-            Optimizer{savedOptimizerConfigs.length > 0 ? ` (${savedOptimizerConfigs.length})` : ''}
+            CF Optimizer{savedOptimizerConfigs.length > 0 ? ` (${savedOptimizerConfigs.length})` : ''}
           </TabsTrigger>
         </TabsList>
 
@@ -151,7 +151,7 @@ export function ManageScenariosScreen({
           <Card className="border border-border rounded-lg shadow-sm overflow-hidden flex flex-col min-h-[320px]">
             <CardHeader className="pb-3 px-4 sm:px-6 border-b border-border shrink-0">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold text-foreground">Model scenarios</h3>
+                <h3 className="font-semibold text-foreground">Saved scenarios</h3>
                 {savedScenarios.length > 0 && (
                   <Button
                     type="button"
@@ -177,7 +177,7 @@ export function ManageScenariosScreen({
             <CardContent className="px-4 sm:px-6 pt-4 pb-4 min-w-0 overflow-hidden flex-1 min-h-0">
               {sortedScenarios.length === 0 ? (
                 <p className="text-muted-foreground py-8 text-center text-sm">
-                  No saved model scenarios yet. Save from Single scenario or Import data to add some.
+                  No saved scenarios yet. Go to Single scenario and save a scenario to see it here.
                 </p>
               ) : (
                 <div className="min-w-0 overflow-hidden rounded-md border h-full min-h-[240px]">
@@ -370,7 +370,7 @@ export function ManageScenariosScreen({
             <CardContent className="px-4 sm:px-6 pt-4 pb-4 min-w-0 overflow-hidden flex-1 min-h-0">
               {sortedConfigs.length === 0 ? (
                 <p className="text-muted-foreground py-8 text-center text-sm">
-                  No saved batch scenario configs yet. Save from the Batch scenario step to add some.
+                  No saved batch configs yet. Go to Batch → Run Batch Scenario, configure a scenario, and save the config to see it here.
                 </p>
               ) : (
                 <div className="min-w-0 overflow-hidden rounded-md border h-full min-h-[240px]">

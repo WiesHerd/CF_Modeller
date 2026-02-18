@@ -587,7 +587,7 @@ export function ConversionFactorOptimizerScreen({
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   {result == null
-                    ? 'Run the optimizer first, then save this scenario to compare later.'
+                    ? 'Run the optimizer first to enable saving.'
                     : 'Save scenario'}
                 </TooltipContent>
               </Tooltip>

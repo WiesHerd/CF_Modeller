@@ -104,6 +104,17 @@ export const TCC_DEFINITION_PRESETS: TCCDefinitionPreset[] = [
   },
 ]
 
+/**
+ * PSQ dollars for the `total_pay` basis.
+ * Formula: PSQ = (otherComp × pct%) / (1 − pct%)
+ * Where otherComp is total compensation before PSQ (e.g. base + incentive + quality).
+ * Returns 0 when pct is 0 or >= 100 (no valid percentage).
+ */
+export function computePSQForTotalPayBasis(otherComp: number, psqPercent: number): number {
+  if (psqPercent <= 0 || psqPercent >= 100) return 0
+  return (otherComp * (psqPercent / 100)) / (1 - psqPercent / 100)
+}
+
 /** Custom TCC column from upload: user maps a file column to a TCC component. */
 export interface CustomTCCColumnDefinition {
   id: string

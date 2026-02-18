@@ -647,7 +647,7 @@ export function BatchResultsDashboard({
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-muted-foreground">High risk</p>
                 <p className="text-xl font-semibold tabular-nums text-foreground">{summary.byRisk.high}</p>
-                <p className="text-[11px] text-muted-foreground">rows need review</p>
+                <p className="text-[11px] text-muted-foreground">providers need review</p>
               </div>
               {riskFilter === 'high' && (
                 <span className="text-xs text-destructive font-medium shrink-0">Filtered</span>
@@ -673,7 +673,7 @@ export function BatchResultsDashboard({
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-muted-foreground">Medium risk</p>
                 <p className="text-xl font-semibold tabular-nums text-foreground">{summary.byRisk.medium}</p>
-                <p className="text-[11px] text-muted-foreground">watch list</p>
+                <p className="text-[11px] text-muted-foreground">providers need review</p>
               </div>
               {riskFilter === 'medium' && (
                 <span className="text-xs text-amber-600 dark:text-amber-400 font-medium shrink-0">Filtered</span>
@@ -771,7 +771,7 @@ export function BatchResultsDashboard({
               <p className="text-xl font-semibold tabular-nums text-foreground">
                 {summary.avgTccPercentile != null ? summary.avgTccPercentile.toFixed(1) : '—'}
               </p>
-              <p className="text-[11px] text-muted-foreground">modeled TCC %tile</p>
+              <p className="text-[11px] text-muted-foreground">modeled TCC %ile</p>
             </div>
           </CardContent>
         </Card>
@@ -785,7 +785,7 @@ export function BatchResultsDashboard({
               <p className="text-xl font-semibold tabular-nums text-foreground">
                 {summary.avgWrvuPercentile != null ? summary.avgWrvuPercentile.toFixed(1) : '—'}
               </p>
-              <p className="text-[11px] text-muted-foreground">wRVU %tile vs market</p>
+              <p className="text-[11px] text-muted-foreground">wRVU %ile vs market</p>
             </div>
           </CardContent>
         </Card>
@@ -796,9 +796,9 @@ export function BatchResultsDashboard({
         <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-auto" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle className="text-sm">
-              {expandedChartId === 'gap' && 'Comp-vs-prod gap (modeled)'}
+              {expandedChartId === 'gap' && 'Compensation vs productivity gap (modeled)'}
               {expandedChartId === 'incentive' && 'Incentive distribution (modeled)'}
-              {expandedChartId === 'tccWrvu' && 'TCC %tile vs wRVU %tile by specialty'}
+              {expandedChartId === 'tccWrvu' && 'TCC %ile vs wRVU %ile by specialty'}
               {expandedChartId === 'flagged' && 'Flagged by division'}
             </DialogTitle>
           </DialogHeader>
@@ -809,8 +809,8 @@ export function BatchResultsDashboard({
                   <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
                   <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}`} />
                   <YAxis type="category" dataKey="specialty" width={120} tick={{ fontSize: 12 }} />
-                  <RechartsTooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Comp-vs-prod gap']} labelFormatter={(l) => `Specialty: ${l}`} />
-                  <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Comp-vs-prod gap">
+                  <RechartsTooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Compensation vs productivity gap']} labelFormatter={(l) => `Specialty: ${l}`} />
+                  <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Compensation vs productivity gap">
                     {gapBySpecialty.map((e) => (
                       <Cell key={e.specialty} fill={e.avgGap < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'} />
                     ))}
@@ -839,8 +839,8 @@ export function BatchResultsDashboard({
                   <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
                   <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}`} />
                   <YAxis type="category" dataKey="specialty" width={120} tick={{ fontSize: 12 }} />
-                  <RechartsTooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Gap (TCC %tile − wRVU %tile)']} labelFormatter={(l) => `Specialty: ${l}`} />
-                  <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Gap (TCC %tile − wRVU %tile)">
+                  <RechartsTooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Gap (TCC %ile − wRVU %ile)']} labelFormatter={(l) => `Specialty: ${l}`} />
+                  <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Gap (TCC %ile − wRVU %ile)">
                     {tccWrvuGapBySpecialty.map((e) => (
                       <Cell key={e.specialty} fill={e.avgGap < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'} />
                     ))}
@@ -877,11 +877,11 @@ export function BatchResultsDashboard({
             tabIndex={0}
             onClick={() => setExpandedChartId('gap')}
             onKeyDown={(e) => e.key === 'Enter' && setExpandedChartId('gap')}
-            aria-label="Expand Comp-vs-prod gap chart"
+            aria-label="Expand Compensation vs productivity gap chart"
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
-                <CardTitle className="text-sm">Comp-vs-prod gap (modeled)</CardTitle>
+                <CardTitle className="text-sm">Compensation vs productivity gap (modeled)</CardTitle>
                 <p className="text-xs text-muted-foreground">
                   {gapBySpecialty.length} specialty{gapBySpecialty.length !== 1 ? 'ies' : ''} · scroll to see all
                 </p>
@@ -895,8 +895,8 @@ export function BatchResultsDashboard({
                     <CartesianGrid strokeDasharray="2 4" className="stroke-muted" strokeOpacity={0.5} />
                     <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}`} />
                     <YAxis type="category" dataKey="specialty" width={80} tick={{ fontSize: 11 }} />
-                    <RechartsTooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Comp-vs-prod gap']} labelFormatter={(l) => `Specialty: ${l}`} />
-                    <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Comp-vs-prod gap">
+                    <RechartsTooltip contentStyle={{ fontSize: 12 }} formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Compensation vs productivity gap']} labelFormatter={(l) => `Specialty: ${l}`} />
+                    <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Compensation vs productivity gap">
                       {gapBySpecialty.map((e) => (
                         <Cell key={e.specialty} fill={e.avgGap < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'} />
                       ))}
@@ -979,7 +979,7 @@ export function BatchResultsDashboard({
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div>
-                <CardTitle className="text-sm">TCC %tile vs wRVU %tile by specialty</CardTitle>
+                <CardTitle className="text-sm">TCC %ile vs wRVU %ile by specialty</CardTitle>
                 <p className="text-xs text-muted-foreground">
                   {tccWrvuGapBySpecialty.length} specialty{tccWrvuGapBySpecialty.length !== 1 ? 'ies' : ''} · scroll to see all
                 </p>
@@ -1012,10 +1012,10 @@ export function BatchResultsDashboard({
                     />
                     <RechartsTooltip
                       contentStyle={{ fontSize: 12 }}
-                      formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Gap (TCC %tile − wRVU %tile)']}
+                      formatter={(value: number | undefined) => [value != null ? `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)} pts` : '—', 'Gap (TCC %ile − wRVU %ile)']}
                       labelFormatter={(label) => `Specialty: ${label}`}
                     />
-                    <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Gap (TCC %tile − wRVU %tile)">
+                    <Bar dataKey="avgGap" radius={[0, 4, 4, 0]} name="Gap (TCC %ile − wRVU %ile)">
                       {tccWrvuGapBySpecialty.map((e) => (
                         <Cell key={e.specialty} fill={e.avgGap < 0 ? 'hsl(var(--destructive))' : 'hsl(142 76% 36%)'} />
                       ))}

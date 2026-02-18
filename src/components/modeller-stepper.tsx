@@ -6,7 +6,7 @@ export type ModellerStep = 'provider' | 'scenario' | 'market' | 'results'
 const STEPS: { id: ModellerStep; num: number; label: string }[] = [
   { id: 'provider', num: 1, label: 'Provider' },
   { id: 'scenario', num: 2, label: 'Scenario' },
-  { id: 'market', num: 3, label: 'Market data' },
+  { id: 'market', num: 3, label: 'Market' },
   { id: 'results', num: 4, label: 'Results' },
 ]
 

@@ -1027,8 +1027,20 @@ export function UploadAndMapping({
           <CardContent className="space-y-8">
             {PROVIDER_COLUMN_GROUPS.map((group) => (
               <div key={group.label} className="space-y-3">
-                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   {group.label}
+                  {group.label === 'FTE (CART)' && (
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help text-muted-foreground/60 hover:text-muted-foreground normal-case font-normal tracking-normal text-[10px]">(what is CART?)</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[220px] text-xs">
+                          CART = Clinical, Admin, Research, Teaching. These are the FTE components that break down a provider's full-time equivalent.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                 </h4>
                 {group.label === 'Compensation & wRVUs' && (
                   <p className="text-xs text-muted-foreground">

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { ArrowLeft, FileSpreadsheet, Gauge, Play } from 'lucide-react'
+import { ArrowLeft, FileDown, FileSpreadsheet, Gauge, Play, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
@@ -30,6 +30,30 @@ function getTotalIncentiveDollars(result: OptimizerRunResult): number {
     }
   }
   return sum
+}
+
+function exportOptimizerResultsToCSV(result: OptimizerRunResult): void {
+  const headers = ['Specialty', 'Included', 'Excluded', 'CurrentCF', 'RecommendedCF', 'CFChangePct', 'MeanBaselineGap', 'MeanModeledGap', 'PolicyCheck', 'Flags']
+  const rows = result.bySpecialty.map((row) => [
+    row.specialty,
+    row.includedCount,
+    row.excludedCount,
+    row.currentCF.toFixed(4),
+    row.recommendedCF.toFixed(4),
+    row.cfChangePct.toFixed(2),
+    row.meanBaselineGap.toFixed(2),
+    row.meanModeledGap.toFixed(2),
+    row.policyCheck,
+    row.flags.join('; '),
+  ])
+  const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `recommended-cf-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 function exportOptimizerResultsToExcel(result: OptimizerRunResult): void {
@@ -164,11 +188,19 @@ export function QuickRunCFReport({
     if (result) exportOptimizerResultsToExcel(result)
   }, [result])
 
+  const handleExportCSV = useCallback(() => {
+    if (result) exportOptimizerResultsToCSV(result)
+  }, [result])
+
+  const handlePrint = useCallback(() => {
+    window.print()
+  }, [])
+
   if (!hasData) {
     return (
       <div className="space-y-6">
         <SectionTitleWithIcon icon={<Gauge className="size-5 text-muted-foreground" />}>
-          Recommended CF
+          Recommended conversion factors
         </SectionTitleWithIcon>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
@@ -191,7 +223,7 @@ export function QuickRunCFReport({
     return (
       <div className="space-y-6">
         <SectionTitleWithIcon icon={<Gauge className="size-5 text-muted-foreground" />}>
-          Recommended CF
+          Recommended conversion factors
         </SectionTitleWithIcon>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
@@ -209,7 +241,7 @@ export function QuickRunCFReport({
   return (
     <div className="space-y-6">
       <SectionTitleWithIcon icon={<Gauge className="size-5 text-muted-foreground" />}>
-        Recommended CF
+        Recommended conversion factors
       </SectionTitleWithIcon>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
@@ -259,10 +291,20 @@ export function QuickRunCFReport({
                   )}
                 </Button>
                 {result ? (
-                  <Button type="button" variant="outline" size="sm" onClick={handleExport} className="gap-2">
-                    <FileSpreadsheet className="size-4" />
-                    Export to Excel
-                  </Button>
+                  <>
+                    <Button type="button" variant="outline" size="sm" onClick={handlePrint} className="gap-2">
+                      <Printer className="size-4" />
+                      Print
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
+                      <FileDown className="size-4" />
+                      Export CSV
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={handleExport} className="gap-2">
+                      <FileSpreadsheet className="size-4" />
+                      Export to Excel
+                    </Button>
+                  </>
                 ) : null}
               </div>
 

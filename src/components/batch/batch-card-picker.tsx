@@ -12,7 +12,7 @@ interface BatchCardPickerProps {
 const CARDS: { id: BatchCardId; title: string; description: string; icon: React.ReactNode }[] = [
   {
     id: 'cf-optimizer',
-    title: 'Conversion Factor Optimizer',
+    title: 'CF Optimizer',
     description: 'Recommends specialty-level CF adjustments to align productivity and pay positioning, with governance guardrails and audit-ready outputs.',
     icon: <Gauge className="size-6" />,
   },
@@ -30,13 +30,13 @@ const CARDS: { id: BatchCardId; title: string; description: string; icon: React.
   },
   {
     id: 'bulk-scenario',
-    title: 'Create and Run Scenario',
+    title: 'Run Batch Scenario',
     description: 'Apply one set of inputs (CF, wRVU target, PSQ) to all providers and run. Use scope and guardrails to filter who’s included.',
     icon: <LayoutGrid className="size-6" />,
   },
   {
     id: 'detailed-scenario',
-    title: 'Detailed scenario planning',
+    title: 'Detailed scenarios',
     description: 'Overrides by specialty and by provider, then run.',
     icon: <Sliders className="size-6" />,
   },

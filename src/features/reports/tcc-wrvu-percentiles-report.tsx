@@ -457,17 +457,23 @@ export function TccWrvuPercentilesReport({
                     </div>
                   )}
                   {hasActiveFilters && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 w-9 shrink-0 px-0 text-muted-foreground hover:text-foreground"
-                      onClick={clearFilters}
-                      aria-label="Clear filters"
-                      title="Clear filters"
-                    >
-                      <Eraser className="size-4" />
-                    </Button>
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                            onClick={clearFilters}
+                            aria-label="Clear filters"
+                          >
+                            <Eraser className="size-4" aria-hidden />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">Clear filters</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">

@@ -31,7 +31,7 @@ export function MarketCFLine({
       role="img"
       aria-label={tooltip}
     >
-      <div className="relative h-3 w-[140px]">
+      <div className="relative h-3 w-full min-w-[140px]">
         <div className="absolute inset-x-0 top-1 h-1 rounded-full bg-muted/60" />
         <div
           className="absolute top-1 h-1 rounded-l-full bg-emerald-200 dark:bg-emerald-900/40"

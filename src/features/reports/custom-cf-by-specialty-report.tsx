@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BarChart2,
   ChevronDown,
+  Eraser,
   FileDown,
   FileSpreadsheet,
   FileText,
@@ -743,7 +744,7 @@ export function CustomCfBySpecialtyReport({
               variant="outline"
               size="sm"
               onClick={() => setSummaryBySpecialtyDrawerOpen(true)}
-              className="gap-2 no-print"
+              className="gap-2 no-print text-primary hover:text-primary hover:bg-primary/10"
               aria-label="Open summary by specialty"
             >
               <BarChart2 className="size-4" />
@@ -869,7 +870,8 @@ export function CustomCfBySpecialtyReport({
           </summary>
         <CardContent className="space-y-4 pt-0">
           <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="flex flex-wrap items-end gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 flex-1 min-w-0">
               <div className="space-y-1.5 min-w-0">
                 <Label className="text-xs text-muted-foreground">Specialty</Label>
                 <DropdownMenu onOpenChange={(open) => !open && setSpecialtyScopeSearch('')}>
@@ -1069,13 +1071,40 @@ export function CustomCfBySpecialtyReport({
                   min={mode === 'dollar' ? 0 : 0}
                   max={mode === 'percentile' ? 100 : undefined}
                   step={mode === 'dollar' ? 0.01 : 1}
-                  placeholder={mode === 'percentile' ? 'e.g. 50 (blank = 40th)' : 'e.g. 44 (blank = $0)'}
+                  placeholder={mode === 'percentile' ? 'Percentile (default: 40th)' : 'e.g. 44.00 (default: $0)'}
                   value={defaultForAll}
                   onChange={(e) => setDefaultForAll(e.target.value)}
                   className="h-9 w-full"
                   aria-label="Value applied to all specialties when set"
                 />
               </div>
+            </div>
+            {(specialtyScope.length > 0 || providerTypeScope.length > 0 || compTypeScope.length > 0) && (
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setSpecialtyScope([])
+                        setProviderTypeScope([])
+                        setCompTypeScope([])
+                        setSpecialtyScopeSearch('')
+                        setProviderTypeScopeSearch('')
+                        setCompTypeScopeSearch('')
+                      }}
+                      aria-label="Clear filters"
+                    >
+                      <Eraser className="size-4" aria-hidden />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Clear filters</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             </div>
             <p className="text-xs text-muted-foreground">
               Scoped providers for run: {scopedProviderRows.length.toLocaleString()}
@@ -1296,19 +1325,27 @@ export function CustomCfBySpecialtyReport({
                     </Select>
                   </div>
                   {(specialtyFilter !== 'all' || providerSearch.trim() || payVsProdFilter !== 'all') && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-9 shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        setSpecialtyFilter('all')
-                        setProviderSearch('')
-                        setPayVsProdFilter('all')
-                      }}
-                    >
-                      Clear filters
-                    </Button>
+                    <TooltipProvider delayDuration={300}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setSpecialtyFilter('all')
+                              setProviderSearch('')
+                              setPayVsProdFilter('all')
+                            }}
+                            aria-label="Clear filters"
+                          >
+                            <Eraser className="size-4" aria-hidden />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">Clear filters</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                 </div>
               </div>

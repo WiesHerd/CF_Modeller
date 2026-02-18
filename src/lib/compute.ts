@@ -179,7 +179,8 @@ export function computeScenario(
   const fileCurrentTCC = fileCurrentTCCVal > 0 ? fileCurrentTCCVal : null
   const currentTCC = fileCurrentTCC ?? computedCurrentTCC
   const currentTCCFromFile = fileCurrentTCC != null
-  const modeledTCC = modeledBase + annualIncentiveForTCC + psqDollars
+  // Modeled TCC mirrors currentTCC components: quality payments and other incentives are fixed (from file).
+  const modeledTCC = modeledBase + annualIncentiveForTCC + psqDollars + qualityPayments + otherIncentives
   const changeInTCC = modeledTCC - currentTCC
 
   const wrvuNorm = safeDiv(totalWRVUs, clinicalFTE, totalWRVUs)
