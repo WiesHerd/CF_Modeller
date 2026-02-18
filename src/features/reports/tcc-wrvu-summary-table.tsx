@@ -70,6 +70,7 @@ const DEFAULT_COLUMN_ORDER: ColumnOrderState = [
   'currentTCC',
   'modeledTCC',
   'tccPercentile',
+  'cfPercentile',
   'modeledTCCPercentile',
   'wrvuPercentile',
   'payVsProductivity',
@@ -83,6 +84,7 @@ const COLUMN_HEADER_LABELS: Record<string, string> = {
   currentTCC: 'Current TCC',
   modeledTCC: 'Modeled TCC',
   tccPercentile: 'Current TCC %ile',
+  cfPercentile: 'CF %ile',
   modeledTCCPercentile: 'Modeled TCC %ile',
   wrvuPercentile: 'wRVU %ile',
   payVsProductivity: 'Pay vs productivity',
@@ -108,6 +110,10 @@ function getCellDisplayString(row: BatchRowResult, columnId: string): string {
     }
     case 'tccPercentile': {
       const v = row.results?.tccPercentile
+      return v != null && Number.isFinite(v) ? formatPercentile(v) : EMPTY
+    }
+    case 'cfPercentile': {
+      const v = row.results?.cfPercentileCurrent
       return v != null && Number.isFinite(v) ? formatPercentile(v) : EMPTY
     }
     case 'modeledTCCPercentile': {
@@ -172,7 +178,6 @@ export function TccWrvuSummaryTable({
   const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
   const focusedCellRef = useRef<HTMLTableCellElement>(null)
   const measureRef = useRef<HTMLSpanElement>(null)
-  const didAutoSizeOnOpenRef = useRef(false)
 
   const columns = useMemo((): ColumnDef<BatchRowResult, unknown>[] => {
     const base = [
@@ -232,6 +237,24 @@ export function TccWrvuSummaryTable({
       columnHelper.accessor((r) => r.results?.tccPercentile, {
         id: 'tccPercentile',
         header: 'Current TCC %ile',
+        cell: (c) => {
+          const v = c.getValue() as number | undefined
+          return v != null && Number.isFinite(v) ? formatPercentile(v) : EMPTY
+        },
+        meta: { minWidth: 70, align: 'right' },
+      }),
+      columnHelper.accessor((r) => r.results?.cfPercentileCurrent, {
+        id: 'cfPercentile',
+        header: () => (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help underline decoration-dotted">CF %ile</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">
+              Percentile of current $/wRVU (conversion factor) vs market for this specialty.
+            </TooltipContent>
+          </Tooltip>
+        ),
         cell: (c) => {
           const v = c.getValue() as number | undefined
           return v != null && Number.isFinite(v) ? formatPercentile(v) : EMPTY
@@ -403,15 +426,14 @@ export function TccWrvuSummaryTable({
     setColumnSizing(nextSizing)
   }, [table, rows])
 
-  // Auto-size columns once when report opens with data
+  // Auto-size columns when data or visible columns change so columns don't stay scrunched
   useEffect(() => {
-    if (rows.length === 0 || didAutoSizeOnOpenRef.current) return
-    didAutoSizeOnOpenRef.current = true
+    if (rows.length === 0) return
     const id = requestAnimationFrame(() => {
       handleAutoSizeColumns()
     })
     return () => cancelAnimationFrame(id)
-  }, [rows.length, handleAutoSizeColumns])
+  }, [rows, columnVisibility, handleAutoSizeColumns])
 
   const visibleRows = table.getRowModel().rows
   const visibleColumnCount = table.getVisibleLeafColumns().length
@@ -485,7 +507,7 @@ export function TccWrvuSummaryTable({
 
   const wrapperStyle = expandWithPageSize
     ? {
-        minHeight: TABLE_HEADER_HEIGHT_PX + pageSize * ROW_HEIGHT_PX,
+        minHeight: TABLE_HEADER_HEIGHT_PX + Math.min(pageSize, rowCount) * ROW_HEIGHT_PX,
         maxHeight: EXPAND_MAX_VIEWPORT,
       }
     : { maxHeight }

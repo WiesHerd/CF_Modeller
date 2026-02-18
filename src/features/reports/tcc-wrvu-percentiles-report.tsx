@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { ArrowLeft, ChevronDown, FileDown, FileSpreadsheet, Info, Lock, Printer, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Eraser, FileDown, FileSpreadsheet, Info, Lock, Printer, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
@@ -79,6 +79,8 @@ export function TccWrvuPercentilesReport({
   const [specialtySearch, setSpecialtySearch] = useState<string>('')
   const [providerSearch, setProviderSearch] = useState<string>('')
   const [payVsProdFilter, setPayVsProdFilter] = useState<string>('all')
+  const [divisionFilter, setDivisionFilter] = useState<string>('all')
+  const [providerTypeFilter, setProviderTypeFilter] = useState<string>('all')
   const [drawerProvider, setDrawerProvider] = useState<ImputedVsMarketProviderDetail | null>(null)
   const [drawerSpecialtyLabel, setDrawerSpecialtyLabel] = useState<string | undefined>(undefined)
 
@@ -115,6 +117,18 @@ export function TccWrvuPercentilesReport({
     return specialtyOptions.filter((s) => (s ?? '').toLowerCase().includes(q))
   }, [specialtyOptions, specialtySearch])
 
+  const divisionOptions = useMemo(() => {
+    if (!results?.rows?.length) return []
+    const set = new Set(results.rows.map((r) => (r.division ?? '').trim()).filter(Boolean))
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [results?.rows])
+
+  const providerTypeOptions = useMemo(() => {
+    if (!results?.rows?.length) return []
+    const set = new Set(results.rows.map((r) => (r.providerType ?? '').trim()).filter(Boolean))
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [results?.rows])
+
   const filteredRows = useMemo((): BatchRowResult[] => {
     if (!results?.rows?.length) return []
     let out = results.rows
@@ -137,8 +151,14 @@ export function TccWrvuPercentilesReport({
         return interp === payVsProdFilter
       })
     }
+    if (divisionFilter !== 'all') {
+      out = out.filter((r) => (r.division ?? '').trim() === divisionFilter)
+    }
+    if (providerTypeFilter !== 'all') {
+      out = out.filter((r) => (r.providerType ?? '').trim() === providerTypeFilter)
+    }
     return out
-  }, [results?.rows, specialtyFilter, providerSearch, payVsProdFilter])
+  }, [results?.rows, specialtyFilter, providerSearch, payVsProdFilter, divisionFilter, providerTypeFilter])
 
   const reportDate = new Date().toLocaleDateString(undefined, {
     year: 'numeric',
@@ -147,6 +167,21 @@ export function TccWrvuPercentilesReport({
     hour: 'numeric',
     minute: '2-digit',
   })
+
+  const hasActiveFilters =
+    specialtyFilter !== 'all' ||
+    providerSearch.trim() !== '' ||
+    payVsProdFilter !== 'all' ||
+    divisionFilter !== 'all' ||
+    providerTypeFilter !== 'all'
+
+  const clearFilters = () => {
+    setSpecialtyFilter('all')
+    setProviderSearch('')
+    setPayVsProdFilter('all')
+    setDivisionFilter('all')
+    setProviderTypeFilter('all')
+  }
 
   const handlePrint = () => {
     window.print()
@@ -176,7 +211,7 @@ export function TccWrvuPercentilesReport({
 
   if (providerRows.length === 0) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
           TCC & wRVU percentiles
         </SectionTitleWithIcon>
@@ -203,22 +238,16 @@ export function TccWrvuPercentilesReport({
 
   return (
     <div className="space-y-4 report-print">
-      {/* Consistent header: left = Back + (Title + Confidential); right = meta + Export */}
+      {/* Row 1: Title + confidential (left), scenario meta + Export (right) — matches Report library / Batch layout */}
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <Button type="button" variant="outline" size="sm" onClick={onBack} className="shrink-0 gap-2 no-print" aria-label="Back">
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-          <div className="min-w-0">
-            <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
-              TCC & wRVU percentiles
-            </SectionTitleWithIcon>
-            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-              <Lock className="size-3.5 shrink-0" aria-hidden />
-              Confidential — compensation planning
-            </p>
-          </div>
+        <div className="min-w-0">
+          <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
+            TCC & wRVU percentiles
+          </SectionTitleWithIcon>
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+            <Lock className="size-3.5 shrink-0" aria-hidden />
+            Confidential — compensation planning
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {results && (
@@ -254,6 +283,13 @@ export function TccWrvuPercentilesReport({
             </DropdownMenu>
           )}
         </div>
+      </div>
+      {/* Row 2: Back button — standard location used in Report library and Batch results */}
+      <div className="flex flex-wrap items-center gap-2 no-print">
+        <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 no-print">
@@ -384,30 +420,67 @@ export function TccWrvuPercentilesReport({
                       </SelectContent>
                     </Select>
                   </div>
-                  {(specialtyFilter !== 'all' || providerSearch.trim() || payVsProdFilter !== 'all') && (
+                  {divisionOptions.length > 0 && (
+                    <div className="space-y-1.5 flex-1 min-w-[160px]">
+                      <Label className="text-xs text-muted-foreground">Division</Label>
+                      <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+                        <SelectTrigger className="w-full min-w-0 bg-white dark:bg-background h-9">
+                          <SelectValue placeholder="All divisions" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All divisions</SelectItem>
+                          {divisionOptions.map((d) => (
+                            <SelectItem key={d} value={d}>
+                              {d}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {providerTypeOptions.length > 0 && (
+                    <div className="space-y-1.5 flex-1 min-w-[160px]">
+                      <Label className="text-xs text-muted-foreground">Role / type</Label>
+                      <Select value={providerTypeFilter} onValueChange={setProviderTypeFilter}>
+                        <SelectTrigger className="w-full min-w-0 bg-white dark:bg-background h-9">
+                          <SelectValue placeholder="All" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          {providerTypeOptions.map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {t}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {hasActiveFilters && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-9 shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        setSpecialtyFilter('all')
-                        setProviderSearch('')
-                        setPayVsProdFilter('all')
-                      }}
+                      className="h-9 w-9 shrink-0 px-0 text-muted-foreground hover:text-foreground"
+                      onClick={clearFilters}
+                      aria-label="Clear filters"
+                      title="Clear filters"
                     >
-                      Clear filters
+                      <Eraser className="size-4" />
                     </Button>
                   )}
                 </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Filter by specialty, provider search, pay vs productivity, division, or role. Click a provider name for percentile details.
+                </p>
               </div>
             )}
-            {(specialtyFilter !== 'all' || providerSearch.trim() || payVsProdFilter !== 'all') && filteredRows.length > 0 && (
+            {hasActiveFilters && filteredRows.length > 0 && (
               <p className="text-xs text-muted-foreground tabular-nums">
                 Showing {filteredRows.length} of {results.rows.length} providers.
               </p>
             )}
-            {(specialtyFilter !== 'all' || providerSearch.trim() || payVsProdFilter !== 'all') && filteredRows.length === 0 ? (
+            {hasActiveFilters && filteredRows.length === 0 ? (
               <p className="py-6 text-sm text-muted-foreground">
                 No providers match your search or filters. Try changing the filters.
               </p>

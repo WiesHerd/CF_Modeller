@@ -29,7 +29,7 @@ function getTotalIncentiveDollars(result: OptimizerRunResult): number {
 }
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { EXCLUSION_REASON_LABELS } from '@/features/optimizer/components/optimizer-constants'
-import { OptimizerTargetExplanation } from '@/features/optimizer/components/optimizer-target-explanation'
+import { formatObjective } from '@/features/optimizer/components/optimizer-target-explanation'
 import { OptimizerReviewWorkspace } from '@/features/optimizer/components/optimizer-review-workspace'
 
 export function OptimizerRunStage({
@@ -198,7 +198,14 @@ export function OptimizerRunStage({
                   />
                 ) : null}
 
-                <OptimizerTargetExplanation result={result} settings={settings} />
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">Objective: </span>
+                  {settings?.optimizationObjective
+                    ? formatObjective(settings.optimizationObjective)
+                    : 'Align pay (TCC) percentile to productivity (wRVU) percentile.'}
+                  {' '}
+                  Open any specialty row for methodology and market CF chart.
+                </p>
 
                 <OptimizerReviewWorkspace
                   rows={result.bySpecialty}

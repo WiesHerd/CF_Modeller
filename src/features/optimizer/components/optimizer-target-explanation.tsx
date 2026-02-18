@@ -18,7 +18,8 @@ import type { OptimizerRunResult, OptimizerSettings, OptimizationObjective } fro
 
 const MAX_SPECIALTIES_IN_CHART = 24
 
-function formatObjective(obj: OptimizationObjective): string {
+/** One-line objective text for run summary; exported for use in run stage. */
+export function formatObjective(obj: OptimizationObjective): string {
   switch (obj.kind) {
     case 'align_percentile':
       return 'Align TCC percentile to wRVU percentile (pay rank follows productivity rank).'
@@ -130,7 +131,7 @@ export function OptimizerTargetExplanation({
                       <div className="rounded border border-border bg-background px-2 py-1.5 text-xs shadow-md">
                         <div className="font-medium">{p.specialty}</div>
                         <div className="text-muted-foreground">
-                          {formatOrdinal(p.pct)} percentile · ${p.recommendedCF.toFixed(0)}
+                          {formatOrdinal(p.pct)} percentile · ${p.recommendedCF.toFixed(2)}
                         </div>
                       </div>
                     )
@@ -175,12 +176,12 @@ export function OptimizerTargetExplanation({
                 return (
                   <tr key={row.specialty} className="border-b border-border/40 last:border-0">
                     <td className="py-1.5 pr-2 font-medium">{row.specialty}</td>
-                    <td className="text-right px-2 tabular-nums">${row.marketCF.cf25.toFixed(0)}</td>
-                    <td className="text-right px-2 tabular-nums">${row.marketCF.cf50.toFixed(0)}</td>
-                    <td className="text-right px-2 tabular-nums">${row.marketCF.cf75.toFixed(0)}</td>
-                    <td className="text-right px-2 tabular-nums">${row.marketCF.cf90.toFixed(0)}</td>
+                    <td className="text-right px-2 tabular-nums">${row.marketCF.cf25.toFixed(2)}</td>
+                    <td className="text-right px-2 tabular-nums">${row.marketCF.cf50.toFixed(2)}</td>
+                    <td className="text-right px-2 tabular-nums">${row.marketCF.cf75.toFixed(2)}</td>
+                    <td className="text-right px-2 tabular-nums">${row.marketCF.cf90.toFixed(2)}</td>
                     <td className="text-right px-2 tabular-nums font-medium text-primary">
-                      ${row.recommendedCF.toFixed(0)}
+                      ${row.recommendedCF.toFixed(2)}
                     </td>
                     <td className="text-right px-2 tabular-nums text-muted-foreground">
                       {formatOrdinal(percentile)}

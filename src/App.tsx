@@ -972,6 +972,7 @@ export default function App() {
           onDeleteBatchRun={deleteSavedBatchRun}
           onClearAllBatchRuns={clearAllSavedBatchRuns}
           onLoadBatchScenarioConfig={loadBatchScenarioConfig}
+          onSaveBatchScenarioConfig={saveBatchScenarioConfig}
           onDeleteBatchScenarioConfig={deleteSavedBatchScenarioConfig}
           onClearAllBatchScenarioConfigs={clearAllSavedBatchScenarioConfigs}
           savedOptimizerConfigs={state.savedOptimizerConfigs}

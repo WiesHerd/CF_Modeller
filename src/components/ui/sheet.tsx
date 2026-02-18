@@ -48,6 +48,13 @@ type SheetContentProps = React.ComponentProps<typeof DialogPrimitive.Content> & 
   contentStyle?: React.CSSProperties
 }
 
+type ResizableSheetContentProps = SheetContentProps & {
+  minWidth?: number
+  maxWidth?: number
+  defaultWidth?: number
+  resizeHandleClassName?: string
+}
+
 function SheetContent({
   className,
   side = "right",
@@ -96,6 +103,72 @@ function SheetContent({
         )}
       </DialogPrimitive.Content>
     </SheetPortal>
+  )
+}
+
+function ResizableSheetContent({
+  side = "right",
+  minWidth = 400,
+  maxWidth = 1100,
+  defaultWidth = 720,
+  className,
+  contentStyle,
+  resizeHandleClassName,
+  children,
+  ...props
+}: ResizableSheetContentProps) {
+  const [drawerWidth, setDrawerWidth] = React.useState(defaultWidth)
+
+  const handleDrawerResize = React.useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      const startX = e.clientX
+      const startW = drawerWidth
+      const onMove = (ev: MouseEvent) => {
+        const delta = startX - ev.clientX
+        setDrawerWidth(Math.min(maxWidth, Math.max(minWidth, startW + delta)))
+      }
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove)
+        document.removeEventListener("mouseup", onUp)
+        document.body.style.cursor = ""
+        document.body.style.userSelect = ""
+      }
+      document.body.style.cursor = "col-resize"
+      document.body.style.userSelect = "none"
+      document.addEventListener("mousemove", onMove)
+      document.addEventListener("mouseup", onUp)
+    },
+    [drawerWidth, maxWidth, minWidth]
+  )
+
+  if (side !== "right") {
+    return (
+      <SheetContent side={side} className={className} contentStyle={contentStyle} {...props}>
+        {children}
+      </SheetContent>
+    )
+  }
+
+  return (
+    <SheetContent
+      side={side}
+      className={cn("sm:max-w-[none]", className)}
+      contentStyle={{ width: drawerWidth, maxWidth: "none", ...contentStyle }}
+      {...props}
+    >
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize drawer"
+        className={cn(
+          "absolute left-0 top-0 bottom-0 z-50 w-2 cursor-col-resize touch-none border-l border-transparent hover:border-primary/30 hover:bg-primary/10",
+          resizeHandleClassName
+        )}
+        onMouseDown={handleDrawerResize}
+      />
+      {children}
+    </SheetContent>
   )
 }
 
@@ -149,6 +222,7 @@ export {
   Sheet,
   SheetTrigger,
   SheetContent,
+  ResizableSheetContent,
   SheetHeader,
   SheetTitle,
   SheetDescription,

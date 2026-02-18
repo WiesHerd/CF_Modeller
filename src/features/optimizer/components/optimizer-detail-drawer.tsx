@@ -7,14 +7,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import type { OptimizerProviderContext, OptimizerSpecialtyResult } from '@/types/optimizer'
 import type { MarketRow } from '@/types/market'
 import {
@@ -25,14 +17,16 @@ import {
 } from '@/features/optimizer/components/optimizer-constants'
 import { ExclusionChip } from '@/features/optimizer/components/constraint-chip'
 import { MarketCFRuler } from '@/features/optimizer/components/market-cf-line'
+import { PopulationFTEChart } from '@/features/optimizer/components/population-fte-chart'
 import { MarketPositioningCalculationDrawer } from '@/features/optimizer/components/market-positioning-calculation-drawer'
+import { aggregateFTEByType } from '@/utils/aggregate-fte'
 import { matchMarketRow } from '@/lib/batch'
 import { getOptimizerBaselineTCCConfig } from '@/lib/optimizer-engine'
 import { getBaselineTCCBreakdown, getClinicalFTE, getTotalWRVUs } from '@/lib/normalize-compensation'
 import type { OptimizerSettings } from '@/types/optimizer'
 import type { ImputedVsMarketProviderDetail } from '@/lib/imputed-vs-market'
 
-function formatCurrency(value: number, decimals = 0): string {
+function formatCurrency(value: number, decimals = 2): string {
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency: 'USD',
@@ -154,6 +148,18 @@ export function OptimizerDetailDrawer({
     [onOpenChange]
   )
 
+  const specialtyProviders = useMemo(
+    () =>
+      row
+        ? row.providerContexts.filter((c) => c.included).map((c) => c.provider)
+        : [],
+    [row]
+  )
+  const specialtyAggregatedFTE = useMemo(
+    () => aggregateFTEByType(specialtyProviders),
+    [specialtyProviders]
+  )
+
   if (!row) return null
 
   const divisions = [
@@ -265,6 +271,18 @@ export function OptimizerDetailDrawer({
               </div>
             )}
 
+          {/* FTE mix for this specialty */}
+          <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
+            <PopulationFTEChart
+              data={specialtyAggregatedFTE}
+              title="FTE mix"
+              subtitle={`${row.specialty} · ${nIncluded} included provider(s).`}
+              providerCount={nIncluded}
+              height={200}
+              barSize={32}
+            />
+          </section>
+
           {/* Why / evidence */}
           {(row.explanation.why.length > 0 || row.explanation.whatToDoNext.length > 0) ? (
             <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
@@ -360,17 +378,15 @@ export function OptimizerDetailDrawer({
             </section>
           ) : null}
 
-          {/* Providers — sticky header so column headers stay visible when scrolling */}
+          {/* Providers — scroll container wraps table so sticky header stays visible when scrolling */}
           <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
               Providers ({row.providerContexts.length})
             </h3>
-            <div className="min-h-[240px] max-h-[420px] overflow-auto rounded-lg border border-border/60">
-              <ProviderDrilldownTable
-                row={row}
-                onSelectProvider={settings && marketRows ? setSelectedProviderContext : undefined}
-              />
-            </div>
+            <ProviderDrilldownTable
+              row={row}
+              onSelectProvider={settings && marketRows ? setSelectedProviderContext : undefined}
+            />
           </section>
         </div>
       </SheetContent>
@@ -388,6 +404,10 @@ export function OptimizerDetailDrawer({
   )
 }
 
+function formatFTE(value: number): string {
+  return value.toFixed(2)
+}
+
 function ProviderDrilldownTable({
   row,
   onSelectProvider,
@@ -395,77 +415,94 @@ function ProviderDrilldownTable({
   row: OptimizerSpecialtyResult
   onSelectProvider?: (ctx: OptimizerProviderContext) => void
 }) {
+  const headerRowClass =
+    'border-b border-border/60 bg-muted [&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:border-b [&_th]:border-border/60 [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:text-foreground'
   return (
-    <Table className="w-full caption-bottom text-sm">
-      <TableHeader className="border-b border-border/60 [&_th]:text-foreground">
-        <TableRow className="[&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:border-b [&_th]:border-border/60 [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_hsl(var(--border))]">
-          <TableHead className="min-w-[140px] px-3 py-2.5 font-medium">Provider</TableHead>
-          <TableHead className="min-w-[100px] px-3 py-2.5 font-medium">Division</TableHead>
-          <TableHead className="min-w-[100px] px-3 py-2.5 font-medium">Type / Role</TableHead>
-          <TableHead className="min-w-[88px] text-right px-3 py-2.5 font-medium">wRVU %</TableHead>
-          <TableHead className="min-w-[100px] text-right px-3 py-2.5 font-medium">TCC %</TableHead>
-          <TableHead className="min-w-[72px] text-right px-3 py-2.5 font-medium">Gap</TableHead>
-          <TableHead className="min-w-[80px] text-right px-3 py-2.5 font-medium">Incentive (current)</TableHead>
-          <TableHead className="min-w-[80px] text-right px-3 py-2.5 font-medium">Incentive (modeled)</TableHead>
-          <TableHead className="min-w-[72px] px-3 py-2.5 font-medium">Included</TableHead>
-          <TableHead className="min-w-[140px] px-3 py-2.5 font-medium">Reasons</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {row.providerContexts.map((ctx, i) => (
-          <TableRow
-            key={ctx.providerId}
-            className={`${i % 2 === 1 ? 'bg-muted/30' : ''} ${onSelectProvider ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
-            onClick={onSelectProvider ? () => onSelectProvider(ctx) : undefined}
-          >
-            <TableCell className="min-w-[140px] font-medium px-3 py-2.5">
-              <span
-                className={
-                  onSelectProvider
-                    ? 'text-primary cursor-pointer hover:underline hover:text-primary/90'
-                    : ''
-                }
+    <div className="min-h-[240px] max-h-[420px] overflow-auto rounded-lg border border-border/60">
+      <table className="w-full caption-bottom text-sm border-collapse">
+        <thead>
+          <tr className={headerRowClass}>
+            <th className="min-w-[140px] px-3 py-2.5 text-left font-medium">Provider</th>
+            <th className="min-w-[100px] px-3 py-2.5 text-left font-medium">Division</th>
+            <th className="min-w-[100px] px-3 py-2.5 text-left font-medium">Type / Role</th>
+            <th className="min-w-[72px] px-3 py-2.5 text-right font-medium">Clinical FTE</th>
+            <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">Non-clinical FTE</th>
+            <th className="min-w-[88px] px-3 py-2.5 text-right font-medium">wRVU %</th>
+            <th className="min-w-[100px] px-3 py-2.5 text-right font-medium">TCC %</th>
+            <th className="min-w-[72px] px-3 py-2.5 text-right font-medium">Gap</th>
+            <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">Incentive (current)</th>
+            <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">Incentive (modeled)</th>
+            <th className="min-w-[72px] px-3 py-2.5 text-left font-medium">Included</th>
+            <th className="min-w-[140px] px-3 py-2.5 text-left font-medium">Reasons</th>
+          </tr>
+        </thead>
+        <tbody className="[&_tr:last-child]:border-0">
+          {row.providerContexts.map((ctx, i) => {
+            const cFTE = getClinicalFTE(ctx.provider)
+            const totalFTE = ctx.provider.totalFTE ?? 0
+            const nonClinicalFTE = Math.max(0, totalFTE - cFTE)
+            return (
+              <tr
+                key={ctx.providerId}
+                className={`border-b transition-colors ${i % 2 === 1 ? 'bg-muted/30' : ''} ${onSelectProvider ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                onClick={onSelectProvider ? () => onSelectProvider(ctx) : undefined}
               >
-                {ctx.provider.providerName ?? ctx.providerId}
-              </span>
-            </TableCell>
-            <TableCell className="min-w-[100px] text-muted-foreground px-3 py-2.5">
-              {ctx.provider.division ?? '—'}
-            </TableCell>
-            <TableCell className="min-w-[100px] text-muted-foreground px-3 py-2.5">
-              {ctx.provider.providerType ?? '—'}
-            </TableCell>
-            <TableCell className="min-w-[88px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5">
-              {formatPercentile(ctx.wrvuPercentile)}
-            </TableCell>
-            <TableCell className="min-w-[100px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5">
-              {formatPercentile(ctx.currentTCC_pctile)}
-            </TableCell>
-            <TableCell className="min-w-[72px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5">
-              {formatPercentile(ctx.baselineGap)}
-            </TableCell>
-            <TableCell className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5">
-              {ctx.baselineIncentiveDollars != null ? formatCurrency(ctx.baselineIncentiveDollars, 0) : '—'}
-            </TableCell>
-            <TableCell className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5">
-              {ctx.modeledIncentiveDollars != null ? formatCurrency(ctx.modeledIncentiveDollars, 0) : '—'}
-            </TableCell>
-            <TableCell className="min-w-[72px] text-sm px-3 py-2.5">
-              {ctx.included ? 'Yes' : 'No'}
-            </TableCell>
-            <TableCell className="min-w-[140px] px-3 py-2.5">
-              <div className="flex flex-wrap gap-1">
-                {ctx.exclusionReasons.map((reason) => (
-                  <ExclusionChip
-                    key={reason}
-                    label={EXCLUSION_REASON_LABELS[reason] ?? reason}
-                  />
-                ))}
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+                <td className="min-w-[140px] font-medium px-3 py-2.5 align-middle">
+                  <span
+                    className={
+                      onSelectProvider
+                        ? 'text-primary cursor-pointer hover:underline hover:text-primary/90'
+                        : ''
+                    }
+                  >
+                    {ctx.provider.providerName ?? ctx.providerId}
+                  </span>
+                </td>
+                <td className="min-w-[100px] text-muted-foreground px-3 py-2.5 align-middle whitespace-nowrap">
+                  {ctx.provider.division ?? '—'}
+                </td>
+                <td className="min-w-[100px] text-muted-foreground px-3 py-2.5 align-middle whitespace-nowrap">
+                  {ctx.provider.providerType ?? '—'}
+                </td>
+                <td className="min-w-[72px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
+                  {formatFTE(cFTE)}
+                </td>
+                <td className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5 align-middle">
+                  {formatFTE(nonClinicalFTE)}
+                </td>
+                <td className="min-w-[88px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
+                  {formatPercentile(ctx.wrvuPercentile)}
+                </td>
+                <td className="min-w-[100px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
+                  {formatPercentile(ctx.currentTCC_pctile)}
+                </td>
+                <td className="min-w-[72px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
+                  {formatPercentile(ctx.baselineGap)}
+                </td>
+                <td className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5 align-middle">
+                  {ctx.baselineIncentiveDollars != null ? formatCurrency(ctx.baselineIncentiveDollars, 0) : '—'}
+                </td>
+                <td className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5 align-middle">
+                  {ctx.modeledIncentiveDollars != null ? formatCurrency(ctx.modeledIncentiveDollars, 0) : '—'}
+                </td>
+                <td className="min-w-[72px] text-sm px-3 py-2.5 align-middle whitespace-nowrap">
+                  {ctx.included ? 'Yes' : 'No'}
+                </td>
+                <td className="min-w-[140px] px-3 py-2.5 align-middle">
+                  <div className="flex flex-wrap gap-1">
+                    {ctx.exclusionReasons.map((reason) => (
+                      <ExclusionChip
+                        key={reason}
+                        label={EXCLUSION_REASON_LABELS[reason] ?? reason}
+                      />
+                    ))}
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }

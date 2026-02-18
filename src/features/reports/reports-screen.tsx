@@ -7,6 +7,7 @@ import { TccWrvuPercentilesReport } from './tcc-wrvu-percentiles-report'
 import { SavedBatchRunReport } from './saved-batch-run-report'
 import { SingleProviderImpactReport } from './single-provider-impact-report'
 import { QuickRunCFReport } from './quick-run-cf-report'
+import { CustomCfBySpecialtyReport } from './custom-cf-by-specialty-report'
 import { ManageScenariosScreen } from './manage-scenarios-screen'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
@@ -16,7 +17,7 @@ import type { SynonymMap } from '@/types/batch'
 import type { SavedOptimizerConfig } from '@/types/optimizer'
 import { cn } from '@/lib/utils'
 
-export type ReportViewId = 'list' | 'tcc-wrvu' | 'saved-run' | 'impact' | 'quick-run-cf' | 'compare-scenarios' | 'manage-scenarios'
+export type ReportViewId = 'list' | 'tcc-wrvu' | 'saved-run' | 'impact' | 'quick-run-cf' | 'custom-cf-by-specialty' | 'compare-scenarios' | 'manage-scenarios'
 
 export type ReportLibraryCardId = ReportViewId | 'market-positioning' | 'cf-optimizer' | 'productivity-target'
 
@@ -46,6 +47,13 @@ const REPORT_CARDS: ReportCardConfig[] = [
     title: 'TCC & wRVU percentiles',
     description: 'Total cash compensation and work RVU percentiles for all loaded providers under one scenario.',
     icon: <BarChart2 className="size-6" />,
+  },
+  {
+    id: 'custom-cf-by-specialty',
+    section: 'reports',
+    title: 'Custom CF by specialty',
+    description: 'Set $/wRVU or market percentile per specialty and run TCC & wRVU results.',
+    icon: <Gauge className="size-6" />,
   },
   {
     id: 'saved-run',
@@ -138,6 +146,7 @@ export interface ReportsScreenProps {
   onDeleteBatchRun?: (id: string) => void
   onClearAllBatchRuns?: () => void
   onLoadBatchScenarioConfig?: (config: SavedBatchScenarioConfig) => void
+  onSaveBatchScenarioConfig?: (config: Omit<SavedBatchScenarioConfig, 'id' | 'createdAt'>) => void
   onDeleteBatchScenarioConfig?: (id: string) => void
   onClearAllBatchScenarioConfigs?: () => void
   savedOptimizerConfigs?: SavedOptimizerConfig[]
@@ -166,6 +175,7 @@ export function ReportsScreen({
   onDeleteBatchRun,
   onClearAllBatchRuns,
   onLoadBatchScenarioConfig,
+  onSaveBatchScenarioConfig,
   onDeleteBatchScenarioConfig,
   onClearAllBatchScenarioConfigs,
   savedOptimizerConfigs = [],
@@ -253,6 +263,21 @@ export function ReportsScreen({
         marketRows={marketRows}
         scenarioInputs={scenarioInputs}
         batchSynonymMap={batchSynonymMap}
+        onBack={() => setReportView('list')}
+      />
+    )
+  }
+
+  if (reportView === 'custom-cf-by-specialty') {
+    return (
+      <CustomCfBySpecialtyReport
+        providerRows={providerRows}
+        marketRows={marketRows}
+        scenarioInputs={scenarioInputs}
+        batchSynonymMap={batchSynonymMap}
+        onSaveScenarioConfig={onSaveBatchScenarioConfig}
+        savedBatchScenarioConfigs={savedBatchScenarioConfigs}
+        onDeleteBatchScenarioConfig={onDeleteBatchScenarioConfig}
         onBack={() => setReportView('list')}
       />
     )

@@ -168,7 +168,7 @@ export function QuickRunCFReport({
     return (
       <div className="space-y-6">
         <SectionTitleWithIcon icon={<Gauge className="size-5 text-muted-foreground" />}>
-          Recommended conversion factors
+          Recommended CF
         </SectionTitleWithIcon>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
@@ -191,7 +191,7 @@ export function QuickRunCFReport({
     return (
       <div className="space-y-6">
         <SectionTitleWithIcon icon={<Gauge className="size-5 text-muted-foreground" />}>
-          Recommended conversion factors
+          Recommended CF
         </SectionTitleWithIcon>
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
@@ -209,7 +209,7 @@ export function QuickRunCFReport({
   return (
     <div className="space-y-6">
       <SectionTitleWithIcon icon={<Gauge className="size-5 text-muted-foreground" />}>
-        Recommended conversion factors
+        Recommended CF
       </SectionTitleWithIcon>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
