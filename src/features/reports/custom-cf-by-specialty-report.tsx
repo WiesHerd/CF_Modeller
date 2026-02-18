@@ -53,6 +53,8 @@ import {
 import { SaveScenarioDialog } from '@/components/saved-scenarios-section'
 import { TccWrvuSummaryTable } from './tcc-wrvu-summary-table'
 import { MarketPositioningCalculationDrawer } from '@/features/optimizer/components/market-positioning-calculation-drawer'
+import { MarketCFLine } from '@/features/optimizer/components/market-cf-line'
+import type { MarketCFBenchmarks } from '@/types/optimizer'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
 import { runBatch, matchMarketRow } from '@/lib/batch'
 import { interpPercentile } from '@/lib/interpolation'
@@ -131,33 +133,85 @@ export function CustomCfBySpecialtyReport({
   const [summaryBySpecialtyDrawerOpen, setSummaryBySpecialtyDrawerOpen] = useState(false)
   const [saveScenarioDialogOpen, setSaveScenarioDialogOpen] = useState(false)
 
-  const providerTypeOptions = useMemo(() => {
-    const set = new Set(
-      providerRows
-        .map((p) => (p.providerType ?? '').trim())
-        .filter((v) => v.length > 0)
-    )
-    return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [providerRows])
+  /** Rows filtered by the other two scope filters (for cascading dropdown options). */
+  const rowsForSpecialtyOptions = useMemo(() => {
+    let out = providerRows
+    if (providerTypeScope.length > 0) {
+      const set = new Set(providerTypeScope)
+      out = out.filter((p) => set.has((p.providerType ?? '').trim()))
+    }
+    if (compTypeScope.length > 0) {
+      const selectedCompTypes = new Set(compTypeScope)
+      out = out.filter((p) => {
+        const model = (p.productivityModel ?? '').trim().toLowerCase()
+        if (selectedCompTypes.has(model)) return true
+        if (selectedCompTypes.has('productivity') && model.includes('prod')) return true
+        if (selectedCompTypes.has('base') && model.includes('base')) return true
+        return false
+      })
+    }
+    return out
+  }, [providerRows, providerTypeScope, compTypeScope])
+
+  const rowsForProviderTypeOptions = useMemo(() => {
+    let out = providerRows
+    if (specialtyScope.length > 0) {
+      const set = new Set(specialtyScope)
+      out = out.filter((p) => set.has((p.specialty ?? '').trim()))
+    }
+    if (compTypeScope.length > 0) {
+      const selectedCompTypes = new Set(compTypeScope)
+      out = out.filter((p) => {
+        const model = (p.productivityModel ?? '').trim().toLowerCase()
+        if (selectedCompTypes.has(model)) return true
+        if (selectedCompTypes.has('productivity') && model.includes('prod')) return true
+        if (selectedCompTypes.has('base') && model.includes('base')) return true
+        return false
+      })
+    }
+    return out
+  }, [providerRows, specialtyScope, compTypeScope])
+
+  const rowsForCompTypeOptions = useMemo(() => {
+    let out = providerRows
+    if (specialtyScope.length > 0) {
+      const set = new Set(specialtyScope)
+      out = out.filter((p) => set.has((p.specialty ?? '').trim()))
+    }
+    if (providerTypeScope.length > 0) {
+      const set = new Set(providerTypeScope)
+      out = out.filter((p) => set.has((p.providerType ?? '').trim()))
+    }
+    return out
+  }, [providerRows, specialtyScope, providerTypeScope])
 
   const specialtyScopeOptions = useMemo(() => {
     const set = new Set(
-      providerRows
+      rowsForSpecialtyOptions
         .map((p) => (p.specialty ?? '').trim())
         .filter((v) => v.length > 0)
     )
     return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [providerRows])
+  }, [rowsForSpecialtyOptions])
+
+  const providerTypeOptions = useMemo(() => {
+    const set = new Set(
+      rowsForProviderTypeOptions
+        .map((p) => (p.providerType ?? '').trim())
+        .filter((v) => v.length > 0)
+    )
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [rowsForProviderTypeOptions])
 
   const compTypeOptions = useMemo(() => {
     const set = new Set<string>(['productivity', 'base'])
-    for (const model of providerRows
+    for (const model of rowsForCompTypeOptions
       .map((p) => (p.productivityModel ?? '').trim().toLowerCase())
       .filter((v) => v.length > 0)) {
       set.add(model)
     }
     return Array.from(set).sort((a, b) => a.localeCompare(b))
-  }, [providerRows])
+  }, [rowsForCompTypeOptions])
 
   const filteredProviderTypeScopeOptions = useMemo(() => {
     const q = providerTypeScopeSearch.trim().toLowerCase()
@@ -328,6 +382,54 @@ export function CustomCfBySpecialtyReport({
     marketRows,
     batchSynonymMap,
   ])
+
+  type CFChartItem = {
+    specialty: string
+    currentCF: number
+    modeledCF: number
+    marketCF: MarketCFBenchmarks
+    cfPercentile: number
+  }
+
+  /** Chart data for every specialty in scope (current vs modeled on market scale). */
+  const specialtyCFCharts = useMemo((): CFChartItem[] => {
+    const out: CFChartItem[] = []
+    const pct = mode === 'percentile' ? effectivePercentileForDisplay : 50
+    for (const s of specialties) {
+      const currentCF = currentCFBySpecialty[s]
+      const modeledCF = modeledCFBySpecialty[s]
+      if (currentCF == null || !Number.isFinite(currentCF) || modeledCF == null || !Number.isFinite(modeledCF))
+        continue
+      const sample = scopedProviderRows.find((p) => (p.specialty ?? '').trim() === s)
+      if (!sample) continue
+      const match = matchMarketRow(sample, marketRows, batchSynonymMap)
+      const m = match.marketRow
+      if (!m || m.CF_25 == null || m.CF_50 == null || m.CF_75 == null || m.CF_90 == null) continue
+      out.push({
+        specialty: s,
+        currentCF,
+        modeledCF,
+        marketCF: { cf25: m.CF_25, cf50: m.CF_50, cf75: m.CF_75, cf90: m.CF_90 },
+        cfPercentile: pct,
+      })
+    }
+    return out
+  }, [
+    specialties,
+    currentCFBySpecialty,
+    modeledCFBySpecialty,
+    scopedProviderRows,
+    marketRows,
+    batchSynonymMap,
+    mode,
+    effectivePercentileForDisplay,
+  ])
+
+  /** Lookup for market line per specialty (for table column). */
+  const specialtyCFChartBySpecialty = useMemo(
+    () => new Map(specialtyCFCharts.map((c) => [c.specialty, c])),
+    [specialtyCFCharts]
+  )
 
   const baseScenarioInputs = useMemo((): ScenarioInputs => {
     const base = { ...DEFAULT_SCENARIO_INPUTS, ...scenarioInputs }
@@ -1008,6 +1110,9 @@ export function CustomCfBySpecialtyReport({
                       <TableHead className="min-w-[100px] px-3 py-2.5 text-muted-foreground">
                         Δ CF ($)
                       </TableHead>
+                      <TableHead className="min-w-[140px] px-3 py-2.5 text-muted-foreground">
+                        Market line
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1063,6 +1168,20 @@ export function CustomCfBySpecialtyReport({
                                 return `${sign}${formatCurrency(delta, { decimals: 2 })}`
                               })()
                             : '—'}
+                        </TableCell>
+                        <TableCell className="px-3 py-2.5">
+                          {(() => {
+                            const chart = specialtyCFChartBySpecialty.get(s)
+                            return chart ? (
+                              <MarketCFLine
+                                currentCF={chart.currentCF}
+                                recommendedCF={chart.modeledCF}
+                                marketCF={chart.marketCF}
+                              />
+                            ) : (
+                              <span className="text-muted-foreground text-xs">No market</span>
+                            )
+                          })()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1295,9 +1414,9 @@ export function CustomCfBySpecialtyReport({
                           <TableHead className="min-w-[90px] px-3 py-2.5 text-right">Current TCC</TableHead>
                           <TableHead className="min-w-[90px] px-3 py-2.5 text-right">Modeled TCC</TableHead>
                           <TableHead className="min-w-[72px] px-3 py-2.5 text-right">Δ TCC</TableHead>
-                          <TableHead className="min-w-[72px] px-3 py-2.5 text-right">Avg TCC %ile</TableHead>
-                          <TableHead className="min-w-[80px] px-3 py-2.5 text-right">Avg Modeled %ile</TableHead>
-                          <TableHead className="min-w-[72px] px-3 py-2.5 text-right">Avg wRVU %ile</TableHead>
+                          <TableHead className="min-w-[72px] px-3 py-2.5 text-right" title="Average current TCC percentile vs market for providers in this specialty">Avg TCC %ile</TableHead>
+                          <TableHead className="min-w-[80px] px-3 py-2.5 text-right" title="Average modeled TCC percentile vs market—where this scenario places the group’s pay vs market, on average">Avg Modeled %ile</TableHead>
+                          <TableHead className="min-w-[72px] px-3 py-2.5 text-right" title="Average wRVU productivity percentile vs market for providers in this specialty">Avg wRVU %ile</TableHead>
                         </TableRow>
                       </TableHeader>
                         <TableBody>
@@ -1341,7 +1460,15 @@ export function CustomCfBySpecialtyReport({
                         How to read this summary
                       </p>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        The table rolls up TCC & wRVU results from your current run by specialty. Current TCC and Modeled TCC are summed totals per specialty; Δ TCC is modeled minus current (negative = scenario pays less, e.g. lower CF or below wRVU threshold). Avg percentiles are across providers in that specialty vs market. Use this to compare impact by specialty before exporting or saving the scenario.
+                        The table rolls up TCC & wRVU results from your current run by specialty. Current TCC and Modeled TCC are summed totals per specialty; Δ TCC is modeled minus current (negative = scenario pays less, e.g. lower CF or below wRVU threshold).
+                      </p>
+                      <ul className="mt-2 space-y-1 text-sm text-muted-foreground leading-relaxed list-none pl-0">
+                        <li><strong className="text-foreground/90">Avg TCC %ile:</strong> Average, across providers in that specialty, of where each provider’s <em>current</em> total compensation (per FTE) falls in the market distribution (e.g. 56 = 56th percentile vs market).</li>
+                        <li><strong className="text-foreground/90">Avg Modeled %ile:</strong> Average, across providers in that specialty, of where each provider’s <em>modeled</em> total compensation (per FTE) would fall in the market. So it’s “where does this scenario put the group’s pay vs market, on average?”—higher means the scenario pays more relative to market.</li>
+                        <li><strong className="text-foreground/90">Avg wRVU %ile:</strong> Average wRVU productivity percentile vs market for providers in that specialty (volume, not pay).</li>
+                      </ul>
+                      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                        Use this to compare impact by specialty before exporting or saving the scenario.
                       </p>
                     </div>
                   </section>

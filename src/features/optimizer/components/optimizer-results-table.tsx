@@ -207,7 +207,7 @@ export function OptimizerResultsTable({
       >
         <table
           className="w-full caption-bottom text-sm border-collapse table-fixed"
-          style={{ width: table.getCenterTotalSize() }}
+          style={{ width: '100%' }}
         >
           <thead className="sticky top-0 z-30 border-b border-border bg-muted shadow-[0_1px_3px_0_rgba(0,0,0,0.08)] [&_th]:bg-muted [&_th]:text-foreground [&_th]:font-medium">
             {table.getHeaderGroups().map((headerGroup) => (
