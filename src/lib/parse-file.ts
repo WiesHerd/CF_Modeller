@@ -113,6 +113,9 @@ export function applyProviderMapping(
           'otherIncentive1',
           'otherIncentive2',
           'otherIncentive3',
+          'adminPay',
+          'teachingPay',
+          'researchPay',
           'workRVUs',
           'outsideWRVUs',
           'currentCF',
@@ -133,6 +136,21 @@ export function applyProviderMapping(
     // Total wRVUs = work RVUs + other (outside) wRVUs; not a file column
     if (row.workRVUs != null || row.outsideWRVUs != null) {
       row.totalWRVUs = (row.workRVUs ?? 0) + (row.outsideWRVUs ?? 0)
+    }
+    // Non-clinical pay: from Admin + Teaching + Research pay when any are mapped; otherwise from FTE proration.
+    const hasNonClinicalFromBreakdown =
+      row.adminPay != null || row.teachingPay != null || row.researchPay != null
+    if (hasNonClinicalFromBreakdown) {
+      row.nonClinicalPay = (row.adminPay ?? 0) + (row.teachingPay ?? 0) + (row.researchPay ?? 0)
+    }
+    const hasNonClinicalFromFile = row.nonClinicalPay != null && row.nonClinicalPay > 0
+    if (!hasNonClinicalFromFile && !hasNonClinicalFromBreakdown && row.baseSalary != null && Number.isFinite(row.baseSalary)) {
+      const totalFTE = typeof row.totalFTE === 'number' && Number.isFinite(row.totalFTE) ? row.totalFTE : 0
+      const clinicalFTE = typeof row.clinicalFTE === 'number' && Number.isFinite(row.clinicalFTE) ? row.clinicalFTE : totalFTE
+      const nonClinicalFTE = Math.max(0, totalFTE - clinicalFTE)
+      if (totalFTE > 0 && nonClinicalFTE > 0) {
+        row.nonClinicalPay = row.baseSalary * (nonClinicalFTE / totalFTE)
+      }
     }
     // Selection key: use provider name when no ID in file
     if (row.providerName != null && row.providerName !== '' && row.providerId == null) {
@@ -179,6 +197,9 @@ const PROVIDER_ALIASES: Record<string, string[]> = {
   otherIncentive1: ['otherincentive1', 'other incentive 1', 'other incentive1'],
   otherIncentive2: ['otherincentive2', 'other incentive 2', 'other incentive2'],
   otherIncentive3: ['otherincentive3', 'other incentive 3', 'other incentive3'],
+  adminPay: ['adminpay', 'admin pay'],
+  teachingPay: ['teachingpay', 'teaching pay'],
+  researchPay: ['researchpay', 'research pay'],
 }
 
 /**

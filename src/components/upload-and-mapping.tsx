@@ -54,7 +54,7 @@ type RawFileState = { rows: RawRow[]; headers: string[]; fileName?: string }
 const PROVIDER_COLUMN_GROUPS: { label: string; keys: readonly string[] }[] = [
   { label: 'Identity', keys: ['providerName', 'specialty', 'division', 'providerType'] },
   { label: 'FTE (CART)', keys: ['totalFTE', 'clinicalFTE', 'adminFTE', 'researchFTE', 'teachingFTE'] },
-  { label: 'Compensation & wRVUs', keys: ['baseSalary', 'qualityPayments', 'otherIncentives', 'otherIncentive1', 'otherIncentive2', 'otherIncentive3', 'currentTCC', 'workRVUs', 'outsideWRVUs', 'currentCF', 'nonClinicalPay'] },
+  { label: 'Compensation & wRVUs', keys: ['baseSalary', 'adminPay', 'teachingPay', 'researchPay', 'qualityPayments', 'otherIncentives', 'otherIncentive1', 'otherIncentive2', 'otherIncentive3', 'currentTCC', 'workRVUs', 'outsideWRVUs', 'currentCF'] },
   { label: 'Model', keys: ['productivityModel'] },
 ]
 
@@ -116,6 +116,9 @@ export function UploadAndMapping({
     researchFTE: string
     teachingFTE: string
     baseSalary: string
+    adminPay: string
+    teachingPay: string
+    researchPay: string
     workRVUs: string
     outsideWRVUs: string
     currentCF: string
@@ -138,6 +141,9 @@ export function UploadAndMapping({
     researchFTE: '',
     teachingFTE: '',
     baseSalary: '',
+    adminPay: '',
+    teachingPay: '',
+    researchPay: '',
     workRVUs: '',
     outsideWRVUs: '',
     currentCF: '',
@@ -170,6 +176,9 @@ export function UploadAndMapping({
         researchFTE: toStr(editingProvider.researchFTE),
         teachingFTE: toStr(editingProvider.teachingFTE),
         baseSalary: toStr(editingProvider.baseSalary),
+        adminPay: toStr(editingProvider.adminPay),
+        teachingPay: toStr(editingProvider.teachingPay),
+        researchPay: toStr(editingProvider.researchPay),
         workRVUs: toStr(editingProvider.workRVUs ?? editingProvider.pchWRVUs),
         outsideWRVUs: toStr(editingProvider.outsideWRVUs),
         currentCF: toStr(editingProvider.currentCF),
@@ -297,6 +306,12 @@ export function UploadAndMapping({
     if (teachingFTE !== undefined) updates.teachingFTE = teachingFTE
     const baseSalary = parseNum(editForm.baseSalary)
     if (baseSalary !== undefined) updates.baseSalary = baseSalary
+    const adminPay = parseNum(editForm.adminPay)
+    if (adminPay !== undefined) updates.adminPay = adminPay
+    const teachingPay = parseNum(editForm.teachingPay)
+    if (teachingPay !== undefined) updates.teachingPay = teachingPay
+    const researchPay = parseNum(editForm.researchPay)
+    if (researchPay !== undefined) updates.researchPay = researchPay
     const workRVUs = parseNum(editForm.workRVUs)
     if (workRVUs !== undefined) updates.workRVUs = workRVUs
     const outsideWRVUs = parseNum(editForm.outsideWRVUs)
@@ -488,6 +503,54 @@ export function UploadAndMapping({
                       step={100}
                       value={editForm.baseSalary}
                       onChange={(e) => setEditForm((f) => ({ ...f, baseSalary: e.target.value }))}
+                      placeholder="0"
+                      className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-adminPay">Admin pay</Label>
+                  <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                    <Input
+                      id="edit-adminPay"
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={editForm.adminPay}
+                      onChange={(e) => setEditForm((f) => ({ ...f, adminPay: e.target.value }))}
+                      placeholder="0"
+                      className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-teachingPay">Teaching pay</Label>
+                  <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                    <Input
+                      id="edit-teachingPay"
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={editForm.teachingPay}
+                      onChange={(e) => setEditForm((f) => ({ ...f, teachingPay: e.target.value }))}
+                      placeholder="0"
+                      className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-researchPay">Research pay</Label>
+                  <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                    <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                    <Input
+                      id="edit-researchPay"
+                      type="number"
+                      min={0}
+                      step={100}
+                      value={editForm.researchPay}
+                      onChange={(e) => setEditForm((f) => ({ ...f, researchPay: e.target.value }))}
                       placeholder="0"
                       className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
@@ -957,6 +1020,9 @@ export function UploadAndMapping({
             <p className="text-[13px] text-muted-foreground pl-[52px]">
               Match your file columns to the required fields below, then click <strong>Apply mapping & load provider data</strong> to finish.
             </p>
+            <div className="mt-3 pl-[52px] rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
+              <strong className="text-foreground">Total Cash Compensation (TCC)</strong> is built from: <strong className="text-foreground">Base salary</strong>, <strong className="text-foreground">Quality payments</strong>, <strong className="text-foreground">Other incentives</strong>, and <strong className="text-foreground">Other incentive 1, 2, 3</strong> (map these if your file has them). If you map Admin pay, Teaching pay, or Research pay, their sum is used as non-clinical pay; otherwise non-clinical is calculated from FTE (base salary × (total FTE − clinical FTE) / total FTE). In the Modeller, TCC also includes wRVU incentive and PSQ from the Scenario step. If your file has a pre-calculated total column, you can map it under &quot;Current TCC from file (optional)&quot; below; otherwise we compute TCC from the components.
+            </div>
           </CardHeader>
           <CardContent className="space-y-8">
             {PROVIDER_COLUMN_GROUPS.map((group) => (
@@ -966,14 +1032,14 @@ export function UploadAndMapping({
                 </h4>
                 {group.label === 'Compensation & wRVUs' && (
                   <p className="text-xs text-muted-foreground">
-                    Base salary, quality payments, and other incentives (including Other incentive 1, 2, 3) roll into <strong className="text-foreground">Total Cash Compensation (TCC)</strong> in the Modeller and Optimizer. Map each column to your file or skip if not used.
+                    Map each column to your file or skip if not used. The fields above (base, quality, other incentives) are the ones that feed into TCC; &quot;Current TCC from file&quot; is only if your file already has a total column.
                   </p>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {group.keys.map((key) => (
                     <div key={key} className="flex flex-col gap-1.5">
                       <Label className="text-[13px] font-medium text-foreground">
-                        {key === 'workRVUs' ? 'Work RVUs (or wRVUs)' : key === 'productivityModel' ? 'Productivity model' : key === 'researchFTE' ? 'Research FTE' : key === 'teachingFTE' ? 'Teaching FTE' : key === 'qualityPayments' ? 'Quality payments' : key === 'otherIncentives' ? 'Other incentives' : key === 'otherIncentive1' ? 'Other incentive 1' : key === 'otherIncentive2' ? 'Other incentive 2' : key === 'otherIncentive3' ? 'Other incentive 3' : key === 'currentTCC' ? 'Current TCC (legacy)' : key}
+                        {key === 'workRVUs' ? 'Work RVUs (or wRVUs)' : key === 'productivityModel' ? 'Productivity model' : key === 'researchFTE' ? 'Research FTE' : key === 'teachingFTE' ? 'Teaching FTE' : key === 'qualityPayments' ? 'Quality payments' : key === 'otherIncentives' ? 'Other incentives' : key === 'otherIncentive1' ? 'Other incentive 1' : key === 'otherIncentive2' ? 'Other incentive 2' : key === 'otherIncentive3' ? 'Other incentive 3' : key === 'currentTCC' ? 'Current TCC from file (optional)' : key === 'adminPay' ? 'Admin pay' : key === 'teachingPay' ? 'Teaching pay' : key === 'researchPay' ? 'Research pay' : key}
                       </Label>
                       <Select
                         value={providerMapping[key] || SKIP_VALUE}

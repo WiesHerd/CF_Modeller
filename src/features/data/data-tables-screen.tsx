@@ -114,6 +114,9 @@ function getProviderCellDisplayString(columnId: string, row: ProviderRow): strin
     case 'researchFTE': return fmtNum(row.researchFTE, 2)
     case 'teachingFTE': return fmtNum(row.teachingFTE, 2)
     case 'baseSalary': return fmtCur(row.baseSalary)
+    case 'adminPay': return fmtCur(row.adminPay)
+    case 'teachingPay': return fmtCur(row.teachingPay)
+    case 'researchPay': return fmtCur(row.researchPay)
     case 'nonClinicalPay': return fmtCur(row.nonClinicalPay)
     case 'workRVUs': return fmtNum(row.workRVUs ?? row.pchWRVUs, 0)
     case 'outsideWRVUs': return fmtNum(row.outsideWRVUs, 0)
@@ -412,6 +415,9 @@ function ProviderDataTable({
       providerHelper.accessor('researchFTE', { header: 'Research FTE', cell: (c) => fmtNum(c.getValue() as number | undefined, 2), meta: { align: 'right' }, size: 108, minSize: 90 }),
       providerHelper.accessor('teachingFTE', { header: 'Teaching FTE', cell: (c) => fmtNum(c.getValue() as number | undefined, 2), meta: { align: 'right' }, size: 108, minSize: 90 }),
       providerHelper.accessor('baseSalary', { header: 'Base salary', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 125, minSize: 100 }),
+      providerHelper.accessor('adminPay', { header: 'Admin pay', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 115, minSize: 95 }),
+      providerHelper.accessor('teachingPay', { header: 'Teaching pay', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 115, minSize: 95 }),
+      providerHelper.accessor('researchPay', { header: 'Research pay', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 115, minSize: 95 }),
       providerHelper.accessor('nonClinicalPay', { header: 'Non-clinical', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 120, minSize: 100 }),
       providerHelper.accessor((r) => r.workRVUs ?? r.pchWRVUs, { id: 'workRVUs', header: 'Work wRVUs', cell: (c) => fmtNum(c.getValue() as number | undefined, 0), meta: { align: 'right' }, size: 115, minSize: 95 }),
       providerHelper.accessor('outsideWRVUs', { header: 'Outside wRVUs', cell: (c) => fmtNum(c.getValue() as number | undefined, 0), meta: { align: 'right' }, size: 115, minSize: 95 }),

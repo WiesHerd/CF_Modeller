@@ -304,7 +304,7 @@ function TCCBreakdownDrawer({
             How TCC is calculated
           </SheetTitle>
           <SheetDescription id="tcc-breakdown-desc" className="text-xs">
-            Total Cash Compensation (TCC) is the sum of the components below. Base pay (total) = base salary + non-clinical (stipend). Only positive wRVU incentive is included; negative incentive is not. Click a component to see how it is calculated.
+            Total Cash Compensation (TCC) is the sum of the components below. Base pay (total) = base salary + non-clinical. Non-clinical is calculated from FTE (base × (total FTE − clinical FTE) / total FTE) when not in your file. Only positive wRVU incentive is included; negative incentive is not. Click a component to see how it is calculated.
           </SheetDescription>
         </SheetHeader>
         <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -314,7 +314,7 @@ function TCCBreakdownDrawer({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground mb-4">
-              Current TCC = base pay (total) + wRVU incentive (if positive) + PSQ/VBP + quality payments (from file) + other incentives (Other incentives + Other incentive 1/2/3 from your upload). The table below shows each component.
+              Current TCC = base pay (total) + wRVU incentive (if positive) + PSQ/VBP + quality payments (from file) + other incentives (Other incentives + Other incentive 1/2/3 from your upload). Base pay includes non-clinical, which is derived from FTE when not in your file. The table below shows each component.
             </p>
           )}
           <Table className="w-full caption-bottom text-sm table-auto border border-border rounded-md">

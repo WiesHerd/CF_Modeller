@@ -375,7 +375,11 @@ function CompensationFTESection({
     'h-8 w-full touch-manipulation rounded-md border border-border bg-muted/40 px-2 tabular-nums text-right text-sm shadow-sm focus-visible:bg-card'
 
   const totalFTEValid = (totalFTE ?? 0) >= 1.0
-  const calculatedNonClinical = totalFTEValid ? (adminFTE ?? 0) * (baseSalary ?? 0) : null
+  // Non-clinical $ = base × (total FTE − clinical FTE) / total FTE (prorated by FTE)
+  const calculatedNonClinical =
+    totalFTEValid && totalFTE > 0 && clinicalFTE != null
+      ? (baseSalary ?? 0) * (Math.max(0, totalFTE - clinicalFTE) / totalFTE)
+      : null
 
   const components = basePayComponents?.length ? basePayComponents : []
   const totalFromComponents = components.reduce((s, c) => s + (Number(c?.amount) || 0), 0)
@@ -671,10 +675,10 @@ function CompensationFTESection({
                     disabled={!totalFTEValid}
                     title={
                       totalFTEValid
-                        ? 'Set Non-Clinical to Admin FTE × Base salary'
+                        ? 'Set Non-Clinical to base × (total FTE − clinical FTE) / total FTE'
                         : 'Total FTE must be ≥ 1.0 for this calculation'
                     }
-                    aria-label="Calculate non-clinical from admin FTE × base salary"
+                    aria-label="Calculate non-clinical from FTE proration"
                   >
                     <Calculator className="size-4" />
                   </Button>

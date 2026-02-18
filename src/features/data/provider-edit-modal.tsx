@@ -31,6 +31,9 @@ export interface ProviderEditFormState {
   researchFTE: string
   teachingFTE: string
   baseSalary: string
+  adminPay: string
+  teachingPay: string
+  researchPay: string
   workRVUs: string
   outsideWRVUs: string
   currentCF: string
@@ -54,6 +57,9 @@ const emptyForm: ProviderEditFormState = {
   researchFTE: '',
   teachingFTE: '',
   baseSalary: '',
+  adminPay: '',
+  teachingPay: '',
+  researchPay: '',
   workRVUs: '',
   outsideWRVUs: '',
   currentCF: '',
@@ -108,6 +114,9 @@ export function ProviderEditModal({
           researchFTE: toStr(initialRow.researchFTE),
           teachingFTE: toStr(initialRow.teachingFTE),
           baseSalary: toStr(initialRow.baseSalary),
+          adminPay: toStr(initialRow.adminPay),
+          teachingPay: toStr(initialRow.teachingPay),
+          researchPay: toStr(initialRow.researchPay),
           workRVUs: toStr(initialRow.workRVUs ?? initialRow.pchWRVUs),
           outsideWRVUs: toStr(initialRow.outsideWRVUs),
           currentCF: toStr(initialRow.currentCF),
@@ -144,6 +153,12 @@ export function ProviderEditModal({
       if (teachingFTE !== undefined) updates.teachingFTE = teachingFTE
       const baseSalary = parseNum(form.baseSalary)
       if (baseSalary !== undefined) updates.baseSalary = baseSalary
+      const adminPay = parseNum(form.adminPay)
+      if (adminPay !== undefined) updates.adminPay = adminPay
+      const teachingPay = parseNum(form.teachingPay)
+      if (teachingPay !== undefined) updates.teachingPay = teachingPay
+      const researchPay = parseNum(form.researchPay)
+      if (researchPay !== undefined) updates.researchPay = researchPay
       const workRVUs = parseNum(form.workRVUs)
       if (workRVUs !== undefined) updates.workRVUs = workRVUs
       const outsideWRVUs = parseNum(form.outsideWRVUs)
@@ -302,6 +317,54 @@ export function ProviderEditModal({
                     step={100}
                     value={form.baseSalary}
                     onChange={(e) => setForm((f) => ({ ...f, baseSalary: e.target.value }))}
+                    placeholder="0"
+                    className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prov-edit-adminPay">Admin pay</Label>
+                <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                  <Input
+                    id="prov-edit-adminPay"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={form.adminPay}
+                    onChange={(e) => setForm((f) => ({ ...f, adminPay: e.target.value }))}
+                    placeholder="0"
+                    className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prov-edit-teachingPay">Teaching pay</Label>
+                <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                  <Input
+                    id="prov-edit-teachingPay"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={form.teachingPay}
+                    onChange={(e) => setForm((f) => ({ ...f, teachingPay: e.target.value }))}
+                    placeholder="0"
+                    className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="prov-edit-researchPay">Research pay</Label>
+                <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+                  <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
+                  <Input
+                    id="prov-edit-researchPay"
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={form.researchPay}
+                    onChange={(e) => setForm((f) => ({ ...f, researchPay: e.target.value }))}
                     placeholder="0"
                     className="h-10 border-0 bg-transparent py-2 pl-3 pr-4 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   />

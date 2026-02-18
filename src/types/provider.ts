@@ -27,6 +27,12 @@ export interface ProviderRow {
   researchFTE?: number
   /** CART: teaching FTE. */
   teachingFTE?: number
+  /** Admin pay from file; when present with teachingPay/researchPay, sum = non-clinical. */
+  adminPay?: number
+  /** Teaching pay from file; when present with adminPay/researchPay, sum = non-clinical. */
+  teachingPay?: number
+  /** Research pay from file; when present with adminPay/teachingPay, sum = non-clinical. */
+  researchPay?: number
   baseSalary?: number
   /** When set, total of amounts rolls up to TCC (overrides baseSalary for compute). */
   basePayComponents?: BasePayComponent[]
@@ -69,6 +75,9 @@ export const PROVIDER_EXPECTED_COLUMNS = [
   'adminFTE',
   'researchFTE',
   'teachingFTE',
+  'adminPay',
+  'teachingPay',
+  'researchPay',
   'baseSalary',
   'workRVUs',
   'outsideWRVUs',
