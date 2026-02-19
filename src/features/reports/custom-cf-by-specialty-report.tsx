@@ -1401,48 +1401,73 @@ export function CustomCfBySpecialtyReport({
                   <p className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
                     Roll-up metrics
                   </p>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-md border border-border/60 bg-background p-3">
-                      <p className="text-xs text-muted-foreground">Specialties</p>
-                      <p className="text-lg font-semibold tabular-nums text-primary">
-                        {summaryTotals.specialtyCount}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {summaryTotals.providerCount} included provider(s)
-                      </p>
+                  <TooltipProvider delayDuration={300}>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-md border border-border/60 bg-background p-3">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-xs text-muted-foreground cursor-help">Specialties</p>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[200px]">
+                            Specialties with data; {summaryTotals.providerCount} provider(s) in scope.
+                          </TooltipContent>
+                        </Tooltip>
+                        <p className="text-lg font-semibold tabular-nums text-primary">
+                          {summaryTotals.specialtyCount}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-border/60 bg-background p-3">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-xs text-muted-foreground cursor-help">Total modeled TCC</p>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[220px]">
+                            Total cash comp at modeled CF. Current total: {formatCurrency(summaryTotals.totalCurrentTCC, { decimals: 0 })}.
+                          </TooltipContent>
+                        </Tooltip>
+                        <p className="text-lg font-semibold tabular-nums text-primary">
+                          {formatCurrency(summaryTotals.totalModeledTCC, { decimals: 2 })}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-border/60 bg-background p-3">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-xs text-muted-foreground cursor-help">Total TCC change</p>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[200px]">
+                            Modeled − current TCC.
+                          </TooltipContent>
+                        </Tooltip>
+                        <p className={cn(
+                          'text-lg font-semibold tabular-nums',
+                          summaryTotals.totalDeltaTCC >= 0 ? 'value-positive' : 'value-negative'
+                        )}>
+                          {summaryTotals.totalDeltaTCC >= 0 ? '+' : ''}
+                          {formatCurrency(summaryTotals.totalDeltaTCC, { decimals: 2 })}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-border/60 bg-background p-3 border-primary/30">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <p className="text-xs text-muted-foreground cursor-help">Total wRVU incentive</p>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[240px]">
+                            Sum of productivity incentive at modeled CF across all specialties.
+                          </TooltipContent>
+                        </Tooltip>
+                        <p className={cn(
+                          'text-lg font-semibold tabular-nums',
+                          summaryTotals.totalIncentive > 0
+                            ? 'value-positive'
+                            : summaryTotals.totalIncentive < 0
+                              ? 'value-negative'
+                              : 'text-muted-foreground'
+                        )}>
+                          {formatCurrency(summaryTotals.totalIncentive, { decimals: 2 })}
+                        </p>
+                      </div>
                     </div>
-                    <div className="rounded-md border border-border/60 bg-background p-3">
-                      <p className="text-xs text-muted-foreground">Total modeled TCC</p>
-                      <p className="text-lg font-semibold tabular-nums text-primary">
-                        {formatCurrency(summaryTotals.totalModeledTCC, { decimals: 2 })}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Current: {formatCurrency(summaryTotals.totalCurrentTCC, { decimals: 2 })}
-                      </p>
-                    </div>
-                    <div className="rounded-md border border-border/60 bg-background p-3">
-                      <p className="text-xs text-muted-foreground">Total TCC change</p>
-                      <p className={cn(
-                        'text-lg font-semibold tabular-nums',
-                        summaryTotals.totalDeltaTCC >= 0 ? 'value-positive' : 'value-negative'
-                      )}>
-                        {summaryTotals.totalDeltaTCC >= 0 ? '+' : ''}
-                        {formatCurrency(summaryTotals.totalDeltaTCC, { decimals: 2 })}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Modeled − current. Negative = scenario pays less (e.g. lower CF or below wRVU threshold, so incentive is $0).
-                      </p>
-                    </div>
-                    <div className="rounded-md border border-border/60 bg-background p-3 border-primary/30">
-                      <p className="text-xs text-muted-foreground">Total wRVU incentive</p>
-                      <p className="text-lg font-semibold tabular-nums text-primary">
-                        {formatCurrency(summaryTotals.totalIncentive, { decimals: 2 })}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Sum of productivity incentive at modeled CF across all specialties.
-                      </p>
-                    </div>
-                  </div>
+                  </TooltipProvider>
                 </section>
 
                 {filteredRows.length !== results.rows.length && results && (
