@@ -232,8 +232,6 @@ const MAIN_TABLE_COLUMNS: Record<
   cf90: { label: 'CF 90th', align: 'right', minWidth: 148 },
 }
 
-const DEFAULT_COL_WIDTH = 120
-
 const ROW_HEIGHT_PX = 40
 const TABLE_HEADER_HEIGHT_PX = 42
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
