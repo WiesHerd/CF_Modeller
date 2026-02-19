@@ -157,12 +157,14 @@ export function QuickRunCFReport({
   const [selectedModels, setSelectedModels] = useState<Set<string>>(() => new Set(['productivity']))
   const [selectedTypes, setSelectedTypes] = useState<Set<string>>(() => new Set())
   const [selectedSpecialties, setSelectedSpecialties] = useState<Set<string>>(() => new Set())
+  const [selectedDivisions, setSelectedDivisions] = useState<Set<string>>(() => new Set())
   const [excludedProviderKeys, setExcludedProviderKeys] = useState<Set<string>>(() => new Set())
 
   // Search state inside each dropdown
   const [modelSearch, setModelSearch] = useState('')
   const [typeSearch, setTypeSearch] = useState('')
   const [specialtySearch, setSpecialtySearch] = useState('')
+  const [divisionSearch, setDivisionSearch] = useState('')
   const [excludeProviderSearch, setExcludeProviderSearch] = useState('')
 
   // Derived option lists from uploaded data
@@ -211,10 +213,28 @@ export function QuickRunCFReport({
     [availableSpecialties, specialtySearch]
   )
 
+  const availableDivisions = useMemo(() => {
+    const s = new Set(
+      providersByModelAndType
+        .map((p) => (p.division ?? '').trim())
+        .filter(Boolean)
+    )
+    return Array.from(s).sort()
+  }, [providersByModelAndType])
+
+  const filteredDivisions = useMemo(
+    () => availableDivisions.filter((d) => d.toLowerCase().includes(divisionSearch.trim().toLowerCase())),
+    [availableDivisions, divisionSearch]
+  )
+
   const providersInSpecialtyScope = useMemo(() => {
-    if (selectedSpecialties.size === 0) return providersByModelAndType
-    return providersByModelAndType.filter((p) => selectedSpecialties.has((p.specialty ?? '').trim()))
-  }, [providersByModelAndType, selectedSpecialties])
+    let result = providersByModelAndType
+    if (selectedSpecialties.size > 0)
+      result = result.filter((p) => selectedSpecialties.has((p.specialty ?? '').trim()))
+    if (selectedDivisions.size > 0)
+      result = result.filter((p) => selectedDivisions.has((p.division ?? '').trim()))
+    return result
+  }, [providersByModelAndType, selectedSpecialties, selectedDivisions])
 
   const filteredExcludedProviders = useMemo(() => {
     const q = excludeProviderSearch.trim().toLowerCase()
@@ -245,16 +265,19 @@ export function QuickRunCFReport({
     selectedModels.has('productivity') &&
     selectedTypes.size === 0 &&
     selectedSpecialties.size === 0 &&
+    selectedDivisions.size === 0 &&
     excludedProviderKeys.size === 0
 
   const handleClearScope = () => {
     setSelectedModels(new Set(['productivity']))
     setSelectedTypes(new Set())
     setSelectedSpecialties(new Set())
+    setSelectedDivisions(new Set())
     setExcludedProviderKeys(new Set())
     setModelSearch('')
     setTypeSearch('')
     setSpecialtySearch('')
+    setDivisionSearch('')
     setExcludeProviderSearch('')
   }
 
@@ -288,6 +311,15 @@ export function QuickRunCFReport({
     })
   }
 
+  const toggleDivision = (division: string) => {
+    setSelectedDivisions((prev) => {
+      const next = new Set(prev)
+      if (next.has(division)) next.delete(division)
+      else next.add(division)
+      return next
+    })
+  }
+
   const toggleExcludedProvider = (provider: ProviderRow) => {
     const key = getProviderScopeKey(provider)
     setExcludedProviderKeys((prev) => {
@@ -305,6 +337,14 @@ export function QuickRunCFReport({
       return next.size === prev.size ? prev : next
     })
   }, [availableSpecialties])
+
+  useEffect(() => {
+    const allowed = new Set(availableDivisions)
+    setSelectedDivisions((prev) => {
+      const next = new Set([...prev].filter((d) => allowed.has(d)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [availableDivisions])
 
   useEffect(() => {
     const allowedKeys = new Set(providersInSpecialtyScope.map((p) => getProviderScopeKey(p)))
@@ -449,7 +489,7 @@ export function QuickRunCFReport({
       {/* Filters grid — collapses */}
       {!scopeCollapsed && (
       <div className="px-4 pb-4 space-y-4 border-t border-border/50 pt-3">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
 
         {/* ── Compensation model (same input dropdown pattern as Compensation type) ── */}
         <div className="space-y-1.5 min-w-0">
@@ -635,6 +675,69 @@ export function QuickRunCFReport({
             Narrow the run to one or more specialties.
           </p>
         </div>
+
+        {/* ── Division ── */}
+        <div className="space-y-1.5 min-w-0">
+          <Label className="text-xs text-muted-foreground">Division</Label>
+          <DropdownMenu onOpenChange={(open) => { if (!open) setDivisionSearch('') }}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                className="w-full min-w-0 justify-between bg-white dark:bg-background h-9 font-normal"
+              >
+                <span className="truncate">{scopeSelectLabel(selectedDivisions, availableDivisions, 'All divisions')}</span>
+                <ChevronDown className="size-4 opacity-50 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="max-h-[280px] overflow-hidden p-0 w-[var(--radix-dropdown-menu-trigger-width)]"
+              onCloseAutoFocus={(e: Event) => e.preventDefault()}
+            >
+              <div className="flex h-9 items-center gap-2 border-b border-border px-3">
+                <Search className="size-4 shrink-0 opacity-50" />
+                <Input
+                  placeholder="Search divisions…"
+                  value={divisionSearch}
+                  onChange={(e) => setDivisionSearch(e.target.value)}
+                  className="h-8 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto p-1">
+                <DropdownMenuLabel>Division</DropdownMenuLabel>
+                <DropdownMenuCheckboxItem
+                  checked={selectedDivisions.size === 0}
+                  onSelect={(e) => { e.preventDefault() }}
+                  onCheckedChange={(checked) => { if (checked) setSelectedDivisions(new Set()) }}
+                >
+                  All divisions
+                </DropdownMenuCheckboxItem>
+                {availableDivisions.length === 0 ? (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">No divisions in scope</div>
+                ) : filteredDivisions.length === 0 ? (
+                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                ) : (
+                  filteredDivisions.map((division) => (
+                    <DropdownMenuCheckboxItem
+                      key={division}
+                      checked={selectedDivisions.has(division)}
+                      onSelect={(e) => { e.preventDefault() }}
+                      onCheckedChange={() => toggleDivision(division)}
+                    >
+                      {division}
+                    </DropdownMenuCheckboxItem>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <p className="text-[11px] text-muted-foreground">
+            Filter by division or department.
+          </p>
+        </div>
+
         <div className="space-y-1.5 min-w-0">
           <Label className="text-xs text-muted-foreground">Exclude individuals</Label>
           <DropdownMenu onOpenChange={(open) => { if (!open) setExcludeProviderSearch('') }}>
