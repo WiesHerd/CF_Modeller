@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
+import { Minus, Pin, PinOff, TrendingDown, TrendingUp } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -408,6 +408,14 @@ function formatFTE(value: number): string {
   return value.toFixed(2)
 }
 
+// Pinned column background constants — mirrors data-grid-styles.ts to prevent bleed-through
+const DRILLDOWN_PINNED_TH =
+  'sticky left-0 !z-30 isolate bg-background [background-color:var(--background)] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+const DRILLDOWN_PINNED_TD =
+  'sticky left-0 z-10 isolate bg-background [background-color:var(--background)] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+const DRILLDOWN_PINNED_TD_STRIPED =
+  'sticky left-0 z-10 isolate [background-color:color-mix(in_srgb,var(--muted)_30%,var(--background))] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
+
 function ProviderDrilldownTable({
   row,
   onSelectProvider,
@@ -415,14 +423,36 @@ function ProviderDrilldownTable({
   row: OptimizerSpecialtyResult
   onSelectProvider?: (ctx: OptimizerProviderContext) => void
 }) {
+  const [pinProvider, setPinProvider] = useState(false)
+
   const headerRowClass =
     'border-b border-border/60 bg-muted [&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:border-b [&_th]:border-border/60 [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:text-foreground'
+
   return (
     <div className="min-h-[240px] max-h-[420px] overflow-auto rounded-lg border border-border/60">
       <table className="w-full caption-bottom text-sm border-collapse">
         <thead>
           <tr className={headerRowClass}>
-            <th className="min-w-[140px] px-3 py-2.5 text-left font-medium">Provider</th>
+            {/* Provider header — hover reveals pin toggle */}
+            <th
+              className={`min-w-[140px] px-3 py-2.5 text-left font-medium group${pinProvider ? ` ${DRILLDOWN_PINNED_TH}` : ''}`}
+            >
+              <div className="flex items-center gap-1">
+                <span className="flex-1">Provider</span>
+                <button
+                  type="button"
+                  onClick={() => setPinProvider((p) => !p)}
+                  className={`shrink-0 rounded p-0.5 transition-colors ${
+                    pinProvider
+                      ? 'text-primary hover:text-primary/70'
+                      : 'text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary'
+                  }`}
+                  title={pinProvider ? 'Unfreeze column' : 'Freeze column'}
+                >
+                  {pinProvider ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+                </button>
+              </div>
+            </th>
             <th className="min-w-[100px] px-3 py-2.5 text-left font-medium">Division</th>
             <th className="min-w-[100px] px-3 py-2.5 text-left font-medium">Type / Role</th>
             <th className="min-w-[72px] px-3 py-2.5 text-right font-medium">Clinical FTE</th>
@@ -441,13 +471,14 @@ function ProviderDrilldownTable({
             const cFTE = getClinicalFTE(ctx.provider)
             const totalFTE = ctx.provider.totalFTE ?? 0
             const nonClinicalFTE = Math.max(0, totalFTE - cFTE)
+            const isOdd = i % 2 === 1
             return (
               <tr
                 key={ctx.providerId}
-                className={`border-b transition-colors ${i % 2 === 1 ? 'bg-muted/30' : ''} ${onSelectProvider ? 'cursor-pointer hover:bg-muted/50' : ''}`}
+                className={`border-b transition-colors ${isOdd ? 'bg-muted/30' : ''} ${onSelectProvider ? 'cursor-pointer hover:bg-muted/50' : ''}`}
                 onClick={onSelectProvider ? () => onSelectProvider(ctx) : undefined}
               >
-                <td className="min-w-[140px] font-medium px-3 py-2.5 align-middle">
+                <td className={`min-w-[140px] font-medium px-3 py-2.5 align-middle ${pinProvider ? (isOdd ? DRILLDOWN_PINNED_TD_STRIPED : DRILLDOWN_PINNED_TD) : ''}`}>
                   <span
                     className={
                       onSelectProvider
@@ -498,11 +529,11 @@ function ProviderDrilldownTable({
                     ))}
                   </div>
                 </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
   )
 }
