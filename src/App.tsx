@@ -11,9 +11,15 @@ import { AppLayout, type AppStep } from '@/components/layout/app-layout'
  */
 const SESSION_STEP_KEY = 'cf-modeler-app-step'
 const SESSION_BATCH_CARD_KEY = 'cf-modeler-batch-card'
+const SESSION_MODELLER_STEP_KEY = 'cf-modeler-modeller-step'
+const SESSION_REPORTS_VIEW_KEY = 'cf-modeler-reports-view'
+const SESSION_COMPARE_TOOL_KEY = 'cf-modeler-compare-tool'
 
 const VALID_APP_STEPS: AppStep[] = ['upload', 'data', 'modeller', 'batch-scenario', 'batch-results', 'compare-scenarios', 'reports', 'help']
 const VALID_BATCH_CARDS: BatchCardId[] = ['cf-optimizer', 'imputed-vs-market', 'productivity-target', 'bulk-scenario', 'detailed-scenario']
+const VALID_MODELLER_STEPS: ModellerStep[] = ['provider', 'scenario', 'market', 'results']
+const VALID_REPORT_VIEW_IDS = ['list', 'tcc-wrvu', 'saved-run', 'impact', 'quick-run-cf', 'custom-cf-by-specialty', 'compare-scenarios', 'manage-scenarios'] as const
+const VALID_COMPARE_TOOLS: CompareTool[] = ['cf-optimizer', 'productivity-target']
 
 function getInitialStepAndBatchCard(): { step: AppStep; batchCard: BatchCardId | null } {
   if (typeof window === 'undefined' || !window.sessionStorage) {
@@ -31,6 +37,36 @@ function getInitialStepAndBatchCard(): { step: AppStep; batchCard: BatchCardId |
     return { step, batchCard }
   } catch {
     return { step: 'upload', batchCard: null }
+  }
+}
+
+function getInitialModellerStep(): ModellerStep {
+  if (typeof window === 'undefined' || !window.sessionStorage) return 'provider'
+  try {
+    const saved = window.sessionStorage.getItem(SESSION_MODELLER_STEP_KEY)
+    return (VALID_MODELLER_STEPS as string[]).includes(saved ?? '') ? (saved as ModellerStep) : 'provider'
+  } catch {
+    return 'provider'
+  }
+}
+
+function getInitialReportView(): (typeof VALID_REPORT_VIEW_IDS)[number] {
+  if (typeof window === 'undefined' || !window.sessionStorage) return 'list'
+  try {
+    const saved = window.sessionStorage.getItem(SESSION_REPORTS_VIEW_KEY)
+    return (VALID_REPORT_VIEW_IDS as readonly string[]).includes(saved ?? '') ? (saved as (typeof VALID_REPORT_VIEW_IDS)[number]) : 'list'
+  } catch {
+    return 'list'
+  }
+}
+
+function getInitialCompareTool(): CompareTool {
+  if (typeof window === 'undefined' || !window.sessionStorage) return 'cf-optimizer'
+  try {
+    const saved = window.sessionStorage.getItem(SESSION_COMPARE_TOOL_KEY)
+    return (VALID_COMPARE_TOOLS as string[]).includes(saved ?? '') ? (saved as CompareTool) : 'cf-optimizer'
+  } catch {
+    return 'cf-optimizer'
   }
 }
 import { UploadAndMapping } from '@/components/upload-and-mapping'
@@ -167,15 +203,34 @@ export default function App() {
   const [step, setStep] = useState<AppStep>(initialStep)
   const [batchCard, setBatchCard] = useState<BatchCardId | null>(initialBatchCard)
   const [modelMode, setModelMode] = useState<ModelMode>('existing')
-  const [modellerStep, setModellerStep] = useState<ModellerStep>('provider')
+  const [modellerStep, setModellerStep] = useState<ModellerStep>(getInitialModellerStep)
   const [newProviderForm, setNewProviderForm] = useState<NewProviderFormValues>(DEFAULT_NEW_PROVIDER)
   const [dataTab, setDataTab] = useState<'providers' | 'market'>('providers')
   const [modellerSaveDialogOpen, setModellerSaveDialogOpen] = useState(false)
   const [uploadSaveDialogOpen, setUploadSaveDialogOpen] = useState(false)
   const [reportLibraryFocusKey, setReportLibraryFocusKey] = useState(0)
   const [compareSourceForCompare, setCompareSourceForCompare] = useState<CompareTool | null>(null)
+  const [reportView, setReportView] = useState<(typeof VALID_REPORT_VIEW_IDS)[number]>(getInitialReportView)
+  const [selectedSavedRunId, setSelectedSavedRunId] = useState<string | null>(null)
+  const [compareTool, setCompareTool] = useState<CompareTool>(getInitialCompareTool)
 
-  // Persist current screen to sessionStorage so reload restores where the user was (enterprise UX standard).
+  // When user clicks Reports in sidebar (focus key bumps), return to report library list. Skip initial mount so restored reportView is not overwritten.
+  const reportLibraryFocusKeyPrev = useRef(reportLibraryFocusKey)
+  useEffect(() => {
+    if (reportLibraryFocusKeyPrev.current === reportLibraryFocusKey) return
+    reportLibraryFocusKeyPrev.current = reportLibraryFocusKey
+    setReportView('list')
+    setSelectedSavedRunId(null)
+  }, [reportLibraryFocusKey])
+
+  // When navigating to Compare with a source (e.g. from Productivity Target), preselect that tool tab.
+  useEffect(() => {
+    if (step === 'compare-scenarios' && compareSourceForCompare != null) {
+      setCompareTool(compareSourceForCompare)
+    }
+  }, [step, compareSourceForCompare])
+
+  // Persist current screen and sub-views to sessionStorage so reload restores where the user was (enterprise UX standard).
   useEffect(() => {
     try {
       if (typeof window !== 'undefined' && window.sessionStorage) {
@@ -185,11 +240,20 @@ export default function App() {
         } else {
           window.sessionStorage.removeItem(SESSION_BATCH_CARD_KEY)
         }
+        if (step === 'modeller') {
+          window.sessionStorage.setItem(SESSION_MODELLER_STEP_KEY, modellerStep)
+        }
+        if (step === 'reports') {
+          window.sessionStorage.setItem(SESSION_REPORTS_VIEW_KEY, reportView)
+        }
+        if (step === 'compare-scenarios') {
+          window.sessionStorage.setItem(SESSION_COMPARE_TOOL_KEY, compareTool)
+        }
       }
     } catch {
       // ignore
     }
-  }, [step, batchCard])
+  }, [step, batchCard, modellerStep, reportView, compareTool])
 
   const handleStepChange = (newStep: AppStep, dataTabOption?: 'providers' | 'market') => {
     setStep(newStep)
@@ -928,6 +992,8 @@ export default function App() {
           savedOptimizerConfigs={state.savedOptimizerConfigs}
           savedProductivityTargetConfigs={state.savedProductivityTargetConfigs}
           compareSource={compareSourceForCompare ?? undefined}
+          compareTool={compareTool}
+          onCompareToolChange={setCompareTool}
           onBack={() => {
             setCompareSourceForCompare(null)
             handleStepChange('upload')
@@ -938,6 +1004,10 @@ export default function App() {
       {step === 'reports' && (
         <ReportsScreen
           reportLibraryFocusKey={reportLibraryFocusKey}
+          reportView={reportView}
+          onReportViewChange={setReportView}
+          selectedSavedRunId={selectedSavedRunId}
+          onSelectedSavedRunIdChange={setSelectedSavedRunId}
           providerRows={state.providerRows}
           marketRows={state.marketRows}
           scenarioInputs={state.scenarioInputs}

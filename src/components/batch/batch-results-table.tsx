@@ -46,8 +46,17 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ChevronLeft, ChevronRight, GripVertical, HelpCircle, Columns3, LayoutList } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/utils/format'
-import { getGapInterpretation } from '@/features/optimizer/components/optimizer-constants'
+import {
+  getGapInterpretation,
+  type GapInterpretation,
+} from '@/features/optimizer/components/optimizer-constants'
 import type { BatchRowResult } from '@/types/batch'
+
+function getAlignmentForBatchRow(original: BatchRowResult): GapInterpretation {
+  const gap = original.results?.alignmentGapModeled
+  if (gap == null || !Number.isFinite(gap)) return 'aligned'
+  return getGapInterpretation(gap)
+}
 
 const columnHelper = createColumnHelper<BatchRowResult>()
 
@@ -705,18 +714,21 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
             {visibleRows.map((row, rowIndex) => {
               const original = row.original as BatchRowResult
               const highlighted = isRowHighlighted?.(original)
-              const gap = original.results?.alignmentGapModeled
-              const alignment =
-                gap != null && Number.isFinite(gap) ? getGapInterpretation(gap) : null
+              const alignment = getAlignmentForBatchRow(original)
+              const alignmentBorder =
+                alignment === 'aligned'
+                  ? 'border-l-4 border-l-emerald-500/70'
+                  : alignment === 'overpaid'
+                    ? 'border-l-4 border-l-red-500/70'
+                    : alignment === 'underpaid'
+                      ? 'border-l-4 border-l-blue-500/70'
+                      : ''
               return (
               <TableRow
                 key={row.id}
                 className={cn(
                   row.index % 2 === 1 && !highlighted && 'bg-muted/30',
                   highlighted && 'bg-amber-100/70 dark:bg-amber-950/50',
-                  alignment === 'aligned' && 'border-l-4 border-l-emerald-500/70',
-                  alignment === 'overpaid' && 'border-l-4 border-l-red-500/70',
-                  alignment === 'underpaid' && 'border-l-4 border-l-blue-500/70',
                   onRowClick &&
                     'cursor-pointer hover:bg-muted/60 transition-colors [&:focus-within]:outline [&:focus-within]:outline-2 [&:focus-within]:outline-offset-[-2px] [&:focus-within]:outline-ring',
                   onRowClick && highlighted && 'hover:bg-amber-200/70 dark:hover:bg-amber-900/50'
@@ -727,6 +739,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
                 {row.getVisibleCells().map((cell, columnIndex) => {
                   const meta = cell.column.columnDef.meta as { sticky?: boolean; minWidth?: string; wrap?: boolean } | undefined
                   const isStickyColumn = meta?.sticky === true || cell.column.id === 'providerName'
+                  const isFirstCell = columnIndex === 0
                   const stickyBg =
                     isStickyColumn && highlighted
                       ? 'bg-amber-100 dark:bg-amber-950'
@@ -760,6 +773,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
                       className={cn(
                         wrapClass,
                         stickyClass,
+                        isFirstCell && alignmentBorder,
                         'px-3 py-2.5 outline-none',
                         isClickable ? 'cursor-pointer' : 'cursor-cell',
                         isFocused && 'ring-2 ring-primary ring-inset bg-primary/5'

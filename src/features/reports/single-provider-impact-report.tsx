@@ -1,7 +1,20 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, FileSpreadsheet, FileText, Lock, Printer } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileSpreadsheet, FileText, Lock, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Select,
   SelectContent,
@@ -38,6 +51,18 @@ export function SingleProviderImpactReport({
 }: SingleProviderImpactReportProps) {
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('current')
+  const [providerSearch, setProviderSearch] = useState('')
+
+  const filteredProviderRows = useMemo(() => {
+    if (!providerSearch.trim()) return providerRows
+    const q = providerSearch.trim().toLowerCase()
+    return providerRows.filter(
+      (p) =>
+        (p.providerName ?? '').toLowerCase().includes(q) ||
+        (p.providerId ?? '').toString().toLowerCase().includes(q) ||
+        (p.specialty ?? '').toLowerCase().includes(q)
+    )
+  }, [providerRows, providerSearch])
 
   const selectedProvider = useMemo(
     () =>
@@ -105,24 +130,18 @@ export function SingleProviderImpactReport({
 
   return (
     <div className="space-y-6 report-print">
-      {/* Consistent header: left = Back + (Title + Confidential); right = actions */}
+      {/* Row 1: Title + confidential (left), actions (right) — matches TCC percentiles & Batch results */}
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <Button type="button" variant="outline" size="sm" onClick={onBack} className="shrink-0 gap-2 no-print" aria-label="Back">
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-          <div className="min-w-0">
-            <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
-              Compensation impact report
-            </SectionTitleWithIcon>
-            {results && selectedProvider && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-                <Lock className="size-3.5 shrink-0" aria-hidden />
-                Confidential — compensation planning
-              </p>
-            )}
-          </div>
+        <div className="min-w-0">
+          <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
+            Compensation impact report
+          </SectionTitleWithIcon>
+          {results && selectedProvider && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+              <Lock className="size-3.5 shrink-0" aria-hidden />
+              Confidential — compensation planning
+            </p>
+          )}
         </div>
         {results && (
           <div className="flex shrink-0 items-center gap-2 no-print">
@@ -143,26 +162,69 @@ export function SingleProviderImpactReport({
           </div>
         )}
       </div>
+      {/* Row 2: Back button — standard location used in Report library, TCC percentiles, and Batch results */}
+      <div className="flex flex-wrap items-center gap-2 no-print">
+        <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2 no-print">
-          <Select
-            value={selectedProvider ? String(selectedProvider.providerId ?? selectedProvider.providerName ?? '') : ''}
-            onValueChange={(v) => setSelectedProviderId(v)}
-          >
-            <SelectTrigger className="w-[240px]">
-              <SelectValue placeholder="Select provider" />
-            </SelectTrigger>
-            <SelectContent>
-              {providerRows.map((p, i) => {
-                const val = String(p.providerId ?? p.providerName ?? `row-${i}`)
-                return (
-                  <SelectItem key={val} value={val}>
-                    {p.providerName || p.providerId || '—'}
-                  </SelectItem>
-                )
-              })}
-            </SelectContent>
-          </Select>
+          <DropdownMenu onOpenChange={(open) => !open && setProviderSearch('')}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                className="w-[280px] min-w-0 justify-between bg-white dark:bg-background h-9 font-normal"
+              >
+                <span className="truncate">
+                  {selectedProvider
+                    ? selectedProvider.providerName || selectedProvider.providerId || '—'
+                    : 'Select provider'}
+                </span>
+                <ChevronDown className="size-4 opacity-50 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="max-h-[280px] overflow-hidden p-0 w-[var(--radix-dropdown-menu-trigger-width)]"
+              onCloseAutoFocus={(e: Event) => e.preventDefault()}
+            >
+              <Command shouldFilter={false} className="rounded-none border-0">
+                <CommandInput
+                  placeholder="Search providers…"
+                  value={providerSearch}
+                  onValueChange={setProviderSearch}
+                  className="h-9"
+                />
+                <CommandList>
+                  <CommandEmpty>No provider found.</CommandEmpty>
+                  <CommandGroup>
+                    {filteredProviderRows.map((p, i) => {
+                      const val = String(p.providerId ?? p.providerName ?? `row-${i}`)
+                      const label = p.providerName || p.providerId || '—'
+                      const subtitle = [p.specialty, p.division].filter(Boolean).join(' · ')
+                      return (
+                        <CommandItem
+                          key={val}
+                          value={val}
+                          onSelect={() => {
+                            setSelectedProviderId(val)
+                          }}
+                        >
+                          <span className="truncate">
+                            {label}
+                            {subtitle ? ` — ${subtitle}` : ''}
+                          </span>
+                        </CommandItem>
+                      )
+                    })}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Scenario" />

@@ -128,7 +128,6 @@ export function CompareScenariosContent({
     const a = initialScenarioAId && comparableConfigs.some((c: SavedOptimizerConfig) => c.id === initialScenarioAId) ? initialScenarioAId : ''
     const b = initialScenarioBId && comparableConfigs.some((c: SavedOptimizerConfig) => c.id === initialScenarioBId) ? initialScenarioBId : ''
     if (a && b && a !== b) return [a, b]
-    if (comparableConfigs.length >= 2) return comparableConfigs.slice(0, 2).map((c: SavedOptimizerConfig) => c.id)
     return []
   }, [initialScenarioAId, initialScenarioBId, comparableConfigs])
 

@@ -50,9 +50,6 @@ export function CompareTargetScenariosContent({
       )
       if (valid.length >= 2) return valid.slice(0, MAX_COMPARE_TARGET_SCENARIOS)
     }
-    if (comparableConfigs.length >= 2) {
-      return comparableConfigs.slice(0, 2).map((c: SavedProductivityTargetConfig) => c.id)
-    }
     return []
   }, [initialScenarioIds, comparableConfigs])
 

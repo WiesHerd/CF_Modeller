@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React from 'react'
 import { ArrowLeft, FileText, FolderOpen, User, BarChart2, GitCompare, Gauge, Settings2, Target, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -56,13 +56,6 @@ const REPORT_CARDS: ReportCardConfig[] = [
     icon: <Gauge className="size-6" />,
   },
   {
-    id: 'saved-run',
-    section: 'reports',
-    title: 'Saved batch run',
-    description: 'View and export a saved batch run: TCC and wRVU summary and metrics.',
-    icon: <FolderOpen className="size-6" />,
-  },
-  {
     id: 'impact',
     section: 'reports',
     title: 'Compensation impact report',
@@ -102,6 +95,13 @@ const REPORT_CARDS: ReportCardConfig[] = [
     navigateOnly: true,
   },
   {
+    id: 'saved-run',
+    section: 'manage',
+    title: 'Saved batch run report',
+    description: 'View and export a saved batch run: TCC and wRVU summary and metrics.',
+    icon: <FolderOpen className="size-6" />,
+  },
+  {
     id: 'manage-scenarios',
     section: 'manage',
     title: 'Manage scenarios & runs',
@@ -125,6 +125,12 @@ const cardClass = cn(
 export interface ReportsScreenProps {
   /** When this value changes, the view resets to the report library list (e.g. when user clicks Reports in sidebar). */
   reportLibraryFocusKey?: number
+  /** Lifted state: which report view is shown (persisted in sessionStorage when step is reports). */
+  reportView: ReportViewId
+  onReportViewChange: (view: ReportViewId) => void
+  /** Lifted state: selected saved batch run id when view is saved-run. */
+  selectedSavedRunId: string | null
+  onSelectedSavedRunIdChange: (id: string | null) => void
   providerRows: ProviderRow[]
   marketRows: MarketRow[]
   scenarioInputs: ScenarioInputs
@@ -156,7 +162,11 @@ export interface ReportsScreenProps {
 }
 
 export function ReportsScreen({
-  reportLibraryFocusKey = 0,
+  reportLibraryFocusKey: _reportLibraryFocusKey = 0,
+  reportView,
+  onReportViewChange: setReportView,
+  selectedSavedRunId,
+  onSelectedSavedRunIdChange: setSelectedSavedRunId,
   providerRows,
   marketRows,
   scenarioInputs,
@@ -183,13 +193,7 @@ export function ReportsScreen({
   onDeleteSavedOptimizerConfig,
   onClearAllSavedOptimizerConfigs,
 }: ReportsScreenProps) {
-  const [reportView, setReportView] = useState<ReportViewId>('list')
-  const [selectedSavedRunId, setSelectedSavedRunId] = useState<string | null>(null)
-
-  useEffect(() => {
-    setReportView('list')
-    setSelectedSavedRunId(null)
-  }, [reportLibraryFocusKey])
+  // When reportLibraryFocusKey changes (e.g. user clicks Reports in sidebar), parent resets reportView to 'list' and selectedSavedRunId to null.
 
   if (reportView === 'manage-scenarios') {
     return (
@@ -309,11 +313,19 @@ export function ReportsScreen({
         const sectionCards = REPORT_CARDS.filter((c) => c.section === sectionId)
         if (sectionCards.length === 0) return null
         const sectionLabel = REPORT_SECTION_LABELS[sectionId]
+        const sectionSubtitle = sectionId === 'batch-compare'
+          ? 'These open the Batch or Compare scenarios area.'
+          : null
         return (
           <section key={sectionId} className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              {sectionLabel}
-            </h2>
+            <div>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                {sectionLabel}
+              </h2>
+              {sectionSubtitle && (
+                <p className="text-xs text-muted-foreground mt-0.5">{sectionSubtitle}</p>
+              )}
+            </div>
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
               {sectionCards.map((card) => (
                 <Card

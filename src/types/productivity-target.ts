@@ -10,6 +10,18 @@
 export type TargetApproach = 'wrvu_percentile' | 'pay_per_wrvu'
 
 // ---------------------------------------------------------------------------
+// Specialty target rule (reusable for default and per-specialty overrides)
+// ---------------------------------------------------------------------------
+
+export interface SpecialtyTargetRule {
+  targetApproach: TargetApproach
+  /** When targetApproach === 'wrvu_percentile' */
+  targetPercentile?: number
+  /** When targetApproach === 'pay_per_wrvu' */
+  manualTargetWRVU?: number
+}
+
+// ---------------------------------------------------------------------------
 // Planning CF source
 // ---------------------------------------------------------------------------
 
@@ -30,6 +42,8 @@ export interface ProductivityTargetSettings {
   planningCFSource: PlanningCFSource
   planningCFPercentile: number
   planningCFManual?: number
+  /** Per-specialty target overrides. Key = specialty name. Absent or empty = use global target for all. */
+  specialtyTargetOverrides?: Record<string, SpecialtyTargetRule>
 }
 
 export const DEFAULT_PRODUCTIVITY_TARGET_SETTINGS: ProductivityTargetSettings = {

@@ -154,24 +154,18 @@ export function SavedBatchRunReport({
 
   return (
     <div className="space-y-6 report-print">
-      {/* Consistent header: left = Back + (Title + Confidential); right = Export actions */}
+      {/* Row 1: Title + confidential (left), actions (right) — matches TCC percentiles & Batch results */}
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
-          <Button type="button" variant="outline" size="sm" onClick={onBack} className="shrink-0 gap-2 no-print" aria-label="Back">
-            <ArrowLeft className="size-4" />
-            Back
-          </Button>
-          <div className="min-w-0">
-            <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
-              Saved batch run report
-            </SectionTitleWithIcon>
-            {results && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-                <Lock className="size-3.5 shrink-0" aria-hidden />
-                Confidential — compensation planning
-              </p>
-            )}
-          </div>
+        <div className="min-w-0">
+          <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
+            Saved batch run report
+          </SectionTitleWithIcon>
+          {results && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+              <Lock className="size-3.5 shrink-0" aria-hidden />
+              Confidential — compensation planning
+            </p>
+          )}
         </div>
         {exportResults && (
           <div className="flex flex-wrap items-center gap-2 shrink-0 no-print">
@@ -201,6 +195,13 @@ export function SavedBatchRunReport({
             </Button>
           </div>
         )}
+      </div>
+      {/* Row 2: Back button — standard location used in Report library, TCC percentiles, and Batch results */}
+      <div className="flex flex-wrap items-center gap-2 no-print">
+        <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
+          <ArrowLeft className="size-4" />
+          Back
+        </Button>
       </div>
 
       <div className="flex flex-col gap-3 no-print">

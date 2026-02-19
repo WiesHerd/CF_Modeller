@@ -21,11 +21,12 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Command, CommandInput } from '@/components/ui/command'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Eraser, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProductivityTargetSettings, TargetApproach, PlanningCFSource } from '@/types/productivity-target'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
@@ -167,6 +168,9 @@ export function ProductivityTargetConfigureStage({
   const [providerSearch, setProviderSearch] = useState('')
   const [providerTypeExcludeSearch, setProviderTypeExcludeSearch] = useState('')
   const [providerExcludeSearch, setProviderExcludeSearch] = useState('')
+  const [addOverrideMenuOpen, setAddOverrideMenuOpen] = useState(false)
+  const [addOverrideSearch, setAddOverrideSearch] = useState('')
+  const [overrideSpecialtySearch, setOverrideSpecialtySearch] = useState('')
   const filteredSpecialties = useMemo(() => {
     if (!specialtySearch.trim()) return availableSpecialties
     const q = specialtySearch.toLowerCase()
@@ -739,17 +743,24 @@ export function ProductivityTargetConfigureStage({
                               tooltip="Gross target wRVU at 1.0 cFTE. Each provider's target = this value × their cFTE (e.g. 0.8 cFTE → 0.8 × this number). You enter the amount; we prorate for calculations."
                             />
                             <Input
-                              type="number"
-                              min={0}
-                              step={1}
-                              value={settings.manualTargetWRVU ?? ''}
+                              type="text"
+                              inputMode="decimal"
+                              value={
+                                settings.manualTargetWRVU != null && Number.isFinite(settings.manualTargetWRVU)
+                                  ? String(settings.manualTargetWRVU)
+                                  : ''
+                              }
                               onChange={(e) => {
-                                const raw = e.target.value
-                                const n = raw === '' ? undefined : Number(raw)
-                                onSetSettings((s) => ({ ...s, manualTargetWRVU: n != null && !Number.isNaN(n) ? n : undefined }))
+                                const raw = e.target.value.replace(/,/g, '').trim()
+                                const n = raw === '' ? undefined : parseFloat(raw)
+                                onSetSettings((s) => ({
+                                  ...s,
+                                  manualTargetWRVU:
+                                    n != null && !Number.isNaN(n) && n >= 0 ? n : undefined,
+                                }))
                               }}
-                              placeholder="e.g. 4500"
-                              className="w-28"
+                              placeholder="wRVU"
+                              className="w-32 bg-white placeholder:text-muted-foreground/50"
                             />
                           </div>
                         )}
@@ -772,6 +783,309 @@ export function ProductivityTargetConfigureStage({
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="space-y-4 rounded-xl border border-border/40 bg-muted/20 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <SectionHeaderWithTooltip
+                          variant="subsection"
+                          title="Override by specialty"
+                          tooltip="Only specialties that need a different target need an override. All others use the default above."
+                          className="text-primary/90"
+                        />
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Add only where you need a different target.
+                        </p>
+                      </div>
+                      {(() => {
+                        const inScopeSpecialties = targetMode === 'custom' ? selectedSpecialties : availableSpecialties
+                        const overrides = settings.specialtyTargetOverrides ?? {}
+                        const overriddenSpecialties = Object.keys(overrides)
+                        const specialtiesAvailableToAdd = inScopeSpecialties.filter((s) => !overrides[s])
+                        return (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <DropdownMenu
+                              open={addOverrideMenuOpen}
+                              onOpenChange={(open) => {
+                                setAddOverrideMenuOpen(open)
+                                if (!open) setAddOverrideSearch('')
+                              }}
+                            >
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 gap-1.5 font-normal"
+                                  disabled={inScopeSpecialties.length === 0}
+                                >
+                                  <Plus className="size-3.5" />
+                                  Add overrides
+                                  {overriddenSpecialties.length > 0 ? (
+                                    <span className="tabular-nums">({overriddenSpecialties.length})</span>
+                                  ) : null}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="max-h-[320px] overflow-hidden p-0">
+                                <Command shouldFilter={false} className="rounded-none border-0">
+                                  <CommandInput
+                                    placeholder="Search specialties…"
+                                    value={addOverrideSearch}
+                                    onValueChange={setAddOverrideSearch}
+                                    className="h-9"
+                                  />
+                                </Command>
+                                <div className="max-h-[240px] overflow-y-auto p-1">
+                                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                                    Click a specialty to add an override
+                                  </DropdownMenuLabel>
+                                  {inScopeSpecialties.length === 0 ? (
+                                    <div className="px-2 py-2 text-sm text-muted-foreground">No specialties in scope.</div>
+                                  ) : (() => {
+                                    const filtered =
+                                      addOverrideSearch.trim() === ''
+                                        ? specialtiesAvailableToAdd
+                                        : specialtiesAvailableToAdd.filter((s) =>
+                                            s.toLowerCase().includes(addOverrideSearch.toLowerCase().trim())
+                                          )
+                                    return filtered.length === 0 ? (
+                                      <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                    ) : (
+                                      filtered.map((specialty) => (
+                                        <DropdownMenuItem
+                                          key={specialty}
+                                          onSelect={() => {
+                                            onSetSettings((s) => ({
+                                              ...s,
+                                              specialtyTargetOverrides: {
+                                                ...(s.specialtyTargetOverrides ?? {}),
+                                                [specialty]: {
+                                                  targetApproach: s.targetApproach,
+                                                  targetPercentile: s.targetPercentile,
+                                                  manualTargetWRVU: s.manualTargetWRVU,
+                                                },
+                                              },
+                                            }))
+                                            setAddOverrideMenuOpen(false)
+                                          }}
+                                        >
+                                          {specialty}
+                                        </DropdownMenuItem>
+                                      ))
+                                    )
+                                  })()}
+                                </div>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            {overriddenSpecialties.length > 0 ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    aria-label="Clear all overrides"
+                                    onClick={() => onSetSettings((s) => ({ ...s, specialtyTargetOverrides: undefined }))}
+                                  >
+                                    <Eraser className="size-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-xs">
+                                  Clear all overrides
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : null}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                    {(() => {
+                      const inScopeSpecialties = targetMode === 'custom' ? selectedSpecialties : availableSpecialties
+                      const overrides = settings.specialtyTargetOverrides ?? {}
+                      const overriddenSpecialties = Object.keys(overrides)
+                      const listSpecialties =
+                        overrideSpecialtySearch.trim() === ''
+                          ? inScopeSpecialties
+                          : inScopeSpecialties.filter((s) =>
+                              s.toLowerCase().includes(overrideSpecialtySearch.toLowerCase().trim())
+                            )
+
+                      function OverrideRow({ specialty }: { specialty: string }) {
+                        const override = overrides[specialty]
+                        const hasOverride = override != null
+                        const approach = override?.targetApproach ?? settings.targetApproach
+                        const percentile = override?.targetPercentile ?? settings.targetPercentile
+                        const manualWRVU = override?.manualTargetWRVU ?? settings.manualTargetWRVU
+                        return (
+                          <div className="flex items-center gap-3 py-2">
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">{specialty}</span>
+                            <div className="flex items-center gap-4">
+                              <div
+                                role="group"
+                                aria-label="Target type"
+                                className="inline-flex rounded-lg border border-border/50 bg-muted/20 p-0.5"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onSetSettings((s) => ({
+                                      ...s,
+                                      specialtyTargetOverrides: {
+                                        ...(s.specialtyTargetOverrides ?? {}),
+                                        [specialty]: {
+                                          targetApproach: 'wrvu_percentile',
+                                          targetPercentile: s.specialtyTargetOverrides?.[specialty]?.targetPercentile ?? s.targetPercentile,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className={cn(
+                                    'min-w-[5.5rem] w-[5.5rem] rounded-md py-1.5 text-center text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                                    approach === 'wrvu_percentile'
+                                      ? 'bg-primary/15 text-primary ring-1 ring-primary/25 shadow-sm'
+                                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                                  )}
+                                >
+                                  Percentile
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onSetSettings((s) => ({
+                                      ...s,
+                                      specialtyTargetOverrides: {
+                                        ...(s.specialtyTargetOverrides ?? {}),
+                                        [specialty]: {
+                                          targetApproach: 'pay_per_wrvu',
+                                          manualTargetWRVU: s.specialtyTargetOverrides?.[specialty]?.manualTargetWRVU ?? s.manualTargetWRVU,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  className={cn(
+                                    'min-w-[5.5rem] w-[5.5rem] rounded-md py-1.5 text-center text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                                    approach === 'pay_per_wrvu'
+                                      ? 'bg-primary/15 text-primary ring-1 ring-primary/25 shadow-sm'
+                                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                                  )}
+                                >
+                                  Fixed wRVU
+                                </button>
+                              </div>
+                              {approach === 'wrvu_percentile' ? (
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  value={percentile}
+                                  className="h-8 w-28 rounded-lg border border-border/60 bg-white text-center text-sm tabular-nums shadow-sm placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/20"
+                                  onChange={(e) => {
+                                    const n = Math.min(99, Math.max(1, Number(e.target.value) || 50))
+                                    onSetSettings((s) => ({
+                                      ...s,
+                                      specialtyTargetOverrides: {
+                                        ...(s.specialtyTargetOverrides ?? {}),
+                                        [specialty]: {
+                                          ...(s.specialtyTargetOverrides?.[specialty] ?? { targetApproach: 'wrvu_percentile' }),
+                                          targetPercentile: n,
+                                        },
+                                      },
+                                    }))
+                                  }}
+                                />
+                              ) : (
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="wRVU"
+                                  value={
+                                    manualWRVU != null && Number.isFinite(manualWRVU)
+                                      ? String(manualWRVU)
+                                      : ''
+                                  }
+                                  className="h-8 w-28 rounded-lg border border-border/60 bg-white text-right text-sm tabular-nums shadow-sm placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-ring/20"
+                                  onChange={(e) => {
+                                    const raw = e.target.value.replace(/,/g, '').trim()
+                                    const n = raw === '' ? undefined : parseFloat(raw)
+                                    const valid =
+                                      n != null && !Number.isNaN(n) && n >= 0 ? n : undefined
+                                    onSetSettings((s) => ({
+                                      ...s,
+                                      specialtyTargetOverrides: {
+                                        ...(s.specialtyTargetOverrides ?? {}),
+                                        [specialty]: {
+                                          ...(s.specialtyTargetOverrides?.[specialty] ?? { targetApproach: 'pay_per_wrvu' }),
+                                          manualTargetWRVU: valid,
+                                        },
+                                      },
+                                    }))
+                                  }}
+                                />
+                              )}
+                            </div>
+                            {hasOverride ? (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    aria-label={`Remove override for ${specialty}`}
+                                    onClick={() => {
+                                      onSetSettings((s) => {
+                                        const next = { ...(s.specialtyTargetOverrides ?? {}) }
+                                        delete next[specialty]
+                                        return {
+                                          ...s,
+                                          specialtyTargetOverrides: Object.keys(next).length > 0 ? next : undefined,
+                                        }
+                                      })
+                                    }}
+                                  >
+                                    <X className="size-3.5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="text-xs">
+                                  Remove override
+                                </TooltipContent>
+                              </Tooltip>
+                            ) : (
+                              <span className="w-6 shrink-0" aria-hidden />
+                            )}
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <div className="space-y-3">
+                          {inScopeSpecialties.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No specialties in scope. Adjust Target scope (step 1).</p>
+                          ) : (
+                            <>
+                              <Input
+                                type="text"
+                                placeholder="Search specialties…"
+                                value={overrideSpecialtySearch}
+                                onChange={(e) => setOverrideSpecialtySearch(e.target.value)}
+                                className="h-8 w-full max-w-xs rounded-lg border border-border/60 bg-white text-sm placeholder:text-muted-foreground/50 focus-visible:ring-2 focus-visible:ring-ring/20"
+                              />
+                              {listSpecialties.length === 0 ? (
+                                <p className="py-2 text-xs text-muted-foreground">No match. Try a different search.</p>
+                              ) : (
+                                <div className="flex max-h-[320px] flex-col divide-y divide-border/40 overflow-y-auto">
+                                  {listSpecialties.map((specialty) => (
+                                    <OverrideRow key={specialty} specialty={specialty} />
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
 
                   <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
@@ -902,6 +1216,12 @@ export function ProductivityTargetConfigureStage({
                           <span className="text-muted-foreground"> (at 1.0 cFTE, prorated by cFTE)</span>
                         </>
                       )}
+                      {Object.keys(settings.specialtyTargetOverrides ?? {}).length > 0 ? (
+                        <span className="text-muted-foreground">
+                          {' '}
+                          · <span className="text-primary font-medium tabular-nums">{Object.keys(settings.specialtyTargetOverrides ?? {}).length} specialty overrides</span>
+                        </span>
+                      ) : null}
                     </li>
                     <li>
                       <span className="text-foreground font-medium">Planning incentive:</span>{' '}

@@ -90,6 +90,65 @@ const MAIN_TABLE_COLUMN_IDS = [
 ] as const
 type MainTableColumnId = (typeof MAIN_TABLE_COLUMN_IDS)[number]
 
+const IMPUTED_VS_MARKET_VIEW_KEY = 'cf-modeler-imputed-vs-market-view'
+const COLUMN_IDS_SET = new Set<string>(MAIN_TABLE_COLUMN_IDS)
+
+function loadImputedVsMarketViewState(): {
+  columnOrder: MainTableColumnId[]
+  hiddenColumnIds: Set<MainTableColumnId>
+  pinnedLeftColumnIds: MainTableColumnId[]
+  percentileFilter: PercentileFilterValue
+  pageSize: number
+} {
+  if (typeof window === 'undefined' || !window.sessionStorage) {
+    return {
+      columnOrder: [...MAIN_TABLE_COLUMN_IDS],
+      hiddenColumnIds: new Set(),
+      pinnedLeftColumnIds: ['specialty'],
+      percentileFilter: 'all',
+      pageSize: 25,
+    }
+  }
+  try {
+    const raw = window.sessionStorage.getItem(IMPUTED_VS_MARKET_VIEW_KEY)
+    if (!raw) return { columnOrder: [...MAIN_TABLE_COLUMN_IDS], hiddenColumnIds: new Set(), pinnedLeftColumnIds: ['specialty'], percentileFilter: 'all', pageSize: 25 }
+    const data = JSON.parse(raw) as Record<string, unknown>
+    const columnOrder: MainTableColumnId[] = Array.isArray(data.columnOrder)
+      ? (data.columnOrder as string[]).filter((id): id is MainTableColumnId => COLUMN_IDS_SET.has(id))
+      : [...MAIN_TABLE_COLUMN_IDS]
+    const hiddenColumnIds = new Set<MainTableColumnId>(
+      Array.isArray(data.hiddenColumnIds)
+        ? (data.hiddenColumnIds as string[]).filter((id): id is MainTableColumnId => COLUMN_IDS_SET.has(id))
+        : []
+    )
+    const pinnedLeftColumnIds: MainTableColumnId[] = Array.isArray(data.pinnedLeftColumnIds)
+      ? (data.pinnedLeftColumnIds as string[]).filter((id): id is MainTableColumnId => COLUMN_IDS_SET.has(id))
+      : ['specialty']
+    const percentileFilter =
+      typeof data.percentileFilter === 'string' &&
+      ['all', 'below25', '25-50', '50-75', '75-90', 'above90'].includes(data.percentileFilter)
+        ? (data.percentileFilter as PercentileFilterValue)
+        : 'all'
+    const pageSize =
+      typeof data.pageSize === 'number' && [10, 25, 50, 100].includes(data.pageSize) ? data.pageSize : 25
+    return {
+      columnOrder: columnOrder.length ? columnOrder : [...MAIN_TABLE_COLUMN_IDS],
+      hiddenColumnIds,
+      pinnedLeftColumnIds: pinnedLeftColumnIds.length ? pinnedLeftColumnIds : ['specialty'],
+      percentileFilter,
+      pageSize,
+    }
+  } catch {
+    return {
+      columnOrder: [...MAIN_TABLE_COLUMN_IDS],
+      hiddenColumnIds: new Set(),
+      pinnedLeftColumnIds: ['specialty'],
+      percentileFilter: 'all',
+      pageSize: 25,
+    }
+  }
+}
+
 interface ImputedVsMarketScreenProps {
   providerRows: ProviderRow[]
   marketRows: MarketRow[]
@@ -166,7 +225,10 @@ function getPercentileBucket(row: ImputedVsMarketRow): PercentileFilterValue {
 
 /** TCC %ile − wRVU %ile: positive = pay above productivity, negative = underpaid. */
 function getAlignmentForRow(row: ImputedVsMarketRow): GapInterpretation {
-  const gap = row.avgTCCPercentile - row.avgWRVUPercentile
+  const a = row.avgTCCPercentile
+  const b = row.avgWRVUPercentile
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 'aligned'
+  const gap = a - b
   return getGapInterpretation(gap)
 }
 
@@ -259,6 +321,8 @@ export function ImputedVsMarketScreen({
     [includeQualityPayments, includeWorkRVUIncentive]
   )
 
+  const initialViewState = useMemo(() => loadImputedVsMarketViewState(), [])
+
   const [selectedProviderTypes, setSelectedProviderTypes] = useState<string[]>([])
   const [providerTypeSearch, setProviderTypeSearch] = useState('')
   const providerTypes = useMemo(() => {
@@ -284,7 +348,7 @@ export function ImputedVsMarketScreen({
 
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([])
   const [specialtySearch, setSpecialtySearch] = useState('')
-  const [percentileFilter, setPercentileFilter] = useState<PercentileFilterValue>('all')
+  const [percentileFilter, setPercentileFilter] = useState<PercentileFilterValue>(initialViewState.percentileFilter)
   const [selectedAlignmentFilters, setSelectedAlignmentFilters] = useState<GapInterpretation[]>([])
 
   const availableSpecialties = useMemo(
@@ -344,9 +408,9 @@ export function ImputedVsMarketScreen({
     document.addEventListener('mouseup', onUp)
   }, [firstDrawerWidth])
 
-  const [columnOrder, setColumnOrder] = useState<MainTableColumnId[]>(() => [...MAIN_TABLE_COLUMN_IDS])
-  const [hiddenColumnIds, setHiddenColumnIds] = useState<Set<MainTableColumnId>>(() => new Set())
-  const [pinnedLeftColumnIds, setPinnedLeftColumnIds] = useState<MainTableColumnId[]>(() => ['specialty'])
+  const [columnOrder, setColumnOrder] = useState<MainTableColumnId[]>(initialViewState.columnOrder)
+  const [hiddenColumnIds, setHiddenColumnIds] = useState<Set<MainTableColumnId>>(initialViewState.hiddenColumnIds)
+  const [pinnedLeftColumnIds, setPinnedLeftColumnIds] = useState<MainTableColumnId[]>(initialViewState.pinnedLeftColumnIds)
   const [columnWidths, setColumnWidths] = useState<Record<MainTableColumnId, number>>(() => ({
     ...AUTO_SIZE_COLUMN_WIDTHS,
   }))
@@ -355,7 +419,26 @@ export function ImputedVsMarketScreen({
   const [focusedCell, setFocusedCell] = useState<{ rowIndex: number; columnIndex: number } | null>(null)
   const focusedCellRef = useRef<HTMLTableCellElement>(null)
   const [pageIndex, setPageIndex] = useState(0)
-  const [pageSize, setPageSize] = useState(25)
+  const [pageSize, setPageSize] = useState(initialViewState.pageSize)
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        window.sessionStorage.setItem(
+          IMPUTED_VS_MARKET_VIEW_KEY,
+          JSON.stringify({
+            columnOrder,
+            hiddenColumnIds: Array.from(hiddenColumnIds),
+            pinnedLeftColumnIds,
+            percentileFilter,
+            pageSize,
+          })
+        )
+      }
+    } catch {
+      // ignore
+    }
+  }, [columnOrder, hiddenColumnIds, pinnedLeftColumnIds, percentileFilter, pageSize])
 
   const visibleOrder = useMemo(
     () => columnOrder.filter((id) => !hiddenColumnIds.has(id)),
@@ -1178,10 +1261,7 @@ export function ImputedVsMarketScreen({
                             title="Click to view provider details"
                             className={cn(
                               rowIndex % 2 === 1 && 'bg-muted/30',
-                              'cursor-pointer hover:bg-muted/50 border-b border-border transition-colors',
-                              alignment === 'aligned' && 'border-l-4 border-l-emerald-500/70',
-                              alignment === 'overpaid' && 'border-l-4 border-l-red-500/70',
-                              alignment === 'underpaid' && 'border-l-4 border-l-blue-500/70'
+                              'cursor-pointer hover:bg-muted/50 border-b border-border transition-colors'
                             )}
                             onClick={() => handleRowClick(row.specialty)}
                           >
@@ -1189,6 +1269,7 @@ export function ImputedVsMarketScreen({
                               const col = MAIN_TABLE_COLUMNS[colId]
                               const value = getMainTableCellValue(colId, row)
                               const isSpecialty = colId === 'specialty'
+                              const isFirstCell = colIndex === 0
                               const w = getWidth(colId)
                               const wPx = `${w}px`
                               const isFocused = focusedCell?.rowIndex === rowIndex && focusedCell?.columnIndex === colIndex
@@ -1201,6 +1282,15 @@ export function ImputedVsMarketScreen({
                                   : isPinnedLeft
                                     ? 'bg-background'
                                     : ''
+                              const alignmentBorder =
+                                isFirstCell &&
+                                (alignment === 'aligned'
+                                  ? 'border-l-4 border-l-emerald-500/70'
+                                  : alignment === 'overpaid'
+                                    ? 'border-l-4 border-l-red-500/70'
+                                    : alignment === 'underpaid'
+                                      ? 'border-l-4 border-l-blue-500/70'
+                                      : '')
                               return (
                                 <td
                                   key={colId}
@@ -1219,6 +1309,7 @@ export function ImputedVsMarketScreen({
                                     colId === 'avgTCCPercentile' && fmvRisk === 'high' && 'bg-destructive/15 text-destructive font-medium',
                                     isPinnedLeft && 'sticky z-20 isolate overflow-hidden',
                                     stickyBg,
+                                    alignmentBorder,
                                     lastPinned && 'border-r border-border shadow-[4px_0_6px_-1px_rgba(0,0,0,0.1),4px_0_4px_-2px_rgba(0,0,0,0.06)]'
                                   )}
                                   style={{

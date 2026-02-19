@@ -336,15 +336,12 @@ export function TccWrvuPercentilesReport({
           )}
         </div>
       </div>
-      {/* Row 2: Back button — standard location used in Report library and Batch results */}
-      <div className="flex flex-wrap items-center gap-2 no-print">
+      {/* Row 2: Back button (left), Current scenario dropdown (right) */}
+      <div className="flex flex-wrap items-center justify-between gap-2 no-print">
         <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
           <ArrowLeft className="size-4" />
           Back
         </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 no-print">
         <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Scenario" />
@@ -595,7 +592,7 @@ export function TccWrvuPercentilesReport({
                 </div>
                 {/* Row 2: Sliders — equal width containers */}
                 <div className="flex gap-3 mt-3">
-                  <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-muted/10 p-3 space-y-2">
+                  <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-white dark:bg-background p-3 space-y-2">
                     <div className="flex justify-between items-center gap-2">
                       <Label className="text-xs text-muted-foreground">TCC %ile (modeled)</Label>
                       <span className="text-xs tabular-nums text-muted-foreground shrink-0">
@@ -611,7 +608,7 @@ export function TccWrvuPercentilesReport({
                       className="w-full"
                     />
                   </div>
-                  <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-muted/10 p-3 space-y-2">
+                  <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-white dark:bg-background p-3 space-y-2">
                     <div className="flex justify-between items-center gap-2">
                       <Label className="text-xs text-muted-foreground">wRVU %ile</Label>
                       <span className="text-xs tabular-nums text-muted-foreground shrink-0">

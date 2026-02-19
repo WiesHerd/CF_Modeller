@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { ArrowLeft, FileSpreadsheet, GitCompare, Lock, Target } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
@@ -20,22 +20,21 @@ export interface CompareScenariosScreenProps {
   savedProductivityTargetConfigs?: SavedProductivityTargetConfig[]
   /** When provided, preselect this tool tab (e.g. when navigating from Target Optimizer). */
   compareSource?: CompareTool
+  /** Lifted state: which compare tool tab is active (persisted in sessionStorage when step is compare-scenarios). */
+  compareTool: CompareTool
+  onCompareToolChange: (tool: CompareTool) => void
   onBack: () => void
 }
 
 export function CompareScenariosScreen({
   savedOptimizerConfigs,
   savedProductivityTargetConfigs = [],
-  compareSource,
+  compareSource: _compareSource,
+  compareTool,
+  onCompareToolChange: setCompareTool,
   onBack,
 }: CompareScenariosScreenProps) {
-  const [compareTool, setCompareTool] = useState<CompareTool>(compareSource ?? 'cf-optimizer')
-
-  useEffect(() => {
-    if (compareSource != null) {
-      setCompareTool(compareSource)
-    }
-  }, [compareSource])
+  // Parent (App) sets compareTool from compareSource when navigating to this screen; we use controlled compareTool.
 
   const [cfComparisonData, setCfComparisonData] = useState<{
     comparison: OptimizerScenarioComparisonN

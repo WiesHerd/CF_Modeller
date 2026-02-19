@@ -17,6 +17,7 @@ import type {
   ProductivityTargetRunResult,
   ProviderTargetStatus,
   StatusBandCounts,
+  SpecialtyTargetRule,
 } from '@/types/productivity-target'
 import { DEFAULT_PRODUCTIVITY_TARGET_SETTINGS } from '@/types/productivity-target'
 
@@ -38,25 +39,53 @@ export function getProviderTargetStatus(percentToTarget: number): ProviderTarget
 }
 
 // ---------------------------------------------------------------------------
+// Effective target per specialty (default or override)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the effective target rule for a specialty (override if present, else global settings).
+ */
+export function getEffectiveTargetRule(
+  settings: ProductivityTargetSettings,
+  specialty: string
+): SpecialtyTargetRule {
+  const override = settings.specialtyTargetOverrides?.[specialty]
+  if (override) {
+    return {
+      targetApproach: override.targetApproach,
+      targetPercentile: override.targetPercentile ?? settings.targetPercentile,
+      manualTargetWRVU: override.manualTargetWRVU ?? settings.manualTargetWRVU,
+    }
+  }
+  return {
+    targetApproach: settings.targetApproach,
+    targetPercentile: settings.targetPercentile,
+    manualTargetWRVU: settings.manualTargetWRVU,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Group target at 1.0 cFTE
 // ---------------------------------------------------------------------------
 
 /**
  * Compute group wRVU target at 1.0 cFTE for a specialty.
+ * Uses effective target rule (per-specialty override or global).
  * Approach A: market wRVU at targetPercentile.
  * Approach B: manual entry — gross target wRVU at 1.0 cFTE (prorated by cFTE per provider in computeProviderTargets).
  */
 export function computeGroupTargetWRVU(
-  _specialty: string,
+  specialty: string,
   settings: ProductivityTargetSettings,
   marketRow: MarketRow | null
 ): number | null {
-  if (settings.targetApproach === 'pay_per_wrvu') {
-    const manual = settings.manualTargetWRVU
+  const rule = getEffectiveTargetRule(settings, specialty)
+  if (rule.targetApproach === 'pay_per_wrvu') {
+    const manual = rule.manualTargetWRVU
     return manual != null && Number.isFinite(manual) && manual >= 0 ? manual : null
   }
   if (!marketRow) return null
-  const p = settings.targetPercentile
+  const p = rule.targetPercentile ?? settings.targetPercentile
   return interpPercentile(
     p,
     marketRow.WRVU_25,
@@ -206,6 +235,7 @@ export function runBySpecialty(
   const { bySpecialty } = buildProviderInputs(providerRows, marketRows, synonymMap, settings)
   const bySpecialtyResults: ProductivityTargetSpecialtyResult[] = []
   for (const [specialty, { inputs, market }] of bySpecialty) {
+    const effectiveRule = getEffectiveTargetRule(settings, specialty)
     const groupTargetWRVU_1cFTE = computeGroupTargetWRVU(specialty, settings, market)
     const warning = !market ? 'Missing market data' : groupTargetWRVU_1cFTE == null ? 'Could not compute group target' : undefined
     const providerResults =
@@ -228,8 +258,8 @@ export function runBySpecialty(
     bySpecialtyResults.push({
       specialty,
       groupTargetWRVU_1cFTE: groupTargetWRVU_1cFTE ?? null,
-      targetPercentile: settings.targetPercentile,
-      targetApproach: settings.targetApproach,
+      targetPercentile: effectiveRule.targetPercentile ?? settings.targetPercentile,
+      targetApproach: effectiveRule.targetApproach,
       providers: providerResults,
       summary,
       totalPlanningIncentiveDollars,

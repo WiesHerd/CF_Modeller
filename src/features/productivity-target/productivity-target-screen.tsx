@@ -307,6 +307,25 @@ export function ProductivityTargetScreen({
     excludedProviderIds,
   ])
 
+  const hasInvalidSpecialtyOverride = useMemo(() => {
+    const overrides = settings.specialtyTargetOverrides
+    if (!overrides || Object.keys(overrides).length === 0) return false
+    for (const rule of Object.values(overrides)) {
+      if (rule.targetApproach === 'pay_per_wrvu') {
+        if (
+          rule.manualTargetWRVU == null ||
+          !Number.isFinite(rule.manualTargetWRVU) ||
+          rule.manualTargetWRVU < 0
+        )
+          return true
+      } else {
+        const p = rule.targetPercentile
+        if (p == null || !Number.isFinite(p) || p < 1 || p > 99) return true
+      }
+    }
+    return false
+  }, [settings.specialtyTargetOverrides])
+
   const runDisabled =
     !hasData ||
     (targetMode === 'custom' && selectedSpecialties.length === 0) ||
@@ -314,6 +333,7 @@ export function ProductivityTargetScreen({
     (providerTypeScopeMode === 'custom' && selectedProviderTypes.length === 0) ||
     (providerScopeMode === 'custom' && selectedProviderIds.length === 0) ||
     filteredProviderRowsForRun.length === 0 ||
+    hasInvalidSpecialtyOverride ||
     (settings.targetApproach === 'pay_per_wrvu' &&
       (settings.manualTargetWRVU == null ||
         !Number.isFinite(settings.manualTargetWRVU) ||
