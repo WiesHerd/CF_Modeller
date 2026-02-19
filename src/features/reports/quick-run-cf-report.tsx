@@ -570,7 +570,7 @@ export function QuickRunCFReport({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="max-h-[280px] overflow-hidden p-0 w-[var(--radix-dropdown-menu-trigger-width)]"
+              className="max-h-[400px] overflow-hidden p-0 min-w-[200px] w-[var(--radix-dropdown-menu-trigger-width)]"
               onCloseAutoFocus={(e: Event) => e.preventDefault()}
             >
               <div className="flex h-9 items-center gap-2 border-b border-border px-3">
@@ -583,7 +583,7 @@ export function QuickRunCFReport({
                   onKeyDown={(e) => e.stopPropagation()}
                 />
               </div>
-              <div className="max-h-[200px] overflow-y-auto p-1">
+              <div className="max-h-[320px] overflow-y-auto p-1">
                 <DropdownMenuLabel>Provider type</DropdownMenuLabel>
                 <DropdownMenuCheckboxItem
                   checked={selectedTypes.size === 0}
@@ -630,7 +630,7 @@ export function QuickRunCFReport({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="max-h-[280px] overflow-hidden p-0 w-[var(--radix-dropdown-menu-trigger-width)]"
+              className="max-h-[400px] overflow-hidden p-0 min-w-[220px] w-[var(--radix-dropdown-menu-trigger-width)]"
               onCloseAutoFocus={(e: Event) => e.preventDefault()}
             >
               <div className="flex h-9 items-center gap-2 border-b border-border px-3">
@@ -643,7 +643,7 @@ export function QuickRunCFReport({
                   onKeyDown={(e) => e.stopPropagation()}
                 />
               </div>
-              <div className="max-h-[200px] overflow-y-auto p-1">
+              <div className="max-h-[320px] overflow-y-auto p-1">
                 <DropdownMenuLabel>Specialty</DropdownMenuLabel>
                 <DropdownMenuCheckboxItem
                   checked={selectedSpecialties.size === 0}
