@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowLeft, FileText, FolderOpen, User, BarChart2, GitCompare, Gauge, Settings2, Target, TrendingUp } from 'lucide-react'
+import { ArrowLeft, FileText, FolderOpen, User, BarChart2, GitCompare, Gauge, Percent, Settings2, Target } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
@@ -37,37 +37,37 @@ const REPORT_CARDS: ReportCardConfig[] = [
   {
     id: 'quick-run-cf',
     section: 'quick-run',
-    title: 'Recommended conversion factors',
+    title: 'Recommended Conversion Factors',
     description: 'One-click analysis: recommended $/wRVU by specialty from your data. No configuration required.',
     icon: <Gauge className="size-6" />,
   },
   {
     id: 'tcc-wrvu',
     section: 'reports',
-    title: 'TCC & wRVU percentiles',
+    title: 'TCC & wRVU Percentiles',
     description: 'Total cash compensation and work RVU percentiles for all loaded providers under one scenario.',
-    icon: <BarChart2 className="size-6" />,
+    icon: <Percent className="size-6" />,
   },
   {
     id: 'custom-cf-by-specialty',
     section: 'reports',
-    title: 'Custom CF by specialty',
+    title: 'Custom CF By Specialty',
     description: 'Set $/wRVU or market percentile per specialty and run TCC & wRVU results.',
     icon: <Gauge className="size-6" />,
   },
   {
     id: 'impact',
     section: 'reports',
-    title: 'Compensation impact report',
+    title: 'Compensation Impact Report',
     description: 'Single-provider compensation impact: TCC waterfall, market percentiles, and summary.',
     icon: <User className="size-6" />,
   },
   {
     id: 'market-positioning',
     section: 'batch-compare',
-    title: 'Market positioning',
+    title: 'Market Positioning',
     description: 'Effective $/wRVU by specialty vs market 25th–90th; export for research.',
-    icon: <TrendingUp className="size-6" />,
+    icon: <BarChart2 className="size-6" />,
     navigateOnly: true,
   },
   {
@@ -89,7 +89,7 @@ const REPORT_CARDS: ReportCardConfig[] = [
   {
     id: 'compare-scenarios',
     section: 'batch-compare',
-    title: 'Scenario comparison',
+    title: 'Scenario Comparison',
     description: 'Compare two saved optimizer scenarios side-by-side and export to Excel.',
     icon: <GitCompare className="size-6" />,
     navigateOnly: true,
@@ -97,14 +97,14 @@ const REPORT_CARDS: ReportCardConfig[] = [
   {
     id: 'saved-run',
     section: 'manage',
-    title: 'Saved batch run report',
+    title: 'Saved Batch Run Report',
     description: 'View and export a saved batch run: TCC and wRVU summary and metrics.',
     icon: <FolderOpen className="size-6" />,
   },
   {
     id: 'manage-scenarios',
     section: 'manage',
-    title: 'Manage scenarios & runs',
+    title: 'Manage Scenarios & Runs',
     description: 'View, load, or clear saved model scenarios, batch runs, batch configs, and CF optimizer scenarios.',
     icon: <Settings2 className="size-6" />,
   },

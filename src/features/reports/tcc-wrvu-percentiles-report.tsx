@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, Eraser, FileDown, FileSpreadsheet, Info, Lock, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Eraser, FileDown, FileSpreadsheet, Info, Lock, Percent, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
@@ -42,7 +42,6 @@ import {
   FMV_RISK_LABEL,
   type FmvRiskLevel,
 } from '@/features/optimizer/components/optimizer-constants'
-import { FileText } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, SavedScenario } from '@/types/scenario'
@@ -264,7 +263,7 @@ export function TccWrvuPercentilesReport({
   if (providerRows.length === 0) {
     return (
       <div className="space-y-4">
-        <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
+        <SectionTitleWithIcon icon={<Percent className="size-5 text-muted-foreground" />}>
           TCC & wRVU percentiles
         </SectionTitleWithIcon>
         <div className="flex flex-wrap items-center gap-2">
@@ -293,7 +292,7 @@ export function TccWrvuPercentilesReport({
       {/* Row 1: Title + confidential (left), scenario meta + Export (right) — matches Report library / Batch layout */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
+          <SectionTitleWithIcon icon={<Percent className="size-5 text-muted-foreground" />}>
             TCC & wRVU percentiles
           </SectionTitleWithIcon>
           <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
