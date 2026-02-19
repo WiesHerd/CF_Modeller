@@ -445,9 +445,9 @@ export function QuickRunCFReport({
         <div className="flex items-center gap-2 flex-wrap">
           <Users className="size-4 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium text-foreground">Provider scope</span>
-          <Badge variant="secondary" className="tabular-nums text-xs">
+          <span className="text-sm tabular-nums text-primary">
             {scopedProviders.length} provider{scopedProviders.length !== 1 ? 's' : ''} in scope
-          </Badge>
+          </span>
           {excludedProviderKeys.size > 0 ? (
             <Badge variant="outline" className="tabular-nums text-xs">
               {excludedProviderKeys.size} excluded
@@ -549,9 +549,6 @@ export function QuickRunCFReport({
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-          <p className="text-[11px] text-muted-foreground">
-            CF optimizer works best with productivity-based providers.
-          </p>
         </div>
 
         {/* ── Provider type (same input dropdown pattern as Compensation type) ── */}
@@ -616,9 +613,6 @@ export function QuickRunCFReport({
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-          <p className="text-[11px] text-muted-foreground">
-            Filter by provider type (MD, APP, etc.). Empty = all types.
-          </p>
         </div>
         <div className="space-y-1.5 min-w-0">
           <Label className="text-xs text-muted-foreground">Specialty</Label>
@@ -681,9 +675,6 @@ export function QuickRunCFReport({
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-          <p className="text-[11px] text-muted-foreground">
-            Narrow the run to one or more specialties.
-          </p>
         </div>
 
         {/* ── Division ── */}
@@ -743,9 +734,6 @@ export function QuickRunCFReport({
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-          <p className="text-[11px] text-muted-foreground">
-            Filter by division or department.
-          </p>
         </div>
 
         <div className="space-y-1.5 min-w-0">
@@ -845,9 +833,6 @@ export function QuickRunCFReport({
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
-          <p className="text-[11px] text-muted-foreground">
-            Exclude specific providers from this run.
-          </p>
         </div>
       </div>
 
