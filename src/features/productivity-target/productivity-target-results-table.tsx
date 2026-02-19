@@ -10,14 +10,7 @@ import { Button } from '@/components/ui/button'
 import { ChevronRight } from 'lucide-react'
 import type { ProductivityTargetSpecialtyResult } from '@/types/productivity-target'
 import { cn } from '@/lib/utils'
-
-function formatNum(n: number, decimals = 0): string {
-  return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-}
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
-}
+import { formatCurrency, formatNumber as formatNum } from '@/utils/format'
 
 export function ProductivityTargetResultsTable({
   rows,
@@ -74,7 +67,7 @@ export function ProductivityTargetResultsTable({
                 {formatNum(row.summary.meanPercentToTarget, 1)}%
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                {formatCurrency(row.totalPlanningIncentiveDollars)}
+                {formatCurrency(row.totalPlanningIncentiveDollars, { decimals: 0 })}
               </TableCell>
               <TableCell className="text-right tabular-nums">{row.summary.bandCounts.below80}</TableCell>
               <TableCell className="text-right tabular-nums">{row.summary.bandCounts.eightyTo99}</TableCell>

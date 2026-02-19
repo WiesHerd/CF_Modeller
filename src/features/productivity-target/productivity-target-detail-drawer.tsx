@@ -17,23 +17,16 @@ import type {
   ProductivityTargetSpecialtyResult,
   ProviderTargetStatus,
 } from '@/types/productivity-target'
+import { formatCurrency, formatNumber as formatNum } from '@/utils/format'
 
 const DRAWER_WIDTH_MIN = 400
 const DRAWER_WIDTH_MAX = 1000
 const DRAWER_WIDTH_DEFAULT = 640
 
-function formatNum(n: number, decimals = 0): string {
-  return n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
-}
-
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)
-}
-
 function statusColorClass(status: ProviderTargetStatus): string {
   switch (status) {
     case 'Above Target':
-      return 'text-emerald-600 dark:text-emerald-400 font-medium'
+      return 'value-positive font-medium'
     case 'Below Target':
       return 'text-destructive font-medium'
     case 'At Target':
@@ -160,7 +153,7 @@ export function ProductivityTargetDetailDrawer({
                         </TableCell>
                         <TableCell className={statusColorClass(p.status)}>{p.status}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {p.planningIncentiveDollars != null ? formatCurrency(p.planningIncentiveDollars) : '—'}
+                          {p.planningIncentiveDollars != null ? formatCurrency(p.planningIncentiveDollars, { decimals: 0 }) : '—'}
                         </TableCell>
                       </TableRow>
                     ))}

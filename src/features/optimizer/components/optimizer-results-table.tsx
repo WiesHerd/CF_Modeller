@@ -167,9 +167,9 @@ export function OptimizerResultsTable({
           const gapInterpretation = getGapInterpretation(row.original.keyMetrics.gap)
           const gapColor =
             gapInterpretation === 'overpaid'
-              ? 'text-red-600 dark:text-red-400'
+              ? 'value-negative'
               : gapInterpretation === 'underpaid'
-                ? 'text-emerald-600 dark:text-emerald-400'
+                ? 'value-positive'
                 : 'text-muted-foreground'
           return (
             <span className={gapColor}>
@@ -188,12 +188,12 @@ export function OptimizerResultsTable({
           const rec = row.original.recommendedAction
           const tone =
             rec === 'INCREASE'
-              ? 'text-emerald-700 dark:text-emerald-300'
+              ? 'value-positive'
               : rec === 'DECREASE'
-                ? 'text-red-700 dark:text-red-300'
+                ? 'value-negative'
                 : rec === 'HOLD'
-                  ? 'text-slate-700 dark:text-slate-300'
-                  : 'text-amber-700 dark:text-amber-300'
+                  ? 'value-neutral'
+                  : 'value-warning'
           return <span className={tone}>{formatRecommendation(row.original)}</span>
         },
       }),

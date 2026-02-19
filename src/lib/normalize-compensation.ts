@@ -7,18 +7,7 @@ import type { ProviderRow } from '@/types/provider'
 import type { PSQBasis } from '@/types/scenario'
 import type { AdditionalTCCConfig, TCCLayerConfig } from '@/lib/tcc-components'
 import { computePSQForTotalPayBasis } from '@/lib/tcc-components'
-
-function num(x: unknown): number {
-  if (typeof x === 'number' && !Number.isNaN(x)) return x
-  const n = Number(x)
-  return Number.isNaN(n) ? 0 : n
-}
-
-function safeDiv(a: number, b: number, fallback: number): number {
-  if (b == null || b === 0 || Number.isNaN(b)) return fallback
-  const q = a / b
-  return Number.isNaN(q) ? fallback : q
-}
+import { num, safeDiv } from '@/utils/math'
 
 /** PSQ config for baseline/modeled TCC. When basis is fixed, use psqFixedDollars (global or per-provider). */
 export interface PSQConfig {

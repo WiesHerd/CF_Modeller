@@ -44,19 +44,7 @@ import type {
   CFSweepAllResult,
 } from '@/types/optimizer'
 
-// --- Helpers ---
-
-function num(x: unknown): number {
-  if (typeof x === 'number' && !Number.isNaN(x)) return x
-  const n = Number(x)
-  return Number.isNaN(n) ? 0 : n
-}
-
-function safeDiv(a: number, b: number, fallback: number): number {
-  if (b == null || b === 0 || Number.isNaN(b)) return fallback
-  const q = a / b
-  return Number.isNaN(q) ? fallback : q
-}
+import { num, safeDiv } from '@/utils/math'
 
 /** LOA flag: optional field on provider (e.g. leaveOfAbsence or similar). */
 function isLOA(provider: ProviderRow): boolean {

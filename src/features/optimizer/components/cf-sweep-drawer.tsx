@@ -34,6 +34,7 @@ import type {
   CFSweepRow,
 } from '@/types/optimizer'
 import { runModeledTCCSweepAllSpecialties } from '@/lib/optimizer-engine'
+import { formatCurrency } from '@/utils/format'
 
 const DEFAULT_PERCENTILES = [20, 30, 40, 50]
 
@@ -41,15 +42,6 @@ function formatPercentile(v: number): string {
   if (v < 25) return `<25 (${v.toFixed(1)})`
   if (v > 90) return `>90 (${v.toFixed(1)})`
   return v.toFixed(1)
-}
-
-function formatCurrency(value: number, decimals = 0): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(value)
 }
 
 export interface CFSweepDrawerProps {
@@ -257,15 +249,15 @@ function SweepResultsTable({ sweepResult }: { sweepResult: CFSweepAllResult }) {
               {rows.map((row: CFSweepRow, idx) => (
                 <TableRow key={row.cfPercentile} className={cn(idx % 2 === 1 && 'bg-muted/30', 'tabular-nums text-sm')}>
                   <TableCell className="text-right px-3 py-2.5">{row.cfPercentile}</TableCell>
-                  <TableCell className="text-right px-3 py-2.5">{formatCurrency(row.cfDollars, 2)}</TableCell>
+                  <TableCell className="text-right px-3 py-2.5">{formatCurrency(row.cfDollars, { decimals: 2 })}</TableCell>
                   <TableCell className="text-right px-3 py-2.5">{formatPercentile(row.meanModeledTCCPctile)}</TableCell>
                   <TableCell className="text-right px-3 py-2.5">{formatPercentile(row.meanWrvuPctile)}</TableCell>
                   <TableCell className="text-right px-3 py-2.5">{formatPercentile(row.gap)}</TableCell>
                   <TableCell className="text-right px-3 py-2.5">
-                    {row.totalIncentiveDollars != null ? formatCurrency(row.totalIncentiveDollars, 0) : '—'}
+                    {row.totalIncentiveDollars != null ? formatCurrency(row.totalIncentiveDollars, { decimals: 0 }) : '—'}
                   </TableCell>
                   <TableCell className="text-right px-3 py-2.5">
-                    {row.spendImpactRaw != null ? formatCurrency(row.spendImpactRaw, 0) : '—'}
+                    {row.spendImpactRaw != null ? formatCurrency(row.spendImpactRaw, { decimals: 0 }) : '—'}
                   </TableCell>
                 </TableRow>
               ))}

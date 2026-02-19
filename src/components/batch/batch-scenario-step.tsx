@@ -31,6 +31,8 @@ import {
 } from '@/components/ui/table'
 import { Play, Loader2, AlertCircle, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, Link2, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatDate } from '@/utils/format'
+import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { BatchScenarioInline } from '@/components/batch/batch-scenario-inline'
 import { ScenarioControls } from '@/components/scenario-controls'
@@ -446,7 +448,7 @@ export function BatchScenarioStep({
                                     {config.name}
                                   </p>
                                   <p className="text-muted-foreground text-xs">
-                                    {new Date(config.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    {formatDate(config.createdAt)}
                                   </p>
                                 </div>
                                 <div className="flex shrink-0 gap-0.5">
@@ -555,7 +557,7 @@ export function BatchScenarioStep({
                                 {config.name}
                               </p>
                               <p className="text-muted-foreground text-xs">
-                                {new Date(config.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                {formatDate(config.createdAt)}
                               </p>
                             </div>
                             <div className="flex shrink-0 gap-0.5">
@@ -1176,10 +1178,7 @@ export function BatchScenarioStep({
             </div>
           )}
           {error && (
-            <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              <AlertCircle className="size-4 shrink-0" />
-              {error}
-            </div>
+            <WarningBanner message={error} tone="error" />
           )}
           {isRunning && (
             <div className="space-y-2">

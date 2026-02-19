@@ -1383,9 +1383,9 @@ export function ImputedVsMarketScreen({
                       const alignment = getGapInterpretation(gap)
                       const percentileColor =
                         alignment === 'aligned'
-                          ? 'text-emerald-600 dark:text-emerald-400 font-medium'
+                          ? 'value-positive font-medium'
                           : alignment === 'overpaid'
-                            ? 'text-amber-600 dark:text-amber-400 font-medium'
+                            ? 'value-warning font-medium'
                             : 'text-blue-600 dark:text-blue-400 font-medium'
                       return (
                       <TableRow

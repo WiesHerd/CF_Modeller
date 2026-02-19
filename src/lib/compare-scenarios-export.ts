@@ -10,14 +10,10 @@ import type {
   OptimizerScenarioComparisonN,
 } from '@/types/optimizer'
 import { formatBudgetConstraint } from '@/lib/optimizer-format'
+import { formatCurrency as _formatCurrency } from '@/utils/format'
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(value)
+  return _formatCurrency(value, { decimals: 0 })
 }
 
 function formatPercentile(p: number): string {

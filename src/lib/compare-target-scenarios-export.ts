@@ -5,14 +5,10 @@
 
 import * as XLSX from 'xlsx'
 import type { ProductivityTargetScenarioComparisonN } from '@/types/productivity-target'
+import { formatCurrency as _formatCurrency } from '@/utils/format'
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(value)
+  return _formatCurrency(value, { decimals: 0 })
 }
 
 function buildReportRows(

@@ -45,8 +45,8 @@ export function DeltaIndicator({
     <span
       className={cn(
         'tabular-nums',
-        isPositive && 'text-emerald-600 dark:text-emerald-500',
-        isNegative && 'text-rose-600 dark:text-rose-500',
+        isPositive && 'value-positive',
+        isNegative && 'value-negative',
         isZero && 'text-muted-foreground',
         className
       )}

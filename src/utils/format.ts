@@ -33,6 +33,24 @@ export function formatCurrencyCompact(n: number): string {
   return `${sign}$${Math.round(abs)}`
 }
 
+/** Format a date as "Jan 5, 2024" (en-US short month). Accepts a Date object or ISO string. */
+export function formatDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+/** Format a date+time as "Jan 5, 2024, 2:30 PM" (en-US). Accepts a Date object or ISO string. */
+export function formatDateTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 /** Format percentile as ordinal (e.g. 44 → "44th", 79 → "79th"). */
 export function formatOrdinal(n: number): string {
   const s = String(Math.round(n))

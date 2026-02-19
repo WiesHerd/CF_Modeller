@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { DeltaIndicator, fmtMoney } from '@/components/delta-indicator'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Label } from '@/components/ui/label'
 import {
   Table,
@@ -43,9 +44,7 @@ export function MarketPositionTable({ results }: MarketPositionTableProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 md:px-6">
-          <p className="text-muted-foreground py-8 text-center text-sm">
-            Select a provider and market to see market position.
-          </p>
+          <EmptyState message="Select a provider and market to see market position." />
         </CardContent>
       </Card>
     )

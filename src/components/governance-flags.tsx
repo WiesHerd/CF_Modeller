@@ -101,9 +101,9 @@ export function GovernanceFlags({ results }: GovernanceFlagsProps) {
         <ul className="space-y-4">
           {flags.length === 0 ? (
             <li className="flex items-start gap-2 text-sm">
-              <CheckCircle2 className="size-4 shrink-0 mt-0.5 text-green-700 dark:text-green-400" />
+              <CheckCircle2 className="size-4 shrink-0 mt-0.5 value-positive" />
               <div className="min-w-0 space-y-1">
-                <p className="font-medium text-green-700 dark:text-green-400">No governance flags for this scenario.</p>
+                <p className="font-medium value-positive">No governance flags for this scenario.</p>
                 <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
                   Modeled pay and conversion factor fall within typical policy ranges (e.g. 25th–75th) and alignment gap is between -15 and +15.
                 </p>
@@ -115,19 +115,15 @@ export function GovernanceFlags({ results }: GovernanceFlagsProps) {
                 <span
                   className={
                     flag.isWarning
-                      ? 'text-amber-700 dark:text-amber-400'
-                      : 'text-green-700 dark:text-green-400'
+                      ? 'value-warning'
+                      : 'value-positive'
                   }
                 >
                   {flag.icon}
                 </span>
                 <div className="min-w-0 space-y-1">
                   <p
-                    className={`font-medium ${
-                      flag.isWarning
-                        ? 'text-amber-700 dark:text-amber-400'
-                        : 'text-green-700 dark:text-green-400'
-                    }`}
+                    className={`font-medium ${flag.isWarning ? 'value-warning' : 'value-positive'}`}
                   >
                     {flag.title}
                   </p>

@@ -1184,9 +1184,9 @@ export function CustomCfBySpecialtyReport({
                             currentCFBySpecialty[s] == null || modeledCFBySpecialty[s] == null
                               ? 'text-muted-foreground'
                               : modeledCFBySpecialty[s] - currentCFBySpecialty[s] > 0
-                                ? 'text-emerald-700 dark:text-emerald-400'
+                                ? 'value-positive'
                                 : modeledCFBySpecialty[s] - currentCFBySpecialty[s] < 0
-                                  ? 'text-rose-700 dark:text-rose-400'
+                                  ? 'value-negative'
                                   : 'text-muted-foreground'
                           )}
                         >
@@ -1416,7 +1416,7 @@ export function CustomCfBySpecialtyReport({
                       <p className="text-xs text-muted-foreground">Total TCC change</p>
                       <p className={cn(
                         'text-lg font-semibold tabular-nums',
-                        summaryTotals.totalDeltaTCC >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'
+                        summaryTotals.totalDeltaTCC >= 0 ? 'value-positive' : 'value-negative'
                       )}>
                         {summaryTotals.totalDeltaTCC >= 0 ? '+' : ''}
                         {formatCurrency(summaryTotals.totalDeltaTCC, { decimals: 2 })}

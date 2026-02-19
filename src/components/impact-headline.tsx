@@ -38,8 +38,8 @@ export function ImpactHeadline({ results, summary, minimal }: ImpactHeadlineProp
       <p
         className={cn(
           'tabular-nums text-3xl font-bold tracking-tight sm:text-4xl',
-          isPositive && 'text-emerald-600 dark:text-emerald-500',
-          isNegative && 'text-rose-600 dark:text-rose-500',
+          isPositive && 'value-positive',
+          isNegative && 'value-negative',
           isZero && 'text-foreground'
         )}
         aria-label={`Change in total cash compensation: ${amountText} ${pctText}`}
@@ -61,8 +61,8 @@ export function ImpactHeadline({ results, summary, minimal }: ImpactHeadlineProp
         <p
           className={cn(
             'tabular-nums text-xl font-bold tracking-tight sm:text-2xl',
-            isPositive && 'text-emerald-600 dark:text-emerald-500',
-            isNegative && 'text-rose-600 dark:text-rose-500',
+            isPositive && 'value-positive',
+            isNegative && 'value-negative',
             isZero && 'text-foreground'
           )}
           aria-label={`Change in total cash compensation: ${amountText} ${pctText}`}

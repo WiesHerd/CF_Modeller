@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RiskBadges } from '@/components/risk-badges'
 import { PercentileComparisonChart } from '@/components/charts/percentile-comparison-chart'
 import { CFComparisonTable } from '@/components/cf-comparison-table'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatNumber } from '@/utils/format'
 import type { ScenarioResults } from '@/types/scenario'
 
 interface ResultsDashboardProps {
@@ -20,7 +20,7 @@ interface ResultsDashboardProps {
 }
 
 function fmtNum(n: number): string {
-  return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2)
+  return Number.isInteger(n) ? formatNumber(n, 0) : n.toFixed(2)
 }
 function fmtMoney(n: number): string {
   return formatCurrency(n, { decimals: 0 })
@@ -140,7 +140,7 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
           <CardContent>
             <p
               className={`text-2xl font-semibold ${
-                changeInTCC >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                changeInTCC >= 0 ? 'value-positive' : 'value-negative'
               }`}
             >
               {changeInTCC >= 0 ? '+' : ''}{fmtMoney(changeInTCC)}

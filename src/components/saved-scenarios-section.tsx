@@ -20,19 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { SavedScenario } from '@/types/scenario'
-
-function formatScenarioDate(iso: string): string {
-  try {
-    const d = new Date(iso)
-    return d.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-  } catch {
-    return iso
-  }
-}
+import { formatDate as formatScenarioDate } from '@/utils/format'
 
 function sortedScenarios(scenarios: SavedScenario[]): SavedScenario[] {
   return scenarios

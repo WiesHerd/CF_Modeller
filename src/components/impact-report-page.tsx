@@ -132,7 +132,7 @@ export function ImpactReportPage({
               <p
                 className={cn(
                   'tabular-nums text-center text-base font-semibold tracking-tight',
-                  isPositiveDelta && 'text-emerald-700 dark:text-emerald-400',
+                  isPositiveDelta && 'value-positive',
                   isNegativeDelta && 'text-muted-foreground dark:text-muted-foreground',
                   !isPositiveDelta && !isNegativeDelta && 'text-foreground'
                 )}
@@ -161,7 +161,7 @@ export function ImpactReportPage({
               <p
                 className={cn(
                   'tabular-nums text-center text-base font-semibold tracking-tight',
-                  isPositiveDelta && 'text-emerald-700 dark:text-emerald-400',
+                  isPositiveDelta && 'value-positive',
                   isNegativeDelta && 'text-muted-foreground dark:text-muted-foreground',
                   !isPositiveDelta && !isNegativeDelta && 'text-foreground'
                 )}
@@ -178,7 +178,7 @@ export function ImpactReportPage({
 
       {takeaway && (
         takeaway.type === 'risk' ? (
-          <p className="text-[0.9rem] font-medium text-red-600 dark:text-red-400">
+          <p className="text-[0.9rem] font-medium value-negative">
             ⚠ Risk: {takeaway.message}
           </p>
         ) : (

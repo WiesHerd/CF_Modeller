@@ -23,7 +23,7 @@ import Papa from 'papaparse'
 import { cn } from '@/lib/utils'
 import type { ProviderRow } from '@/types/provider'
 import type { ScenarioResults } from '@/types/scenario'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatNumber } from '@/utils/format'
 
 export interface DivisionRow {
   provider: ProviderRow
@@ -167,8 +167,7 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
     }
   }
 
-  const fmt = (n: number) =>
-    n >= 1000 ? n.toLocaleString() : n.toFixed(0)
+  const fmt = (n: number) => formatNumber(n, 0)
   const fmtMoney = (n: number) =>
     formatCurrency(n, { decimals: 0 })
 
@@ -302,8 +301,8 @@ export function DivisionTable({ rows, onExportCSV }: DivisionTableProps) {
                     className={cn(
                       'tabular-nums px-3 py-2.5',
                       r.results.changeInTCC >= 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
+                        ? 'value-positive'
+                        : 'value-negative'
                     )}
                   >
                     {r.results.changeInTCC >= 0 ? '+' : ''}

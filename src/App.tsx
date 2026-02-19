@@ -67,6 +67,8 @@ import { DataTablesScreen } from '@/features/data/data-tables-screen'
 import { HelpScreen } from '@/features/help/help-screen'
 import { ReportsScreen } from '@/features/reports/reports-screen'
 import { LegalPage } from '@/components/legal-page'
+import { WarningBanner } from '@/features/optimizer/components/warning-banner'
+import { EmptyState } from '@/components/ui/empty-state'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, Eraser, FileSpreadsheet, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
@@ -723,8 +725,8 @@ export default function App() {
                     </ExistingProviderAndMarketCard>
                   ) : (
                     <Card>
-                      <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                        Upload provider and market files on the Upload screen first.
+                      <CardContent>
+                        <EmptyState message="Upload provider and market files on the Upload screen first." />
                       </CardContent>
                     </Card>
                   )}
@@ -755,8 +757,8 @@ export default function App() {
                   </div>
                   {state.marketRows.length === 0 && (
                     <Card>
-                      <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                        Upload market data on the Upload screen first to model a hypothetical provider.
+                      <CardContent>
+                        <EmptyState message="Upload market data on the Upload screen first to model a hypothetical provider." />
                       </CardContent>
                     </Card>
                   )}
@@ -795,8 +797,8 @@ export default function App() {
                 </>
               ) : (
                 <Card>
-                  <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                    Select a provider on the Provider step first to set scenario parameters.
+                  <CardContent>
+                    <EmptyState message="Select a provider on the Provider step first to set scenario parameters." />
                   </CardContent>
                 </Card>
               )}
@@ -819,8 +821,8 @@ export default function App() {
                 />
               ) : (
                 <Card>
-                  <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                    Select a provider and specialty on the Provider step first.
+                  <CardContent>
+                    <EmptyState message="Select a provider and specialty on the Provider step first." />
                   </CardContent>
                 </Card>
               )}
@@ -854,8 +856,8 @@ export default function App() {
                 </>
               ) : (
                 <Card>
-                  <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                    Select a provider and set scenario parameters in the previous steps to see results.
+                  <CardContent>
+                    <EmptyState message="Select a provider and set scenario parameters in the previous steps to see results." />
                   </CardContent>
                 </Card>
               )}
@@ -864,21 +866,11 @@ export default function App() {
           </div>
 
           {state.lastScenarioLoadWarning && (
-            <div
-              className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm dark:border-amber-900/50 dark:bg-amber-950/30"
-              role="alert"
-            >
-              <span className="text-amber-800 dark:text-amber-200">{state.lastScenarioLoadWarning}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="shrink-0 text-amber-700 hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
-                onClick={dismissScenarioLoadWarning}
-              >
-                Dismiss
-              </Button>
-            </div>
+            <WarningBanner
+              message={state.lastScenarioLoadWarning}
+              tone="warning"
+              onDismiss={dismissScenarioLoadWarning}
+            />
           )}
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border/70 pt-4">
             {modellerStep !== 'results' && (

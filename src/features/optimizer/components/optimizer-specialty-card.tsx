@@ -87,7 +87,7 @@ export function OptimizerSpecialtyCard({
 
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <PolicyChip policy={result.policyCheck} />
-          <span className={result.cfChangePct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}>
+          <span className={result.cfChangePct >= 0 ? 'value-positive' : 'value-negative'}>
             {result.cfChangePct >= 0 ? '+' : ''}
             {result.cfChangePct.toFixed(1)}%
           </span>

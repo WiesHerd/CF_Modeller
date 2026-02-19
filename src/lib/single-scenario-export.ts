@@ -2,6 +2,10 @@ import * as XLSX from 'xlsx'
 import type { MarketRow } from '@/types/market'
 import type { ProviderRow } from '@/types/provider'
 import type { ScenarioInputs, ScenarioResults } from '@/types/scenario'
+import {
+  formatCurrency as _formatCurrency,
+  formatNumber as _formatNumber,
+} from '@/utils/format'
 
 interface ExportSingleScenarioInput {
   provider: ProviderRow | null
@@ -27,20 +31,12 @@ function safe(value: unknown): string | number {
 
 function formatNumber(value: number | undefined, decimals = 0): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return EMPTY
-  return value.toLocaleString('en-US', {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  })
+  return _formatNumber(value, decimals)
 }
 
 function formatCurrency(value: number | undefined, decimals = 0): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return EMPTY
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(value)
+  return _formatCurrency(value, { decimals })
 }
 
 function formatPercent(value: number | undefined, decimals = 2): string {

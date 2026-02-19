@@ -221,7 +221,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
           const row = c.row.original
           const isNegative = val != null && Number.isFinite(val) && val < 0
           const isPositive = val != null && Number.isFinite(val) && val > 0
-          const colorClass = isNegative ? 'text-destructive font-medium' : isPositive ? 'text-green-600 dark:text-green-400 font-medium' : undefined
+          const colorClass = isNegative ? 'value-negative font-medium' : isPositive ? 'value-positive font-medium' : undefined
           const content = colorClass ? <span className={colorClass}>{text}</span> : text
           if (text !== EMPTY && onCalculationClick) {
             return (
@@ -245,7 +245,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
           if (text === EMPTY) return text
           const isNegative = val != null && Number.isFinite(val) && val < 0
           const isPositive = val != null && Number.isFinite(val) && val > 0
-          const colorClass = isNegative ? 'text-destructive font-medium' : isPositive ? 'text-green-600 dark:text-green-400 font-medium' : undefined
+          const colorClass = isNegative ? 'value-negative font-medium' : isPositive ? 'value-positive font-medium' : undefined
           return colorClass ? <span className={colorClass}>{text}</span> : text
         },
       }),

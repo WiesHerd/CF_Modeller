@@ -25,15 +25,7 @@ import { getOptimizerBaselineTCCConfig } from '@/lib/optimizer-engine'
 import { getBaselineTCCBreakdown, getClinicalFTE, getTotalWRVUs } from '@/lib/normalize-compensation'
 import type { OptimizerSettings } from '@/types/optimizer'
 import type { ImputedVsMarketProviderDetail } from '@/lib/imputed-vs-market'
-
-function formatCurrency(value: number, decimals = 2): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(value)
-}
+import { formatCurrency } from '@/utils/format'
 
 const RECOMMENDATION_LABEL: Record<string, string> = {
   INCREASE: 'Increase',
@@ -234,8 +226,8 @@ export function OptimizerDetailDrawer({
                   <span
                     className={
                       row.cfChangePct >= 0
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-red-600 dark:text-red-400'
+                        ? 'value-positive'
+                        : 'value-negative'
                     }
                   >
                     ({row.cfChangePct >= 0 ? '+' : ''}{row.cfChangePct.toFixed(1)}%)
@@ -359,7 +351,7 @@ export function OptimizerDetailDrawer({
                       row.providerContexts
                         .filter((c) => c.included)
                         .reduce((s, c) => s + (c.baselineIncentiveDollars ?? 0), 0),
-                      0
+                      { decimals: 0 }
                     )}
                   </strong>
                 </span>
@@ -370,7 +362,7 @@ export function OptimizerDetailDrawer({
                       row.providerContexts
                         .filter((c) => c.included)
                         .reduce((s, c) => s + (c.modeledIncentiveDollars ?? 0), 0),
-                      0
+                      { decimals: 0 }
                     )}
                   </strong>
                 </span>
@@ -502,20 +494,20 @@ function ProviderDrilldownTable({
                   {formatFTE(nonClinicalFTE)}
                 </td>
                 <td className="min-w-[88px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
-                  <span className={ctx.wrvuPercentile > ctx.currentTCC_pctile ? 'font-semibold text-emerald-600 dark:text-emerald-400' : ''}>
+                  <span className={ctx.wrvuPercentile > ctx.currentTCC_pctile ? 'font-semibold value-positive' : ''}>
                     {formatPercentile(ctx.wrvuPercentile)}
                   </span>
                 </td>
                 <td className="min-w-[100px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
-                  <span className={ctx.currentTCC_pctile > ctx.wrvuPercentile ? 'font-semibold text-red-600 dark:text-red-400' : ''}>
+                  <span className={ctx.currentTCC_pctile > ctx.wrvuPercentile ? 'font-semibold value-negative' : ''}>
                     {formatPercentile(ctx.currentTCC_pctile)}
                   </span>
                 </td>
                 <td className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5 align-middle">
-                  {ctx.baselineIncentiveDollars != null ? formatCurrency(ctx.baselineIncentiveDollars, 0) : '—'}
+                  {ctx.baselineIncentiveDollars != null ? formatCurrency(ctx.baselineIncentiveDollars, { decimals: 0 }) : '—'}
                 </td>
                 <td className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5 align-middle">
-                  {ctx.modeledIncentiveDollars != null ? formatCurrency(ctx.modeledIncentiveDollars, 0) : '—'}
+                  {ctx.modeledIncentiveDollars != null ? formatCurrency(ctx.modeledIncentiveDollars, { decimals: 0 }) : '—'}
                 </td>
                 <td className="min-w-[72px] text-sm px-3 py-2.5 align-middle whitespace-nowrap">
                   {ctx.included ? 'Yes' : 'No'}

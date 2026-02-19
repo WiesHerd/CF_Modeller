@@ -2,12 +2,14 @@ import { useMemo } from 'react'
 import { ArrowLeft, Copy, FolderOpen, RotateCcw, Settings2, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import type { SavedScenario } from '@/types/scenario'
 import type { SavedBatchRun, SavedBatchScenarioConfig } from '@/types/batch'
 import type { SavedOptimizerConfig } from '@/types/optimizer'
+import { formatDate as formatScenarioDate, formatDateTime as formatRunDate } from '@/utils/format'
 
 const TAB_IDS = {
   scenarios: 'scenarios',
@@ -15,32 +17,6 @@ const TAB_IDS = {
   configs: 'configs',
   optimizerConfigs: 'optimizer-configs',
 } as const
-
-function formatScenarioDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-  } catch {
-    return iso
-  }
-}
-
-function formatRunDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  } catch {
-    return iso
-  }
-}
 
 export interface ManageScenariosScreenProps {
   savedScenarios: SavedScenario[]
@@ -176,9 +152,7 @@ export function ManageScenariosScreen({
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pt-4 pb-4 min-w-0 overflow-hidden flex-1 min-h-0">
               {sortedScenarios.length === 0 ? (
-                <p className="text-muted-foreground py-8 text-center text-sm">
-                  No saved scenarios yet. Go to Single scenario and save a scenario to see it here.
-                </p>
+                <EmptyState message="No saved scenarios yet. Go to Single scenario and save a scenario to see it here." />
               ) : (
                 <div className="min-w-0 overflow-hidden rounded-md border h-full min-h-[240px]">
                   <ScrollArea className="h-[50vh] min-h-[240px] max-h-[420px]">
@@ -277,9 +251,7 @@ export function ManageScenariosScreen({
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pt-4 pb-4 min-w-0 overflow-hidden flex-1 min-h-0">
               {sortedBatchRuns.length === 0 ? (
-                <p className="text-muted-foreground py-8 text-center text-sm">
-                  No saved batch runs yet. Run a scenario from Batch, then save the run to see it here.
-                </p>
+                <EmptyState message="No saved batch runs yet. Run a scenario from Batch, then save the run to see it here." />
               ) : (
                 <div className="min-w-0 overflow-hidden rounded-md border h-full min-h-[240px]">
                   <ScrollArea className="h-[50vh] min-h-[240px] max-h-[420px]">
@@ -369,9 +341,7 @@ export function ManageScenariosScreen({
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pt-4 pb-4 min-w-0 overflow-hidden flex-1 min-h-0">
               {sortedConfigs.length === 0 ? (
-                <p className="text-muted-foreground py-8 text-center text-sm">
-                  No saved batch configs yet. Go to Batch → Run Batch Scenario, configure a scenario, and save the config to see it here.
-                </p>
+                <EmptyState message="No saved batch configs yet. Go to Batch → Run Batch Scenario, configure a scenario, and save the config to see it here." />
               ) : (
                 <div className="min-w-0 overflow-hidden rounded-md border h-full min-h-[240px]">
                   <ScrollArea className="h-[50vh] min-h-[240px] max-h-[420px]">
@@ -456,9 +426,7 @@ export function ManageScenariosScreen({
             </CardHeader>
             <CardContent className="px-4 sm:px-6 pt-4 pb-4 min-w-0 overflow-hidden flex-1 min-h-0">
               {sortedOptimizerConfigs.length === 0 ? (
-                <p className="text-muted-foreground py-8 text-center text-sm">
-                  No saved CF optimizer scenarios yet. Run CF Optimizer in Batch, then save the scenario to see it here.
-                </p>
+                <EmptyState message="No saved CF optimizer scenarios yet. Run CF Optimizer in Batch, then save the scenario to see it here." />
               ) : (
                 <div className="min-w-0 overflow-hidden rounded-md border h-full min-h-[240px]">
                   <ScrollArea className="h-[50vh] min-h-[240px] max-h-[420px]">

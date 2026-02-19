@@ -45,8 +45,8 @@ export function ImpactComparisonTable({ results, className }: ImpactComparisonTa
             <TableCell
               className={cn(
                 'text-right tabular-nums px-3 py-1.5 text-xs font-medium',
-                isPositiveDelta && 'text-emerald-600 dark:text-emerald-500',
-                isNegativeDelta && 'text-rose-600 dark:text-rose-500'
+                isPositiveDelta && 'value-positive',
+                isNegativeDelta && 'value-negative'
               )}
             >
               {results.changeInTCC >= 0 ? '+' : ''}

@@ -297,9 +297,9 @@ export function TccWrvuSummaryTable({
             gap != null && Number.isFinite(gap) ? getGapInterpretation(gap) : null
           const color =
             interpretation === 'overpaid'
-              ? 'text-red-600 dark:text-red-400'
+              ? 'value-negative'
               : interpretation === 'underpaid'
-                ? 'text-emerald-600 dark:text-emerald-400'
+                ? 'value-positive'
                 : 'text-muted-foreground'
           return (
             <span className={color}>
@@ -322,9 +322,9 @@ export function TccWrvuSummaryTable({
             const fmvRisk = c.getValue() as FmvRiskLevel
             const riskColor =
               fmvRisk === 'high'
-                ? 'text-red-600 dark:text-red-400 font-medium'
+                ? 'value-negative font-medium'
                 : fmvRisk === 'elevated'
-                  ? 'text-amber-600 dark:text-amber-400'
+                  ? 'value-warning'
                   : 'text-muted-foreground'
             return <span className={riskColor}>{FMV_RISK_LABEL[fmvRisk]}</span>
           },

@@ -33,27 +33,13 @@ import { BatchResultsTable, type CalculationColumnId } from '@/components/batch/
 import { RowCalculationModal, type CalculationSection } from '@/components/batch/row-calculation-modal'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
 import { isBatchRowFlagged, hasDataQualityWarning } from '@/lib/batch'
-import { formatCurrency, formatCurrencyCompact } from '@/utils/format'
+import { formatCurrency, formatCurrencyCompact, formatDateTime as formatRunDate } from '@/utils/format'
 import type { BatchResults, BatchRowResult, BatchRiskLevel, BatchScenarioSnapshot, MarketMatchStatus, SavedBatchRun, SynonymMap } from '@/types/batch'
 import type { MarketRow } from '@/types/market'
 import type { ProviderRow } from '@/types/provider'
 import { TccWrvuSummaryTable } from '@/features/reports/tcc-wrvu-summary-table'
 import { MarketPositioningCalculationDrawer } from '@/features/optimizer/components/market-positioning-calculation-drawer'
 import { getImputedVsMarketProviderDetail, DEFAULT_IMPUTED_VS_MARKET_CONFIG, type ImputedVsMarketProviderDetail } from '@/lib/imputed-vs-market'
-
-function formatRunDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  } catch {
-    return iso
-  }
-}
 
 interface BatchResultsDashboardProps {
   results: BatchResults
@@ -124,7 +110,7 @@ export function BatchResultsDashboard({
 
   const defaultSaveRunName = useMemo(
     () =>
-      `${results.providerCount} providers × ${results.scenarioCount} scenario(s) – ${new Date(results.runAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`,
+      `${results.providerCount} providers × ${results.scenarioCount} scenario(s) – ${formatRunDate(results.runAt)}`,
     [results.providerCount, results.scenarioCount, results.runAt]
   )
 

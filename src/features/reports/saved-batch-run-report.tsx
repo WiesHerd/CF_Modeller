@@ -18,20 +18,7 @@ import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-exp
 import { formatPercentile, getGapInterpretation } from '@/features/optimizer/components/optimizer-constants'
 import { FileText } from 'lucide-react'
 import type { BatchResults, BatchRowResult, SavedBatchRun } from '@/types/batch'
-
-function formatRunDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  } catch {
-    return iso
-  }
-}
+import { formatDateTime as formatRunDate } from '@/utils/format'
 
 export interface SavedBatchRunReportProps {
   savedBatchRuns: SavedBatchRun[]

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FileSpreadsheet, Gauge, Info, LineChart, Play, RotateCcw } from 'lucide-react'
+import { formatDateTime } from '@/utils/format'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -223,7 +224,7 @@ export function OptimizerRunStage({
                       <li>Meeting alignment target: {result.summary.countMeetingAlignmentTarget}</li>
                       <li>CF above policy: {result.summary.countCFAbovePolicy}</li>
                       <li>Effective rate &gt;90: {result.summary.countEffectiveRateAbove90}</li>
-                      <li>Timestamp: {new Date(result.summary.timestamp).toLocaleString()}</li>
+                      <li>Timestamp: {formatDateTime(result.summary.timestamp)}</li>
                     </ul>
                     {result.summary.keyMessages.length > 0 ? (
                       <div className="mt-3 rounded-md border border-border/70 bg-muted/20 p-3">
@@ -317,15 +318,15 @@ function BudgetVsActual({ totalIncentive, capDollars }: { totalIncentive: number
       <span className="font-medium tabular-nums">${formattedCap}</span>
       {' · '}
       {isOver ? (
-        <span className="font-medium text-amber-600 dark:text-amber-400">
+        <span className="font-medium value-warning">
           Over by ${formattedDelta}
         </span>
       ) : isUnder ? (
-        <span className="font-medium text-emerald-600 dark:text-emerald-400">
+        <span className="font-medium value-positive">
           Under by ${formattedDelta}
         </span>
       ) : (
-        <span className="font-medium text-emerald-600 dark:text-emerald-400">Within budget</span>
+        <span className="font-medium value-positive">Within budget</span>
       )}
     </div>
   )
