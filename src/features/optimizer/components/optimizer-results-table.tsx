@@ -31,6 +31,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { formatCurrency } from '@/utils/format'
 import type { OptimizerSpecialtyResult } from '@/types/optimizer'
 import {
   formatPercentile,
@@ -47,6 +48,7 @@ const COLUMN_HEADER_LABELS: Record<string, string> = {
   tccPctile: 'TCC %ile',
   payVsProd: 'Pay vs productivity',
   recommendation: 'Recommendation',
+  recommendedCf: 'Recommended CF',
   marketLine: 'Market line',
   details: 'Details',
 }
@@ -196,6 +198,19 @@ export function OptimizerResultsTable({
                   : 'value-warning'
           return <span className={tone}>{formatRecommendation(row.original)}</span>
         },
+      }),
+      columnHelper.accessor((r) => r.recommendedCF, {
+        id: 'recommendedCf',
+        header: 'Recommended CF',
+        size: 110,
+        minSize: 88,
+        maxSize: 140,
+        cell: ({ row }) => (
+          <span className="tabular-nums font-medium">
+            {formatCurrency(row.original.recommendedCF)}
+          </span>
+        ),
+        meta: { align: 'right' },
       }),
       columnHelper.display({
         id: 'marketLine',
@@ -454,7 +469,7 @@ export function OptimizerResultsTable({
                       className={cn(
                         'px-3 py-2.5 overflow-hidden',
                         cell.column.id === 'specialty' && 'font-medium',
-                        (cell.column.id === 'wrvuPctile' || cell.column.id === 'tccPctile' || cell.column.id === 'recommendation') && 'tabular-nums',
+                        (cell.column.id === 'wrvuPctile' || cell.column.id === 'tccPctile' || cell.column.id === 'recommendation' || cell.column.id === 'recommendedCf') && 'tabular-nums',
                         alignRight && 'text-right',
                         isPinned && 'sticky left-0 z-10 bg-background shadow-[2px_0_4px_-1px_rgba(0,0,0,0.06)]'
                       )}
