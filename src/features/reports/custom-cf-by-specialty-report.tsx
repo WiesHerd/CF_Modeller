@@ -549,6 +549,7 @@ export function CustomCfBySpecialtyReport({
         sumCurrentTCC: number
         sumModeledTCC: number
         sumChangeTCC: number
+        sumIncentive: number
         sumTccPercentile: number
         countTccPercentile: number
         sumModeledTCCPercentile: number
@@ -567,6 +568,7 @@ export function CustomCfBySpecialtyReport({
           sumCurrentTCC: 0,
           sumModeledTCC: 0,
           sumChangeTCC: 0,
+          sumIncentive: 0,
           sumTccPercentile: 0,
           countTccPercentile: 0,
           sumModeledTCCPercentile: 0,
@@ -584,6 +586,8 @@ export function CustomCfBySpecialtyReport({
           entry.sumModeledTCC += Math.max(0, res.modeledTCC)
         if (res.changeInTCC != null && Number.isFinite(res.changeInTCC))
           entry.sumChangeTCC += res.changeInTCC
+        if (res.annualIncentive != null && Number.isFinite(res.annualIncentive))
+          entry.sumIncentive += res.annualIncentive
         if (res.tccPercentile != null && Number.isFinite(res.tccPercentile)) {
           entry.sumTccPercentile += res.tccPercentile
           entry.countTccPercentile += 1
@@ -605,6 +609,7 @@ export function CustomCfBySpecialtyReport({
         sumCurrentTCC: e.sumCurrentTCC,
         sumModeledTCC: e.sumModeledTCC,
         sumChangeTCC: e.sumChangeTCC,
+        sumIncentive: e.sumIncentive,
         avgTccPercentile:
           e.countTccPercentile > 0 ? e.sumTccPercentile / e.countTccPercentile : undefined,
         avgModeledTCCPercentile:
@@ -623,10 +628,12 @@ export function CustomCfBySpecialtyReport({
     let totalCurrentTCC = 0
     let totalModeledTCC = 0
     let totalDeltaTCC = 0
+    let totalIncentive = 0
     for (const row of summaryBySpecialty) {
       totalCurrentTCC += row.sumCurrentTCC
       totalModeledTCC += row.sumModeledTCC
       totalDeltaTCC += row.sumChangeTCC
+      totalIncentive += row.sumIncentive
     }
     return {
       specialtyCount,
@@ -634,6 +641,7 @@ export function CustomCfBySpecialtyReport({
       totalCurrentTCC,
       totalModeledTCC,
       totalDeltaTCC,
+      totalIncentive,
     }
   }, [summaryBySpecialty, filteredRows.length])
 
@@ -1393,10 +1401,10 @@ export function CustomCfBySpecialtyReport({
                   <p className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
                     Roll-up metrics
                   </p>
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-md border border-border/60 bg-background p-3">
                       <p className="text-xs text-muted-foreground">Specialties</p>
-                      <p className="text-lg font-semibold tabular-nums text-foreground">
+                      <p className="text-lg font-semibold tabular-nums text-primary">
                         {summaryTotals.specialtyCount}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -1405,7 +1413,7 @@ export function CustomCfBySpecialtyReport({
                     </div>
                     <div className="rounded-md border border-border/60 bg-background p-3">
                       <p className="text-xs text-muted-foreground">Total modeled TCC</p>
-                      <p className="text-lg font-semibold tabular-nums text-foreground">
+                      <p className="text-lg font-semibold tabular-nums text-primary">
                         {formatCurrency(summaryTotals.totalModeledTCC, { decimals: 2 })}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -1425,6 +1433,15 @@ export function CustomCfBySpecialtyReport({
                         Modeled − current. Negative = scenario pays less (e.g. lower CF or below wRVU threshold, so incentive is $0).
                       </p>
                     </div>
+                    <div className="rounded-md border border-border/60 bg-background p-3 border-primary/30">
+                      <p className="text-xs text-muted-foreground">Total wRVU incentive</p>
+                      <p className="text-lg font-semibold tabular-nums text-primary">
+                        {formatCurrency(summaryTotals.totalIncentive, { decimals: 2 })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Sum of productivity incentive at modeled CF across all specialties.
+                      </p>
+                    </div>
                   </div>
                 </section>
 
@@ -1442,6 +1459,9 @@ export function CustomCfBySpecialtyReport({
                     <p className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
                       Specialty detail
                     </p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Numbers in <span className="font-medium text-primary">purple</span> are key metrics (e.g. incentive totals).
+                    </p>
                     <div className="flex-1 min-h-[240px] max-h-[420px] overflow-auto rounded-lg border border-border/60 bg-background">
                       <Table className="w-full min-w-[980px] caption-bottom text-sm border-collapse">
                         <TableHeader className="sticky top-0 z-20 border-b border-border/60 bg-muted [&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:border-b [&_th]:border-border/60 [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:text-foreground">
@@ -1451,6 +1471,7 @@ export function CustomCfBySpecialtyReport({
                           <TableHead className="min-w-[90px] px-3 py-2.5 text-right">Current TCC</TableHead>
                           <TableHead className="min-w-[90px] px-3 py-2.5 text-right">Modeled TCC</TableHead>
                           <TableHead className="min-w-[72px] px-3 py-2.5 text-right">Δ TCC</TableHead>
+                          <TableHead className="min-w-[90px] px-3 py-2.5 text-right" title="Sum of productivity (wRVU) incentive dollars at modeled CF for providers in this specialty">Incentive</TableHead>
                           <TableHead className="min-w-[72px] px-3 py-2.5 text-right" title="Average current TCC percentile vs market for providers in this specialty">Avg TCC %ile</TableHead>
                           <TableHead className="min-w-[80px] px-3 py-2.5 text-right" title="Average modeled TCC percentile vs market—where this scenario places the group’s pay vs market, on average">Avg Modeled %ile</TableHead>
                           <TableHead className="min-w-[72px] px-3 py-2.5 text-right" title="Average wRVU productivity percentile vs market for providers in this specialty">Avg wRVU %ile</TableHead>
@@ -1476,6 +1497,9 @@ export function CustomCfBySpecialtyReport({
                               {row.sumChangeTCC >= 0 ? '+' : ''}
                               {formatCurrency(row.sumChangeTCC, { decimals: 2 })}
                             </TableCell>
+                            <TableCell className="text-right tabular-nums px-3 py-2.5 font-medium text-primary">
+                              {formatCurrency(row.sumIncentive, { decimals: 2 })}
+                            </TableCell>
                             <TableCell className="text-right tabular-nums px-3 py-2.5 text-muted-foreground">
                               {row.avgTccPercentile != null ? row.avgTccPercentile.toFixed(1) : '—'}
                             </TableCell>
@@ -1497,7 +1521,7 @@ export function CustomCfBySpecialtyReport({
                         How to read this summary
                       </p>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        The table rolls up TCC & wRVU results from your current run by specialty. Current TCC and Modeled TCC are summed totals per specialty; Δ TCC is modeled minus current (negative = scenario pays less, e.g. lower CF or below wRVU threshold).
+                        The table rolls up TCC & wRVU results from your current run by specialty. Current TCC and Modeled TCC are summed totals per specialty; Δ TCC is modeled minus current (negative = scenario pays less, e.g. lower CF or below wRVU threshold). Incentive is the sum of productivity (wRVU) incentive dollars at the modeled CF for providers in that specialty.
                       </p>
                       <ul className="mt-2 space-y-1 text-sm text-muted-foreground leading-relaxed list-none pl-0">
                         <li><strong className="text-foreground/90">Avg TCC %ile:</strong> Average, across providers in that specialty, of where each provider’s <em>current</em> total compensation (per FTE) falls in the market distribution (e.g. 56 = 56th percentile vs market).</li>

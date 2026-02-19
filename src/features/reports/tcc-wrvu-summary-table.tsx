@@ -69,6 +69,7 @@ const DEFAULT_COLUMN_ORDER: ColumnOrderState = [
   'scenarioName',
   'currentTCC',
   'modeledTCC',
+  'incentive',
   'tccPercentile',
   'cfPercentile',
   'modeledTCCPercentile',
@@ -83,6 +84,7 @@ const COLUMN_HEADER_LABELS: Record<string, string> = {
   scenarioName: 'Model name',
   currentTCC: 'Current TCC',
   modeledTCC: 'Modeled TCC',
+  incentive: 'Incentive',
   tccPercentile: 'Current TCC %ile',
   cfPercentile: 'CF %ile',
   modeledTCCPercentile: 'Modeled TCC %ile',
@@ -106,6 +108,10 @@ function getCellDisplayString(row: BatchRowResult, columnId: string): string {
     }
     case 'modeledTCC': {
       const v = row.results?.modeledTCC
+      return v != null && Number.isFinite(v) ? formatCurrency(v, { decimals: 0 }) : EMPTY
+    }
+    case 'incentive': {
+      const v = row.results?.annualIncentive
       return v != null && Number.isFinite(v) ? formatCurrency(v, { decimals: 0 }) : EMPTY
     }
     case 'tccPercentile': {
@@ -228,6 +234,24 @@ export function TccWrvuSummaryTable({
       columnHelper.accessor((r) => r.results?.modeledTCC, {
         id: 'modeledTCC',
         header: 'Modeled TCC',
+        cell: (c) => {
+          const v = c.getValue() as number | undefined
+          return v != null && Number.isFinite(v) ? formatCurrency(v, { decimals: 0 }) : EMPTY
+        },
+        meta: { minWidth: 80, align: 'right' },
+      }),
+      columnHelper.accessor((r) => r.results?.annualIncentive, {
+        id: 'incentive',
+        header: () => (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help underline decoration-dotted">Incentive</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">
+              Productivity (wRVU) incentive dollars at the modeled CF for this provider.
+            </TooltipContent>
+          </Tooltip>
+        ),
         cell: (c) => {
           const v = c.getValue() as number | undefined
           return v != null && Number.isFinite(v) ? formatCurrency(v, { decimals: 0 }) : EMPTY

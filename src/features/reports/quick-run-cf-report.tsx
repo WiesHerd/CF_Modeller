@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { ArrowLeft, ChevronDown, ChevronUp, Eraser, FileDown, FileSpreadsheet, Gauge, Play, Printer, Search, Users } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Eraser, FileDown, FileSpreadsheet, Gauge, Play, Search, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -410,7 +411,6 @@ export function QuickRunCFReport({
 
   const handleExport = useCallback(() => { if (result) exportOptimizerResultsToExcel(result) }, [result])
   const handleExportCSV = useCallback(() => { if (result) exportOptimizerResultsToCSV(result) }, [result])
-  const handlePrint = useCallback(() => { window.print() }, [])
 
   if (!hasData) {
     return (
@@ -866,17 +866,24 @@ export function QuickRunCFReport({
                   )}
                 </Button>
                 {result ? (
-                  <>
-                    <Button type="button" variant="outline" size="sm" onClick={handlePrint} className="gap-2">
-                      <Printer className="size-4" /> Print
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={handleExportCSV} className="gap-2">
-                      <FileDown className="size-4" /> Export CSV
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={handleExport} className="gap-2">
-                      <FileSpreadsheet className="size-4" /> Export to Excel
-                    </Button>
-                  </>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="outline" size="sm" className="gap-2" aria-label="Export data">
+                        <FileDown className="size-4" /> Export
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">Export</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                        <FileDown className="size-4" />
+                        Export CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExport} className="gap-2">
+                        <FileSpreadsheet className="size-4" />
+                        Export to Excel
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 ) : null}
               </div>
 
