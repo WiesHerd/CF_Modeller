@@ -904,7 +904,6 @@ export function ProductivityTargetConfigureStage({
                     {(() => {
                       const inScopeSpecialties = targetMode === 'custom' ? selectedSpecialties : availableSpecialties
                       const overrides = settings.specialtyTargetOverrides ?? {}
-                      const overriddenSpecialties = Object.keys(overrides)
                       const listSpecialties =
                         overrideSpecialtySearch.trim() === ''
                           ? inScopeSpecialties
