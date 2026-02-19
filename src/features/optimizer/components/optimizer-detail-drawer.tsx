@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { Minus, Pin, PinOff, TrendingDown, TrendingUp } from 'lucide-react'
 import {
   Sheet,
@@ -38,6 +38,23 @@ const GAP_PILL_CLASS: Record<string, string> = {
   overpaid: 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
   underpaid: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
   aligned: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+}
+
+/** Match currency ($X.XX), ordinals (25th, 1st), and percentages (+5.2%) so we can style them with text-primary. */
+const EXPLANATION_NUMBER_REGEX =
+  /(\$[\d,]+(?:\.\d+)?|\d+(?:st|nd|rd|th)|[+-]?\d+(?:\.\d+)?%)/g
+
+function highlightNumbersInText(text: string): React.ReactNode {
+  const parts = text.split(EXPLANATION_NUMBER_REGEX)
+  return parts.map((part, i) =>
+    i % 2 === 1 ? (
+      <span key={i} className="tabular-nums text-primary">
+        {part}
+      </span>
+    ) : (
+      part
+    )
+  )
 }
 
 const DRAWER_WIDTH_MIN = 400
@@ -289,7 +306,7 @@ export function OptimizerDetailDrawer({
                   <ul className="mt-2 space-y-2 text-sm leading-relaxed text-foreground/90">
                     {row.explanation.why.map((bullet, idx) => (
                       <li key={idx} className="relative pl-3 before:absolute before:left-0 before:top-1.5 before:size-1 before:rounded-full before:bg-primary/60">
-                        {bullet}
+                        {highlightNumbersInText(bullet)}
                       </li>
                     ))}
                   </ul>
@@ -303,7 +320,7 @@ export function OptimizerDetailDrawer({
                       {row.explanation.whatToDoNext.map((item, idx) => (
                         <li key={idx} className="flex gap-2">
                           <span className="shrink-0 text-primary/70">→</span>
-                          <span>{item}</span>
+                          <span>{highlightNumbersInText(item)}</span>
                         </li>
                       ))}
                     </ul>
@@ -339,14 +356,14 @@ export function OptimizerDetailDrawer({
                 Work RVU incentive (what we're calculating)
               </h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                At <strong>current CF</strong> ({formatCurrency(row.currentCF)}): total incentive across included
-                providers. At <strong>recommended CF</strong> ({formatCurrency(row.recommendedCF)}): incentive if you
+                At <strong>current CF</strong> (<span className="tabular-nums text-primary">{formatCurrency(row.currentCF)}</span>): total incentive across included
+                providers. At <strong>recommended CF</strong> (<span className="tabular-nums text-primary">{formatCurrency(row.recommendedCF)}</span>): incentive if you
                 apply the recommendation. See provider table for per-provider amounts.
               </p>
               <div className="mt-2 flex flex-wrap gap-4 text-sm">
                 <span>
                   Current CF incentive:{' '}
-                  <strong className="tabular-nums">
+                  <strong className="tabular-nums text-primary">
                     {formatCurrency(
                       row.providerContexts
                         .filter((c) => c.included)
@@ -357,7 +374,7 @@ export function OptimizerDetailDrawer({
                 </span>
                 <span>
                   Modeled (recommended) incentive:{' '}
-                  <strong className="tabular-nums">
+                  <strong className="tabular-nums text-primary">
                     {formatCurrency(
                       row.providerContexts
                         .filter((c) => c.included)
