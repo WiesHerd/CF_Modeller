@@ -124,7 +124,7 @@ export function MarketPositioningCalculationDrawer({
                 </TableRow>
                 <TableRow>
                   <TableCell className="text-muted-foreground px-3 py-2.5">Work RVU incentive</TableCell>
-                  <TableCell className="text-right tabular-nums px-3 py-2.5">{fmtCur(provider.workRVUIncentive)}</TableCell>
+                  <TableCell className="text-right tabular-nums font-bold px-3 py-2.5">{fmtCur(provider.workRVUIncentive)}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell className="text-muted-foreground px-3 py-2.5">Other incentives</TableCell>

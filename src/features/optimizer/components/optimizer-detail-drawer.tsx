@@ -48,7 +48,7 @@ function highlightNumbersInText(text: string): React.ReactNode {
   const parts = text.split(EXPLANATION_NUMBER_REGEX)
   return parts.map((part, i) =>
     i % 2 === 1 ? (
-      <span key={i} className="tabular-nums text-primary">
+      <span key={i} className="tabular-nums text-primary font-bold">
         {part}
       </span>
     ) : (
@@ -356,14 +356,14 @@ export function OptimizerDetailDrawer({
                 Work RVU incentive (what we're calculating)
               </h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                At <strong>current CF</strong> (<span className="tabular-nums text-primary">{formatCurrency(row.currentCF)}</span>): total incentive across included
-                providers. At <strong>recommended CF</strong> (<span className="tabular-nums text-primary">{formatCurrency(row.recommendedCF)}</span>): incentive if you
+                At <strong>current CF</strong> (<strong className="tabular-nums text-primary">{formatCurrency(row.currentCF)}</strong>): total incentive across included
+                providers. At <strong>recommended CF</strong> (<strong className="tabular-nums text-primary">{formatCurrency(row.recommendedCF)}</strong>): incentive if you
                 apply the recommendation. See provider table for per-provider amounts.
               </p>
               <div className="mt-2 flex flex-wrap gap-4 text-sm">
                 <span>
                   Current CF incentive:{' '}
-                  <strong className="tabular-nums text-primary">
+                  <strong className="tabular-nums text-primary font-bold">
                     {formatCurrency(
                       row.providerContexts
                         .filter((c) => c.included)
@@ -374,7 +374,7 @@ export function OptimizerDetailDrawer({
                 </span>
                 <span>
                   Modeled (recommended) incentive:{' '}
-                  <strong className="tabular-nums text-primary">
+                  <strong className="tabular-nums text-primary font-bold">
                     {formatCurrency(
                       row.providerContexts
                         .filter((c) => c.included)
