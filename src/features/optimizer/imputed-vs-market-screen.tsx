@@ -39,9 +39,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Slider } from '@/components/ui/slider'
 import { Command, CommandInput } from '@/components/ui/command'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ArrowLeft, ChevronLeft, ChevronRight, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, PinOff, Eraser, ListChecks, Minimize2 } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, Eraser, ListChecks, Minimize2 } from 'lucide-react'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
@@ -125,15 +126,20 @@ function loadImputedVsMarketViewState(): {
   columnOrder: MainTableColumnId[]
   hiddenColumnIds: Set<MainTableColumnId>
   pinnedLeftColumnIds: MainTableColumnId[]
-  percentileFilter: PercentileFilterValue
+  tccPercentileRange: [number, number]
+  wrvuPercentileRange: [number, number]
   pageSize: number
 } {
+  const defaultRanges: { tccPercentileRange: [number, number]; wrvuPercentileRange: [number, number] } = {
+    tccPercentileRange: [0, 100],
+    wrvuPercentileRange: [0, 100],
+  }
   if (typeof window === 'undefined' || !window.sessionStorage) {
     return {
       columnOrder: [...DEFAULT_COLUMN_ORDER],
       hiddenColumnIds: new Set(DEFAULT_HIDDEN_COLUMN_IDS),
       pinnedLeftColumnIds: ['specialty'],
-      percentileFilter: 'all',
+      ...defaultRanges,
       pageSize: 25,
     }
   }
@@ -144,7 +150,7 @@ function loadImputedVsMarketViewState(): {
         columnOrder: [...DEFAULT_COLUMN_ORDER],
         hiddenColumnIds: new Set(DEFAULT_HIDDEN_COLUMN_IDS),
         pinnedLeftColumnIds: ['specialty'],
-        percentileFilter: 'all',
+        ...defaultRanges,
         pageSize: 25,
       }
     const data = JSON.parse(raw) as Record<string, unknown>
@@ -159,18 +165,28 @@ function loadImputedVsMarketViewState(): {
     const pinnedLeftColumnIds: MainTableColumnId[] = Array.isArray(data.pinnedLeftColumnIds)
       ? (data.pinnedLeftColumnIds as string[]).filter((id): id is MainTableColumnId => COLUMN_IDS_SET.has(id))
       : ['specialty']
-    const percentileFilter =
-      typeof data.percentileFilter === 'string' &&
-      ['all', 'below25', '25-50', '50-75', '75-90', 'above90'].includes(data.percentileFilter)
-        ? (data.percentileFilter as PercentileFilterValue)
-        : 'all'
+    const tccPercentileRange: [number, number] =
+      Array.isArray(data.tccPercentileRange) &&
+      data.tccPercentileRange.length === 2 &&
+      typeof data.tccPercentileRange[0] === 'number' &&
+      typeof data.tccPercentileRange[1] === 'number'
+        ? [Math.max(0, Math.min(100, data.tccPercentileRange[0])), Math.max(0, Math.min(100, data.tccPercentileRange[1]))]
+        : [0, 100]
+    const wrvuPercentileRange: [number, number] =
+      Array.isArray(data.wrvuPercentileRange) &&
+      data.wrvuPercentileRange.length === 2 &&
+      typeof data.wrvuPercentileRange[0] === 'number' &&
+      typeof data.wrvuPercentileRange[1] === 'number'
+        ? [Math.max(0, Math.min(100, data.wrvuPercentileRange[0])), Math.max(0, Math.min(100, data.wrvuPercentileRange[1]))]
+        : [0, 100]
     const pageSize =
       typeof data.pageSize === 'number' && [10, 25, 50, 100].includes(data.pageSize) ? data.pageSize : 25
     return {
       columnOrder: columnOrder.length ? columnOrder : [...DEFAULT_COLUMN_ORDER],
       hiddenColumnIds,
       pinnedLeftColumnIds: pinnedLeftColumnIds.length ? pinnedLeftColumnIds : ['specialty'],
-      percentileFilter,
+      tccPercentileRange,
+      wrvuPercentileRange,
       pageSize,
     }
   } catch {
@@ -178,7 +194,7 @@ function loadImputedVsMarketViewState(): {
       columnOrder: [...DEFAULT_COLUMN_ORDER],
       hiddenColumnIds: new Set(DEFAULT_HIDDEN_COLUMN_IDS),
       pinnedLeftColumnIds: ['specialty'],
-      percentileFilter: 'all',
+      ...defaultRanges,
       pageSize: 25,
     }
   }
@@ -235,27 +251,6 @@ const MAIN_TABLE_COLUMNS: Record<
 const ROW_HEIGHT_PX = 40
 const TABLE_HEADER_HEIGHT_PX = 42
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
-
-type PercentileFilterValue = 'all' | 'below25' | '25-50' | '50-75' | '75-90' | 'above90'
-const PERCENTILE_FILTER_OPTIONS: { value: PercentileFilterValue; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'below25', label: 'Below 25th' },
-  { value: '25-50', label: '25th–50th' },
-  { value: '50-75', label: '50th–75th' },
-  { value: '75-90', label: '75th–90th' },
-  { value: 'above90', label: 'Above 90th' },
-]
-
-function getPercentileBucket(row: ImputedVsMarketRow): PercentileFilterValue {
-  if (row.yourPercentileBelowRange) return 'below25'
-  if (row.yourPercentileAboveRange) return 'above90'
-  const p = row.yourPercentile
-  if (p < 25) return 'below25'
-  if (p < 50) return '25-50'
-  if (p < 75) return '50-75'
-  if (p <= 90) return '75-90'
-  return 'above90'
-}
 
 /** TCC %ile − wRVU %ile: positive = pay above productivity, negative = underpaid. */
 function getAlignmentForRow(row: ImputedVsMarketRow): GapInterpretation {
@@ -382,7 +377,8 @@ export function ImputedVsMarketScreen({
 
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([])
   const [specialtySearch, setSpecialtySearch] = useState('')
-  const [percentileFilter, setPercentileFilter] = useState<PercentileFilterValue>(initialViewState.percentileFilter)
+  const [tccPercentileRange, setTccPercentileRange] = useState<[number, number]>(initialViewState.tccPercentileRange)
+  const [wrvuPercentileRange, setWrvuPercentileRange] = useState<[number, number]>(initialViewState.wrvuPercentileRange)
   const [selectedAlignmentFilters, setSelectedAlignmentFilters] = useState<GapInterpretation[]>([])
 
   const availableSpecialties = useMemo(
@@ -398,17 +394,35 @@ export function ImputedVsMarketScreen({
   const filteredRows = useMemo(() => {
     let list = rows
     if (selectedSpecialties.length > 0) list = list.filter((r) => selectedSpecialties.includes(r.specialty))
-    if (percentileFilter !== 'all') list = list.filter((r) => getPercentileBucket(r) === percentileFilter)
+    const [tccMin, tccMax] = tccPercentileRange
+    if (tccMin > 0 || tccMax < 100) {
+      list = list.filter((r) => {
+        const p = r.avgTCCPercentile
+        if (!Number.isFinite(p)) return false
+        return p >= tccMin && p <= tccMax
+      })
+    }
+    const [wrvuMin, wrvuMax] = wrvuPercentileRange
+    if (wrvuMin > 0 || wrvuMax < 100) {
+      list = list.filter((r) => {
+        const p = r.avgWRVUPercentile
+        if (!Number.isFinite(p)) return false
+        return p >= wrvuMin && p <= wrvuMax
+      })
+    }
     if (selectedAlignmentFilters.length > 0) {
       const alignmentSet = new Set(selectedAlignmentFilters)
       list = list.filter((r) => alignmentSet.has(getAlignmentForRow(r)))
     }
     return list
-  }, [rows, selectedSpecialties, percentileFilter, selectedAlignmentFilters])
+  }, [rows, selectedSpecialties, tccPercentileRange, wrvuPercentileRange, selectedAlignmentFilters])
 
   const isFiltered =
     selectedSpecialties.length > 0 ||
-    percentileFilter !== 'all' ||
+    tccPercentileRange[0] > 0 ||
+    tccPercentileRange[1] < 100 ||
+    wrvuPercentileRange[0] > 0 ||
+    wrvuPercentileRange[1] < 100 ||
     selectedAlignmentFilters.length > 0 ||
     selectedProviderTypes.length > 0
 
@@ -464,7 +478,8 @@ export function ImputedVsMarketScreen({
             columnOrder,
             hiddenColumnIds: Array.from(hiddenColumnIds),
             pinnedLeftColumnIds,
-            percentileFilter,
+            tccPercentileRange,
+            wrvuPercentileRange,
             pageSize,
           })
         )
@@ -472,7 +487,7 @@ export function ImputedVsMarketScreen({
     } catch {
       // ignore
     }
-  }, [columnOrder, hiddenColumnIds, pinnedLeftColumnIds, percentileFilter, pageSize])
+  }, [columnOrder, hiddenColumnIds, pinnedLeftColumnIds, tccPercentileRange, wrvuPercentileRange, pageSize])
 
   const visibleOrder = useMemo(
     () => columnOrder.filter((id) => !hiddenColumnIds.has(id)),
@@ -760,7 +775,7 @@ export function ImputedVsMarketScreen({
                   <p className="text-background/90">Effective $/wRVU <em>derived from your market file</em>: (Market TCC at that percentile) ÷ (Market wRVU at that percentile). So they form the curve your imputed $/wRVU is compared against to get &quot;Your $/wRVU %ile&quot;.</p>
                   <p className="text-background/90 font-medium">CF 25th / 50th / 75th / 90th:</p>
                   <p className="text-background/90">Conversion factor ($/wRVU) at those percentiles <em>as reported in the market survey</em> (direct from the market file). Use these as reference rates when setting or reviewing CF targets.</p>
-                  <p className="text-background/90">Click a row to open provider-level detail. Use filters to find misalignments. Use the pin icon in a column header to freeze it; drag headers to reorder; drag the right edge to resize.</p>
+                  <p className="text-background/90">Click a row to open provider-level detail. Use filters to find misalignments. Use the pin icon to pin columns to the left; drag headers to reorder; drag the right edge to resize.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -821,7 +836,8 @@ export function ImputedVsMarketScreen({
                               className="h-8 gap-1.5 text-muted-foreground hover:text-foreground text-xs"
                               onClick={() => {
                                 setSelectedSpecialties([])
-                                setPercentileFilter('all')
+                                setTccPercentileRange([0, 100])
+                                setWrvuPercentileRange([0, 100])
                                 setSelectedAlignmentFilters([])
                                 setSelectedProviderTypes([])
                               }}
@@ -890,34 +906,39 @@ export function ImputedVsMarketScreen({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <div className="space-y-1.5 flex-1 min-w-[120px]">
-                      <div className="flex items-center gap-1">
-                        <Label className="text-xs text-muted-foreground">Your $/wRVU %ile</Label>
-                        <TooltipProvider delayDuration={300}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="text-muted-foreground cursor-help inline-flex" aria-label="What is Your $/wRVU %ile?">
-                                <HelpCircle className="size-3.5" />
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-[260px] text-xs">
-                              Percentile of your <strong>effective $/wRVU</strong> (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) compared to market $/wRVU (25th–90th). Use this filter to show only specialties in a given range (e.g. &quot;Below 25th&quot; or &quot;Above 90th&quot;).
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                    <div className="flex gap-3 flex-1 min-w-0 basis-full">
+                      <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-white dark:bg-background p-3 space-y-2">
+                        <div className="flex justify-between items-center gap-2">
+                          <Label className="text-xs text-muted-foreground">Avg TCC %ile</Label>
+                          <span className="text-xs tabular-nums text-muted-foreground shrink-0">
+                            {tccPercentileRange[0]} – {tccPercentileRange[1]}
+                          </span>
+                        </div>
+                        <Slider
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={tccPercentileRange}
+                          onValueChange={(v) => setTccPercentileRange(v as [number, number])}
+                          className="w-full"
+                        />
                       </div>
-                      <Select value={percentileFilter} onValueChange={(v) => setPercentileFilter(v as PercentileFilterValue)}>
-                        <SelectTrigger className="w-full h-9 bg-white dark:bg-background">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PERCENTILE_FILTER_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-white dark:bg-background p-3 space-y-2">
+                        <div className="flex justify-between items-center gap-2">
+                          <Label className="text-xs text-muted-foreground">Avg wRVU %ile</Label>
+                          <span className="text-xs tabular-nums text-muted-foreground shrink-0">
+                            {wrvuPercentileRange[0]} – {wrvuPercentileRange[1]}
+                          </span>
+                        </div>
+                        <Slider
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={wrvuPercentileRange}
+                          onValueChange={(v) => setWrvuPercentileRange(v as [number, number])}
+                          className="w-full"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-1.5 flex-1 min-w-[140px]">
                       <Label className="text-xs text-muted-foreground">Pay vs productivity</Label>
@@ -1104,6 +1125,40 @@ export function ImputedVsMarketScreen({
                       <span className="font-medium text-blue-600 dark:text-blue-400">Blue</span> = {GAP_INTERPRETATION_LABEL.underpaid}
                     </p>
                     <div className="flex gap-0.5">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Pin column to left"
+                          aria-label="Pin column"
+                        >
+                          <Pin className="size-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="max-h-[70vh] overflow-y-auto min-w-[180px]">
+                        <DropdownMenuLabel>Pin column to left</DropdownMenuLabel>
+                        {visibleOrder.map((colId) => {
+                          const isPinnedLeft = pinnedLeftSet.has(colId)
+                          const label = MAIN_TABLE_COLUMNS[colId].label
+                          return (
+                            <DropdownMenuItem
+                              key={colId}
+                              onSelect={() => toggleColumnPin(colId)}
+                              className="flex items-center gap-2"
+                            >
+                              <Pin className={cn('size-4 shrink-0', isPinnedLeft ? 'text-primary' : 'opacity-50')} aria-hidden />
+                              <span className="truncate flex-1">{label}</span>
+                              {isPinnedLeft && (
+                                <span className="text-xs text-muted-foreground shrink-0">Pinned</span>
+                              )}
+                            </DropdownMenuItem>
+                          )
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       type="button"
                       variant="ghost"
@@ -1260,24 +1315,6 @@ export function ImputedVsMarketScreen({
                                   >
                                     {col.label}
                                   </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      e.preventDefault()
-                                      toggleColumnPin(colId)
-                                    }}
-                                    className={cn(
-                                      'shrink-0 rounded p-0.5 transition-colors',
-                                      isPinnedLeft
-                                        ? 'text-primary hover:text-primary/80'
-                                        : 'text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary'
-                                    )}
-                                    title={isPinnedLeft ? 'Unpin column' : 'Pin column to left'}
-                                    aria-label={isPinnedLeft ? 'Unpin column' : 'Pin column to left'}
-                                  >
-                                    {isPinnedLeft ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
-                                  </button>
                                 </div>
                                 <div
                                   className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize shrink-0 touch-none z-10"
