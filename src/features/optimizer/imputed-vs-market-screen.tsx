@@ -21,6 +21,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -40,7 +41,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Command, CommandInput } from '@/components/ui/command'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ArrowLeft, ChevronLeft, ChevronRight, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, Eraser } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, PinOff, Eraser, ListChecks, Minimize2 } from 'lucide-react'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
@@ -63,6 +64,7 @@ import {
   type GapInterpretation,
 } from '@/features/optimizer/components/optimizer-constants'
 import { downloadImputedVsMarketCSV, exportImputedVsMarketXLSX } from '@/lib/imputed-vs-market-export'
+import { PINNED_HEADER_CLASS, PINNED_CELL_CLASS, PINNED_CELL_STRIPED_CLASS } from '@/lib/data-grid-styles'
 import { Badge } from '@/components/ui/badge'
 
 /** TCC components that can be included in imputed $/wRVU (subset of built-ins). */
@@ -90,6 +92,32 @@ const MAIN_TABLE_COLUMN_IDS = [
 ] as const
 type MainTableColumnId = (typeof MAIN_TABLE_COLUMN_IDS)[number]
 
+/** Tooltip for Market 50th: effective $/wRVU at the market's 50th percentile (from market file). */
+const MARKET_50TH_TOOLTIP =
+  "Effective $/wRVU at the market's 50th percentile: (Market TCC at 50th) ÷ (Market wRVU at 50th), from your market file."
+
+/** Default: show only 50th percentile columns; user can show 25th/75th/90th via column selector. */
+const DEFAULT_HIDDEN_COLUMN_IDS: MainTableColumnId[] = ['market25', 'market75', 'market90', 'cf25', 'cf75', 'cf90']
+/** Default order: Market 50th next to CF 50th for easier comparison. */
+const DEFAULT_COLUMN_ORDER: MainTableColumnId[] = [
+  'specialty',
+  'n',
+  'imputed',
+  'currentCf',
+  'market50',
+  'cf50',
+  'yourPercentile',
+  'avgTCCPercentile',
+  'avgWRVUPercentile',
+  'alignment',
+  'market25',
+  'market75',
+  'market90',
+  'cf25',
+  'cf75',
+  'cf90',
+]
+
 const IMPUTED_VS_MARKET_VIEW_KEY = 'cf-modeler-imputed-vs-market-view'
 const COLUMN_IDS_SET = new Set<string>(MAIN_TABLE_COLUMN_IDS)
 
@@ -102,8 +130,8 @@ function loadImputedVsMarketViewState(): {
 } {
   if (typeof window === 'undefined' || !window.sessionStorage) {
     return {
-      columnOrder: [...MAIN_TABLE_COLUMN_IDS],
-      hiddenColumnIds: new Set(),
+      columnOrder: [...DEFAULT_COLUMN_ORDER],
+      hiddenColumnIds: new Set(DEFAULT_HIDDEN_COLUMN_IDS),
       pinnedLeftColumnIds: ['specialty'],
       percentileFilter: 'all',
       pageSize: 25,
@@ -111,11 +139,18 @@ function loadImputedVsMarketViewState(): {
   }
   try {
     const raw = window.sessionStorage.getItem(IMPUTED_VS_MARKET_VIEW_KEY)
-    if (!raw) return { columnOrder: [...MAIN_TABLE_COLUMN_IDS], hiddenColumnIds: new Set(), pinnedLeftColumnIds: ['specialty'], percentileFilter: 'all', pageSize: 25 }
+    if (!raw)
+      return {
+        columnOrder: [...DEFAULT_COLUMN_ORDER],
+        hiddenColumnIds: new Set(DEFAULT_HIDDEN_COLUMN_IDS),
+        pinnedLeftColumnIds: ['specialty'],
+        percentileFilter: 'all',
+        pageSize: 25,
+      }
     const data = JSON.parse(raw) as Record<string, unknown>
     const columnOrder: MainTableColumnId[] = Array.isArray(data.columnOrder)
       ? (data.columnOrder as string[]).filter((id): id is MainTableColumnId => COLUMN_IDS_SET.has(id))
-      : [...MAIN_TABLE_COLUMN_IDS]
+      : [...DEFAULT_COLUMN_ORDER]
     const hiddenColumnIds = new Set<MainTableColumnId>(
       Array.isArray(data.hiddenColumnIds)
         ? (data.hiddenColumnIds as string[]).filter((id): id is MainTableColumnId => COLUMN_IDS_SET.has(id))
@@ -132,7 +167,7 @@ function loadImputedVsMarketViewState(): {
     const pageSize =
       typeof data.pageSize === 'number' && [10, 25, 50, 100].includes(data.pageSize) ? data.pageSize : 25
     return {
-      columnOrder: columnOrder.length ? columnOrder : [...MAIN_TABLE_COLUMN_IDS],
+      columnOrder: columnOrder.length ? columnOrder : [...DEFAULT_COLUMN_ORDER],
       hiddenColumnIds,
       pinnedLeftColumnIds: pinnedLeftColumnIds.length ? pinnedLeftColumnIds : ['specialty'],
       percentileFilter,
@@ -140,8 +175,8 @@ function loadImputedVsMarketViewState(): {
     }
   } catch {
     return {
-      columnOrder: [...MAIN_TABLE_COLUMN_IDS],
-      hiddenColumnIds: new Set(),
+      columnOrder: [...DEFAULT_COLUMN_ORDER],
+      hiddenColumnIds: new Set(DEFAULT_HIDDEN_COLUMN_IDS),
       pinnedLeftColumnIds: ['specialty'],
       percentileFilter: 'all',
       pageSize: 25,
@@ -178,22 +213,23 @@ const MAIN_TABLE_COLUMNS: Record<
   MainTableColumnId,
   { label: string; align: 'left' | 'right'; minWidth?: number }
 > = {
+  /* minWidth must fit full header: pl-3 + grip + gap + label text + gap + pin + pr-8 (~92px chrome) */
   specialty: { label: 'Specialty', align: 'left', minWidth: 220 },
-  n: { label: 'N', align: 'right', minWidth: 48 },
-  imputed: { label: 'Imputed $/wRVU', align: 'right', minWidth: 100 },
-  currentCf: { label: 'Current CF used', align: 'right', minWidth: 96 },
-  market25: { label: 'Market 25th', align: 'right', minWidth: 88 },
-  market50: { label: 'Market 50th', align: 'right', minWidth: 88 },
-  market75: { label: 'Market 75th', align: 'right', minWidth: 88 },
-  market90: { label: 'Market 90th', align: 'right', minWidth: 88 },
-  yourPercentile: { label: 'Your $/wRVU %ile', align: 'right', minWidth: 100 },
-  avgTCCPercentile: { label: 'Avg TCC %ile', align: 'right', minWidth: 96 },
-  avgWRVUPercentile: { label: 'Avg wRVU %ile', align: 'right', minWidth: 96 },
-  alignment: { label: 'Pay vs productivity', align: 'left', minWidth: 140 },
-  cf25: { label: 'CF 25th', align: 'right', minWidth: 72 },
-  cf50: { label: 'CF 50th', align: 'right', minWidth: 72 },
-  cf75: { label: 'CF 75th', align: 'right', minWidth: 72 },
-  cf90: { label: 'CF 90th', align: 'right', minWidth: 72 },
+  n: { label: 'N', align: 'right', minWidth: 72 },
+  imputed: { label: 'Imputed $/wRVU', align: 'right', minWidth: 200 },
+  currentCf: { label: 'Current CF used', align: 'right', minWidth: 212 },
+  market25: { label: 'Market 25th', align: 'right', minWidth: 180 },
+  market50: { label: 'Market 50th', align: 'right', minWidth: 180 },
+  market75: { label: 'Market 75th', align: 'right', minWidth: 180 },
+  market90: { label: 'Market 90th', align: 'right', minWidth: 180 },
+  yourPercentile: { label: 'Your $/wRVU %ile', align: 'right', minWidth: 228 },
+  avgTCCPercentile: { label: 'Avg TCC %ile', align: 'right', minWidth: 188 },
+  avgWRVUPercentile: { label: 'Avg wRVU %ile', align: 'right', minWidth: 196 },
+  alignment: { label: 'Pay vs productivity', align: 'left', minWidth: 244 },
+  cf25: { label: 'CF 25th', align: 'right', minWidth: 148 },
+  cf50: { label: 'CF 50th', align: 'right', minWidth: 148 },
+  cf75: { label: 'CF 75th', align: 'right', minWidth: 148 },
+  cf90: { label: 'CF 90th', align: 'right', minWidth: 148 },
 }
 
 const DEFAULT_COL_WIDTH = 120
@@ -240,24 +276,24 @@ const ALIGNMENT_FILTER_OPTIONS: { value: AlignmentFilterValue; label: string }[]
   { value: 'underpaid', label: 'Underpaid vs productivity' },
 ]
 
-/** Comfortable default widths for "Auto-size columns" (wider than minWidth to avoid squished headers). */
+/** Comfortable default widths for "Auto-size columns" (matches minWidth so full header labels show). */
 const AUTO_SIZE_COLUMN_WIDTHS: Record<MainTableColumnId, number> = {
   specialty: 320,
-  n: 56,
-  imputed: 120,
-  currentCf: 120,
-  market25: 100,
-  market50: 100,
-  market75: 100,
-  market90: 100,
-  yourPercentile: 110,
-  avgTCCPercentile: 100,
-  avgWRVUPercentile: 100,
-  alignment: 160,
-  cf25: 88,
-  cf50: 88,
-  cf75: 88,
-  cf90: 88,
+  n: 72,
+  imputed: 200,
+  currentCf: 212,
+  market25: 180,
+  market50: 180,
+  market75: 180,
+  market90: 180,
+  yourPercentile: 228,
+  avgTCCPercentile: 188,
+  avgWRVUPercentile: 196,
+  alignment: 244,
+  cf25: 148,
+  cf50: 148,
+  cf75: 148,
+  cf90: 148,
 }
 
 function getMainTableCellValue(colId: MainTableColumnId, row: ImputedVsMarketRow): string {
@@ -652,7 +688,11 @@ export function ImputedVsMarketScreen({
   )
 
   const getWidth = useCallback(
-    (colId: MainTableColumnId) => columnWidths[colId] ?? MAIN_TABLE_COLUMNS[colId].minWidth ?? DEFAULT_COL_WIDTH,
+    (colId: MainTableColumnId) => {
+      const minW = MAIN_TABLE_COLUMNS[colId].minWidth ?? 48
+      const w = columnWidths[colId] ?? minW
+      return Math.max(minW, w)
+    },
     [columnWidths]
   )
 
@@ -698,27 +738,39 @@ export function ImputedVsMarketScreen({
 
   return (
     <div className="space-y-4">
-      <SectionTitleWithIcon icon={<BarChart2 className="size-5 text-muted-foreground" />}>
-        Market positioning (imputed)
-      </SectionTitleWithIcon>
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <p className="text-muted-foreground">
-          Effective $/wRVU vs market 25th–90th by specialty.
-        </p>
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-muted-foreground cursor-help inline-flex shrink-0" aria-label="About this table">
-                <Info className="size-4" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[320px] text-xs font-normal space-y-1.5 text-background">
-              <p className="font-medium">About this table</p>
-              <p className="text-background/90">Compare your effective $/wRVU (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) to market 25th–90th by specialty. Your $/wRVU %ile shows where you stand vs market; market CF percentiles are reference targets.</p>
-              <p className="text-background/90">Click a row to open provider-level detail in a drawer. Use the pin icon to pin columns to the left; drag column headers to reorder; drag the right edge to resize. Use the icons above the table to auto-size or show/hide columns.</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <div>
+        <SectionTitleWithIcon icon={<BarChart2 className="size-5 text-muted-foreground" />}>
+          Market positioning (imputed)
+        </SectionTitleWithIcon>
+        <div className="mt-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <p>
+              <span className="font-medium text-foreground">Answers: </span>
+              Where does our effective $/wRVU stand by specialty vs market, and where are we paying above or below productivity?
+            </p>
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-help inline-flex shrink-0" aria-label="About this table">
+                    <Info className="size-3.5" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[380px] text-xs font-normal space-y-2 text-background">
+                  <p className="font-medium">About this table</p>
+                  <p className="text-background/90">Compare your <strong>effective $/wRVU</strong> (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) to market 25th–90th by specialty. <strong>Your $/wRVU %ile</strong> shows where you stand vs that market curve.</p>
+                  <p className="text-background/90 font-medium">Market 25th / 50th / 75th / 90th:</p>
+                  <p className="text-background/90">Effective $/wRVU <em>derived from your market file</em>: (Market TCC at that percentile) ÷ (Market wRVU at that percentile). So they form the curve your imputed $/wRVU is compared against to get &quot;Your $/wRVU %ile&quot;.</p>
+                  <p className="text-background/90 font-medium">CF 25th / 50th / 75th / 90th:</p>
+                  <p className="text-background/90">Conversion factor ($/wRVU) at those percentiles <em>as reported in the market survey</em> (direct from the market file). Use these as reference rates when setting or reviewing CF targets.</p>
+                  <p className="text-background/90">Click a row to open provider-level detail. Use filters to find misalignments. Use the pin icon in a column header to freeze it; drag headers to reorder; drag the right edge to resize.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <p className="text-xs text-muted-foreground/80">
+            Look at <span className="font-medium text-foreground">Your $/wRVU %ile</span> (vs market) and <span className="font-medium text-foreground">Pay vs productivity</span> (alignment).
+          </p>
+        </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Button variant="outline" size="sm" className="gap-2" onClick={onBack} aria-label="Back">
@@ -759,8 +811,35 @@ export function ImputedVsMarketScreen({
               {hasData && (
                 <>
                 <div className="sticky top-0 z-20 rounded-lg border border-border/70 bg-background/95 p-3 backdrop-blur-sm">
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="space-y-1.5 w-[140px] shrink-0">
+                  {isFiltered && (
+                    <div className="flex justify-end mb-2">
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1.5 text-muted-foreground hover:text-foreground text-xs"
+                              onClick={() => {
+                                setSelectedSpecialties([])
+                                setPercentileFilter('all')
+                                setSelectedAlignmentFilters([])
+                                setSelectedProviderTypes([])
+                              }}
+                              aria-label="Clear filters"
+                            >
+                              <Eraser className="size-3.5" aria-hidden />
+                              Clear filters
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">Clear filters</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-end gap-3 w-full">
+                    <div className="space-y-1.5 flex-1 min-w-[120px]">
                       <Label className="text-xs text-muted-foreground">Specialty</Label>
                       <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
                         <DropdownMenuTrigger asChild>
@@ -813,7 +892,7 @@ export function ImputedVsMarketScreen({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <div className="space-y-1.5 w-[115px] shrink-0">
+                    <div className="space-y-1.5 flex-1 min-w-[120px]">
                       <div className="flex items-center gap-1">
                         <Label className="text-xs text-muted-foreground">Your $/wRVU %ile</Label>
                         <TooltipProvider delayDuration={300}>
@@ -842,7 +921,7 @@ export function ImputedVsMarketScreen({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1.5 w-[165px] shrink-0">
+                    <div className="space-y-1.5 flex-1 min-w-[140px]">
                       <Label className="text-xs text-muted-foreground">Pay vs productivity</Label>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -879,7 +958,7 @@ export function ImputedVsMarketScreen({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <div className="space-y-1.5 w-[140px] shrink-0">
+                    <div className="space-y-1.5 flex-1 min-w-[120px]">
                       <Label className="text-xs text-muted-foreground">Provider type</Label>
                       <DropdownMenu onOpenChange={(open) => !open && setProviderTypeSearch('')}>
                         <DropdownMenuTrigger asChild>
@@ -944,7 +1023,7 @@ export function ImputedVsMarketScreen({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    <div className="space-y-1.5 w-[200px] shrink-0">
+                    <div className="space-y-1.5 flex-1 min-w-[160px]">
                       <Label className="text-xs text-muted-foreground">Include in TCC</Label>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -991,30 +1070,6 @@ export function ImputedVsMarketScreen({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    {isFiltered && (
-                      <TooltipProvider delayDuration={300}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                              onClick={() => {
-                                setSelectedSpecialties([])
-                                setPercentileFilter('all')
-                                setSelectedAlignmentFilters([])
-                                setSelectedProviderTypes([])
-                              }}
-                              aria-label="Clear filters"
-                            >
-                              <Eraser className="size-4" aria-hidden />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">Clear filters</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
                   </div>
                 </div>
                 </>
@@ -1051,39 +1106,6 @@ export function ImputedVsMarketScreen({
                       <span className="font-medium text-blue-600 dark:text-blue-400">Blue</span> = {GAP_INTERPRETATION_LABEL.underpaid}
                     </p>
                     <div className="flex gap-0.5">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title="Pin column to left"
-                          aria-label="Pin column"
-                        >
-                          <Pin className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="max-h-[70vh] overflow-y-auto min-w-[180px]">
-                        <DropdownMenuLabel>Pin column to left</DropdownMenuLabel>
-                        {visibleOrder.map((colId) => {
-                          const isPinned = pinnedLeftSet.has(colId)
-                          return (
-                            <DropdownMenuItem
-                              key={colId}
-                              onSelect={() => toggleColumnPin(colId)}
-                              className="flex items-center gap-2"
-                            >
-                              <Pin className={cn('size-4 shrink-0', isPinned ? 'text-primary' : 'opacity-50')} aria-hidden />
-                              <span className="truncate flex-1">{MAIN_TABLE_COLUMNS[colId].label}</span>
-                              {isPinned && (
-                                <span className="text-xs text-muted-foreground shrink-0">Pinned</span>
-                              )}
-                            </DropdownMenuItem>
-                          )
-                        })}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                     <Button
                       type="button"
                       variant="ghost"
@@ -1112,8 +1134,31 @@ export function ImputedVsMarketScreen({
                           <LayoutList className="size-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="max-h-[70vh] overflow-y-auto">
+                      <DropdownMenuContent
+                        align="end"
+                        side="bottom"
+                        collisionPadding={24}
+                        className="max-h-[min(70vh,400px)] overflow-y-auto"
+                      >
                         <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          onClick={() => setHiddenColumnIds(new Set())}
+                          className="font-medium gap-2"
+                        >
+                          <ListChecks className="size-4" />
+                          Show all columns
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setHiddenColumnIds(new Set(DEFAULT_HIDDEN_COLUMN_IDS))
+                            setColumnOrder([...DEFAULT_COLUMN_ORDER])
+                          }}
+                          className="gap-2"
+                        >
+                          <Minimize2 className="size-4" />
+                          Minimal
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         {MAIN_TABLE_COLUMN_IDS.map((colId) => {
                           const visible = !hiddenColumnIds.has(colId)
                           const isOnlyVisible =
@@ -1124,6 +1169,7 @@ export function ImputedVsMarketScreen({
                               checked={visible}
                               disabled={isOnlyVisible}
                               onCheckedChange={() => toggleColumnVisibility(colId)}
+                              onSelect={(e) => e.preventDefault()}
                             >
                               {MAIN_TABLE_COLUMNS[colId].label}
                             </DropdownMenuCheckboxItem>
@@ -1181,11 +1227,12 @@ export function ImputedVsMarketScreen({
                                 <th
                                   key={colId}
                                   className={cn(
-                                    'relative min-h-10 px-3 py-2.5 align-middle font-medium select-none',
-                                    isSpecialtyCol ? 'min-w-0 overflow-hidden' : 'whitespace-normal break-words',
+                                    'relative min-h-10 py-2.5 pl-3 pr-8 align-middle font-medium select-none group whitespace-nowrap',
+                                    isSpecialtyCol && 'min-w-0 overflow-hidden',
                                     col.align === 'right' ? 'text-right' : 'text-left',
-                                    isPinnedLeft ? 'bg-muted' : 'bg-muted text-foreground',
-                                    lastPinned && 'border-r border-border shadow-[4px_0_6px_-1px_rgba(0,0,0,0.1),4px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                                    isPinnedLeft && PINNED_HEADER_CLASS,
+                                    !isPinnedLeft && 'bg-muted text-foreground',
+                                    lastPinned && 'border-r border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
                                   )}
                                   style={{
                                     width: wPx,
@@ -1201,48 +1248,46 @@ export function ImputedVsMarketScreen({
                                 onDrop={(e) => handleHeaderDrop(e, colId)}
                                 onDragEnd={handleHeaderDragEnd}
                               >
-                                <span className={cn('inline-flex items-center gap-1 min-w-0', isSpecialtyCol && 'overflow-hidden')}>
+                                <div className="flex items-center gap-1.5 min-w-0">
                                   <GripVertical
                                     className="size-4 shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground"
                                     aria-hidden
                                   />
-                                  <span className={cn(isDragging && 'opacity-50', isSpecialtyCol && 'truncate')} title={col.label}>{col.label}</span>
-                                  {colId === 'yourPercentile' && (
-                                    <TooltipProvider delayDuration={300}>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="text-muted-foreground cursor-help inline-flex shrink-0" aria-label="What is Your $/wRVU %ile?">
-                                            <HelpCircle className="size-3.5" />
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top" className="max-w-[280px] text-xs">
-                                          Your <strong>effective $/wRVU</strong> percentile vs market (total cash comp ÷ wRVUs, normalized to 1.0 cFTE). Not your CF percentile—market CF targets are in the CF 25th–90th columns.
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
-                                  {colId === 'alignment' && (
-                                    <TooltipProvider delayDuration={300}>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="text-muted-foreground cursor-help inline-flex shrink-0" aria-label="What is Pay vs productivity?">
-                                            <HelpCircle className="size-3.5" />
-                                          </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="top" className="max-w-[260px] text-xs">
-                                          Compares <strong>Avg TCC %ile</strong> to <strong>Avg wRVU %ile</strong>. Aligned = within 3 points; Pay above productivity = TCC %ile &gt; wRVU %ile; Underpaid = TCC %ile &lt; wRVU %ile. Use the filter to show only misalignments.
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  )}
-                                </span>
+                                  <span
+                                    className={cn(
+                                      'flex-1 min-w-0 overflow-hidden text-ellipsis',
+                                      isDragging && 'opacity-50'
+                                    )}
+                                    title={colId === 'market50' ? MARKET_50TH_TOOLTIP : col.label}
+                                  >
+                                    {col.label}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      e.preventDefault()
+                                      toggleColumnPin(colId)
+                                    }}
+                                    className={cn(
+                                      'shrink-0 rounded p-0.5 transition-colors',
+                                      isPinnedLeft
+                                        ? 'text-primary hover:text-primary/80'
+                                        : 'text-muted-foreground/0 group-hover:text-muted-foreground hover:!text-primary'
+                                    )}
+                                    title={isPinnedLeft ? 'Unpin column' : 'Pin column to left'}
+                                    aria-label={isPinnedLeft ? 'Unpin column' : 'Pin column to left'}
+                                  >
+                                    {isPinnedLeft ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
+                                  </button>
+                                </div>
                                 <div
-                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize shrink-0 touch-none"
+                                  className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize shrink-0 touch-none z-10"
                                   aria-hidden
                                   onMouseDown={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()
-                                    handleResizeStart(colId, e.clientX, columnWidths[colId])
+                                    handleResizeStart(colId, e.clientX, getWidth(colId))
                                   }}
                                 />
                               </th>
@@ -1276,12 +1321,8 @@ export function ImputedVsMarketScreen({
                               const isPinnedLeft = pinnedLeftSet.has(colId)
                               const leftOffset = pinnedLeftOffsets[colId]
                               const lastPinned = isLastPinnedLeft(colId)
-                              const stickyBg =
-                                isPinnedLeft && rowIndex % 2 === 1
-                                  ? 'bg-muted'
-                                  : isPinnedLeft
-                                    ? 'bg-background'
-                                    : ''
+                              const pinnedCellClass =
+                                isPinnedLeft && (rowIndex % 2 === 1 ? PINNED_CELL_STRIPED_CLASS : PINNED_CELL_CLASS)
                               const alignmentBorder =
                                 isFirstCell &&
                                 (alignment === 'aligned'
@@ -1304,20 +1345,24 @@ export function ImputedVsMarketScreen({
                                     col.align === 'right' ? 'text-right' : 'text-left',
                                     isSpecialty && 'font-medium min-w-0 overflow-hidden text-ellipsis whitespace-nowrap',
                                     !isSpecialty && 'whitespace-nowrap',
-                                    isFocused && 'ring-2 ring-primary ring-inset bg-primary/5',
+                                    isFocused && 'bg-zinc-200 dark:bg-zinc-800',
                                     colId === 'avgTCCPercentile' && fmvRisk === 'elevated' && 'bg-amber-500/15 text-amber-800 dark:text-amber-200',
                                     colId === 'avgTCCPercentile' && fmvRisk === 'high' && 'bg-destructive/15 text-destructive font-medium',
-                                    isPinnedLeft && 'sticky z-20 isolate overflow-hidden',
-                                    stickyBg,
+                                    isPinnedLeft && 'sticky isolate overflow-hidden',
+                                    pinnedCellClass,
                                     alignmentBorder,
-                                    lastPinned && 'border-r border-border shadow-[4px_0_6px_-1px_rgba(0,0,0,0.1),4px_0_4px_-2px_rgba(0,0,0,0.06)]'
+                                    lastPinned && 'border-r border-border shadow-[2px_0_4px_-2px_rgba(0,0,0,0.08)]'
                                   )}
                                   style={{
                                     width: wPx,
                                     minWidth: wPx,
                                     maxWidth: wPx,
                                     ...(isPinnedLeft && leftOffset !== undefined
-                                      ? { position: 'sticky' as const, left: leftOffset, zIndex: 20 }
+                                      ? {
+                                          position: 'sticky' as const,
+                                          left: leftOffset,
+                                          zIndex: isFirstCell && alignmentBorder ? 21 : 20,
+                                        }
                                       : {}),
                                   }}
                                   title={isSpecialty ? value : colId === 'currentCf' ? 'Median CF used to compute baseline TCC (work RVU incentive) for this specialty' : colId === 'avgTCCPercentile' && fmvRisk !== 'low' ? `Avg TCC percentile ${fmvRisk}; may warrant FMV review` : undefined}

@@ -1397,66 +1397,66 @@ export function CustomCfBySpecialtyReport({
                 </SheetDescription>
               </SheetHeader>
               <div className="flex flex-1 min-h-0 flex-col gap-6 overflow-y-auto">
-                <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
-                  <p className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
+                <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-4">
+                  <p className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-4">
                     Roll-up metrics
                   </p>
                   <TooltipProvider delayDuration={300}>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-md border border-border/60 bg-background p-3">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4 transition-shadow hover:shadow">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <p className="text-xs text-muted-foreground cursor-help">Specialties</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-help mb-1.5">Specialties</p>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="max-w-[200px]">
                             Specialties with data; {summaryTotals.providerCount} provider(s) in scope.
                           </TooltipContent>
                         </Tooltip>
-                        <p className="text-lg font-semibold tabular-nums text-primary">
+                        <p className="text-xl font-semibold tabular-nums tracking-tight text-primary">
                           {summaryTotals.specialtyCount}
                         </p>
                       </div>
-                      <div className="rounded-md border border-border/60 bg-background p-3">
+                      <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4 transition-shadow hover:shadow">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <p className="text-xs text-muted-foreground cursor-help">Total modeled TCC</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-help mb-1.5">Total modeled TCC</p>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="max-w-[220px]">
                             Total cash comp at modeled CF. Current total: {formatCurrency(summaryTotals.totalCurrentTCC, { decimals: 0 })}.
                           </TooltipContent>
                         </Tooltip>
-                        <p className="text-lg font-semibold tabular-nums text-primary">
+                        <p className="text-xl font-semibold tabular-nums tracking-tight text-primary">
                           {formatCurrency(summaryTotals.totalModeledTCC, { decimals: 2 })}
                         </p>
                       </div>
-                      <div className="rounded-md border border-border/60 bg-background p-3">
+                      <div className="rounded-xl border border-border/50 bg-card shadow-sm p-4 transition-shadow hover:shadow">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <p className="text-xs text-muted-foreground cursor-help">Total TCC change</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-help mb-1.5">Total TCC change</p>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="max-w-[200px]">
                             Modeled − current TCC.
                           </TooltipContent>
                         </Tooltip>
                         <p className={cn(
-                          'text-lg font-semibold tabular-nums',
+                          'text-xl font-semibold tabular-nums tracking-tight',
                           summaryTotals.totalDeltaTCC >= 0 ? 'value-positive' : 'value-negative'
                         )}>
                           {summaryTotals.totalDeltaTCC >= 0 ? '+' : ''}
                           {formatCurrency(summaryTotals.totalDeltaTCC, { decimals: 2 })}
                         </p>
                       </div>
-                      <div className="rounded-md border border-border/60 bg-background p-3 border-primary/30">
+                      <div className="rounded-xl border border-primary/20 bg-card shadow-sm p-4 transition-shadow hover:shadow ring-1 ring-primary/5">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <p className="text-xs text-muted-foreground cursor-help">Total wRVU incentive</p>
+                            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-help mb-1.5">Total wRVU incentive</p>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="max-w-[240px]">
                             Sum of productivity incentive at modeled CF across all specialties.
                           </TooltipContent>
                         </Tooltip>
                         <p className={cn(
-                          'text-lg font-semibold tabular-nums',
+                          'text-xl font-semibold tabular-nums tracking-tight',
                           summaryTotals.totalIncentive > 0
                             ? 'value-positive'
                             : summaryTotals.totalIncentive < 0

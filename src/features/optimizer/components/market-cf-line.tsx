@@ -1,8 +1,24 @@
 import type { MarketCFBenchmarks } from '@/types/optimizer'
+import { inferPercentile } from '@/lib/interpolation'
+
+/**
+ * Map a CF dollar value to a position 0–100 on a percentile-scaled bar.
+ * 25th/50th/75th/90th then sit at 25/50/75/90% so the circle at "50th percentile" is in the middle.
+ */
+function cfToPercentilePosition(
+  value: number,
+  cf25: number,
+  cf50: number,
+  cf75: number,
+  cf90: number
+): number {
+  const { percentile } = inferPercentile(value, cf25, cf50, cf75, cf90)
+  return Math.max(0, Math.min(100, percentile))
+}
 
 /**
  * Compact horizontal market CF line for table cells.
- * Shows 25/50/75/90 percentiles and current + recommended CF positions.
+ * Axis is percentile (0–100): 25/50/75/90 at 25%/50%/75%/90% width so the circle aligns correctly (e.g. 50th at center).
  */
 export function MarketCFLine({
   currentCF,
@@ -15,14 +31,12 @@ export function MarketCFLine({
   marketCF: MarketCFBenchmarks
   className?: string
 }) {
-  const min = marketCF.cf25 * 0.85
-  const max = marketCF.cf90 * 1.1
-  const range = max - min
-  const pct = (value: number) => Math.max(0, Math.min(100, ((value - min) / range) * 100))
-  const currentPct = pct(currentCF)
-  const recommendedPct = pct(recommendedCF)
+  const { cf25, cf50, cf75, cf90 } = marketCF
+  const toPos = (value: number) => cfToPercentilePosition(value, cf25, cf50, cf75, cf90)
+  const currentPct = toPos(currentCF)
+  const recommendedPct = toPos(recommendedCF)
   const showBoth = Math.abs(currentCF - recommendedCF) > 0.01
-  const tooltip = `25th: $${marketCF.cf25.toFixed(0)} · 50th: $${marketCF.cf50.toFixed(0)} · 75th: $${marketCF.cf75.toFixed(0)} · 90th: $${marketCF.cf90.toFixed(0)} · Current: $${currentCF.toFixed(0)} · Recommended: $${recommendedCF.toFixed(0)}`
+  const tooltip = `25th: $${cf25.toFixed(0)} · 50th: $${cf50.toFixed(0)} · 75th: $${cf75.toFixed(0)} · 90th: $${cf90.toFixed(0)} · Current: $${currentCF.toFixed(0)} · Recommended: $${recommendedCF.toFixed(0)}`
 
   return (
     <div
@@ -35,24 +49,15 @@ export function MarketCFLine({
         <div className="absolute inset-x-0 top-1 h-1 rounded-full bg-muted/60" />
         <div
           className="absolute top-1 h-1 rounded-l-full bg-emerald-200 dark:bg-emerald-900/40"
-          style={{
-            left: `${pct(marketCF.cf25)}%`,
-            width: `${pct(marketCF.cf50) - pct(marketCF.cf25)}%`,
-          }}
+          style={{ left: '25%', width: '25%' }}
         />
         <div
           className="absolute top-1 h-1 bg-amber-200 dark:bg-amber-900/40"
-          style={{
-            left: `${pct(marketCF.cf50)}%`,
-            width: `${pct(marketCF.cf75) - pct(marketCF.cf50)}%`,
-          }}
+          style={{ left: '50%', width: '25%' }}
         />
         <div
           className="absolute top-1 h-1 rounded-r-full bg-red-200 dark:bg-red-900/40"
-          style={{
-            left: `${pct(marketCF.cf75)}%`,
-            width: `${pct(marketCF.cf90) - pct(marketCF.cf75)}%`,
-          }}
+          style={{ left: '75%', width: '15%' }}
         />
         {showBoth ? (
           <>
@@ -79,7 +84,7 @@ export function MarketCFLine({
 
 /**
  * Full-width market CF ruler for detail drawer / cards.
- * Shows 25/50/75/90 bands and current + recommended CF with labels.
+ * Axis is percentile (0–100): 25/50/75/90 at fixed positions; circle at inferred percentile.
  */
 export function MarketCFRuler({
   currentCF,
@@ -92,12 +97,10 @@ export function MarketCFRuler({
   marketCF: MarketCFBenchmarks
   cfPercentile: number
 }) {
-  const min = marketCF.cf25 * 0.85
-  const max = marketCF.cf90 * 1.1
-  const range = max - min
-  const pct = (value: number) => Math.max(0, Math.min(100, ((value - min) / range) * 100))
-  const currentPct = pct(currentCF)
-  const recommendedPct = pct(recommendedCF)
+  const { cf25, cf50, cf75, cf90 } = marketCF
+  const toPos = (value: number) => cfToPercentilePosition(value, cf25, cf50, cf75, cf90)
+  const currentPct = toPos(currentCF)
+  const recommendedPct = toPos(recommendedCF)
 
   return (
     <div className="space-y-1">
@@ -109,15 +112,15 @@ export function MarketCFRuler({
         <div className="absolute inset-x-0 top-2 h-1.5 rounded-full bg-muted/60" />
         <div
           className="absolute top-2 h-1.5 rounded-l-full bg-emerald-200 dark:bg-emerald-900/40"
-          style={{ left: `${pct(marketCF.cf25)}%`, width: `${pct(marketCF.cf50) - pct(marketCF.cf25)}%` }}
+          style={{ left: '25%', width: '25%' }}
         />
         <div
           className="absolute top-2 h-1.5 bg-amber-200 dark:bg-amber-900/40"
-          style={{ left: `${pct(marketCF.cf50)}%`, width: `${pct(marketCF.cf75) - pct(marketCF.cf50)}%` }}
+          style={{ left: '50%', width: '25%' }}
         />
         <div
           className="absolute top-2 h-1.5 rounded-r-full bg-red-200 dark:bg-red-900/40"
-          style={{ left: `${pct(marketCF.cf75)}%`, width: `${pct(marketCF.cf90) - pct(marketCF.cf75)}%` }}
+          style={{ left: '75%', width: '15%' }}
         />
         {Math.abs(currentCF - recommendedCF) > 0.01 ? (
           <div
@@ -132,15 +135,15 @@ export function MarketCFRuler({
       </div>
       <div className="relative h-4 text-xs text-muted-foreground tabular-nums">
         {[
-          { label: '25', value: marketCF.cf25 },
-          { label: '50', value: marketCF.cf50 },
-          { label: '75', value: marketCF.cf75 },
-          { label: '90', value: marketCF.cf90 },
+          { label: '25', value: cf25 },
+          { label: '50', value: cf50 },
+          { label: '75', value: cf75 },
+          { label: '90', value: cf90 },
         ].map((b) => (
           <span
             key={b.label}
             className="absolute -translate-x-1/2"
-            style={{ left: `${pct(b.value)}%` }}
+            style={{ left: `${b.label === '25' ? 25 : b.label === '50' ? 50 : b.label === '75' ? 75 : 90}%` }}
           >
             ${b.value.toFixed(0)}
           </span>
