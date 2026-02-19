@@ -408,6 +408,39 @@ function formatFTE(value: number): string {
   return value.toFixed(2)
 }
 
+/**
+ * Colored badge showing wRVU vs TCC relationship for a provider row.
+ * gap = TCC% − wRVU%  (positive → overpaid, negative → underpaid)
+ */
+function GapBadge({ gap }: { gap: number }) {
+  const interp = getGapInterpretation(gap)
+  const absDelta = Math.abs(Math.round(gap))
+  const deltaStr = absDelta > 0 ? ` ${absDelta}pp` : ''
+
+  if (interp === 'underpaid') {
+    return (
+      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400">
+        <TrendingUp className="size-3 shrink-0" />
+        Prod &gt; TCC{deltaStr}
+      </span>
+    )
+  }
+  if (interp === 'overpaid') {
+    return (
+      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400">
+        <TrendingDown className="size-3 shrink-0" />
+        TCC &gt; Prod{deltaStr}
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+      <Minus className="size-3 shrink-0" />
+      Aligned{deltaStr}
+    </span>
+  )
+}
+
 // Pinned column background constants — mirrors data-grid-styles.ts to prevent bleed-through
 const DRILLDOWN_PINNED_TH =
   'sticky left-0 !z-30 isolate bg-background [background-color:var(--background)] shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]'
@@ -459,7 +492,7 @@ function ProviderDrilldownTable({
             <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">Non-clinical FTE</th>
             <th className="min-w-[88px] px-3 py-2.5 text-right font-medium">wRVU %</th>
             <th className="min-w-[100px] px-3 py-2.5 text-right font-medium">TCC %</th>
-            <th className="min-w-[72px] px-3 py-2.5 text-right font-medium">Gap</th>
+            <th className="min-w-[148px] px-3 py-2.5 text-left font-medium">Alignment</th>
             <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">Incentive (current)</th>
             <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">Incentive (modeled)</th>
             <th className="min-w-[72px] px-3 py-2.5 text-left font-medium">Included</th>
@@ -502,13 +535,17 @@ function ProviderDrilldownTable({
                   {formatFTE(nonClinicalFTE)}
                 </td>
                 <td className="min-w-[88px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
-                  {formatPercentile(ctx.wrvuPercentile)}
+                  <span className={ctx.wrvuPercentile > ctx.currentTCC_pctile ? 'font-semibold text-emerald-600 dark:text-emerald-400' : ''}>
+                    {formatPercentile(ctx.wrvuPercentile)}
+                  </span>
                 </td>
                 <td className="min-w-[100px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
-                  {formatPercentile(ctx.currentTCC_pctile)}
+                  <span className={ctx.currentTCC_pctile > ctx.wrvuPercentile ? 'font-semibold text-red-600 dark:text-red-400' : ''}>
+                    {formatPercentile(ctx.currentTCC_pctile)}
+                  </span>
                 </td>
-                <td className="min-w-[72px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
-                  {formatPercentile(ctx.baselineGap)}
+                <td className="min-w-[148px] px-3 py-2.5 align-middle">
+                  <GapBadge gap={ctx.baselineGap} />
                 </td>
                 <td className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm text-muted-foreground px-3 py-2.5 align-middle">
                   {ctx.baselineIncentiveDollars != null ? formatCurrency(ctx.baselineIncentiveDollars, 0) : '—'}
