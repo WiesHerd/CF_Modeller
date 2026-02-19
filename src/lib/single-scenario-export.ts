@@ -7,7 +7,7 @@ import {
   formatNumber as _formatNumber,
 } from '@/utils/format'
 
-interface ExportSingleScenarioInput {
+export interface ExportSingleScenarioInput {
   provider: ProviderRow | null
   marketRow: MarketRow | null
   scenarioInputs: ScenarioInputs
@@ -428,4 +428,74 @@ export function exportSingleScenarioXLSX(input: ExportSingleScenarioInput): void
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
   XLSX.writeFile(wb, `single-scenario-${providerToken || 'provider'}-${getDateStamp()}.xlsx`)
+}
+
+function buildSingleScenarioWideRecord(input: ExportSingleScenarioInput): Record<string, string | number> {
+  const { provider, marketRow, scenarioInputs, results } = input
+  const row: Record<string, string | number> = {
+    providerId: safe(provider?.providerId),
+    providerName: safe(provider?.providerName),
+    specialty: safe(provider?.specialty ?? marketRow?.specialty),
+    providerType: safe(provider?.providerType),
+    division: safe(provider?.division),
+    ...(provider
+      ? {
+          totalFTE: safe(provider.totalFTE),
+          clinicalFTE: safe(provider.clinicalFTE),
+          baseSalary: safe(provider.baseSalary),
+          currentTCC: safe(provider.currentTCC),
+          totalWRVUs: safe(provider.totalWRVUs),
+          currentCF: safe(provider.currentCF),
+        }
+      : {}),
+    cfSource: safe(scenarioInputs.cfSource),
+    proposedCFPercentile: safe(scenarioInputs.proposedCFPercentile),
+    overrideCF: safe(scenarioInputs.overrideCF),
+    psqPercent: formatPercent(scenarioInputs.psqPercent),
+    ...(results
+      ? {
+          currentTCC_result: safe(results.currentTCC),
+          modeledTCC: safe(results.modeledTCC),
+          changeInTCC: safe(results.changeInTCC),
+          modeledCF: safe(results.modeledCF),
+          tccPercentile: safe(results.tccPercentile),
+          modeledTCCPercentile: safe(results.modeledTCCPercentile),
+          wrvuPercentile: safe(results.wrvuPercentile),
+          annualIncentive: safe(results.annualIncentive),
+          alignmentGapModeled: safe(results.alignmentGapModeled),
+        }
+      : {}),
+  }
+  return row
+}
+
+/**
+ * Export single-scenario data to CSV (one row, wide) and trigger download.
+ */
+export function downloadSingleScenarioCSV(input: ExportSingleScenarioInput, filename?: string): void {
+  const row = buildSingleScenarioWideRecord(input)
+  const headers = Object.keys(row)
+  const lines = [headers.join(',')]
+  const values = headers.map((h) => {
+    const v = row[h]
+    if (v === undefined || v === null) return ''
+    const s = String(v)
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
+    return s
+  })
+  lines.push(values.join(','))
+  const csv = lines.join('\n')
+  const providerToken = (input.provider?.providerName ?? input.provider?.providerId ?? 'provider')
+    .toString()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+  const name = filename ?? `single-scenario-${providerToken || 'provider'}-${getDateStamp()}.csv`
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.click()
+  URL.revokeObjectURL(url)
 }

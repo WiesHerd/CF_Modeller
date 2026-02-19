@@ -43,7 +43,7 @@ import { Slider } from '@/components/ui/slider'
 import { Command, CommandInput } from '@/components/ui/command'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ArrowLeft, ChevronLeft, ChevronRight, GripVertical, Columns3, BarChart2, LayoutList, ChevronDown, HelpCircle, Info, FileDown, FileSpreadsheet, Pin, Eraser, ListChecks, Minimize2 } from 'lucide-react'
-import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
+import { iconBoxClass } from '@/components/section-title-with-icon'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import {
@@ -250,6 +250,7 @@ const MAIN_TABLE_COLUMNS: Record<
 
 const ROW_HEIGHT_PX = 40
 const TABLE_HEADER_HEIGHT_PX = 42
+const PAGINATION_ROW_HEIGHT_PX = 48
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 
 /** TCC %ile − wRVU %ile: positive = pay above productivity, negative = underpaid. */
@@ -752,37 +753,37 @@ export function ImputedVsMarketScreen({
   return (
     <div className="space-y-4">
       <div>
-        <SectionTitleWithIcon icon={<BarChart2 className="size-5 text-muted-foreground" />}>
-          Market positioning (imputed)
-        </SectionTitleWithIcon>
-        <div className="mt-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <p>
-              <span className="font-medium text-foreground">Answers: </span>
-              Where does our effective $/wRVU stand by specialty vs market, and where are we paying above or below productivity?
-            </p>
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="cursor-help inline-flex shrink-0" aria-label="About this table">
-                    <Info className="size-3.5" />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[380px] text-xs font-normal space-y-2 text-background">
-                  <p className="font-medium">About this table</p>
-                  <p className="text-background/90">Compare your <strong>effective $/wRVU</strong> (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) to market 25th–90th by specialty. <strong>Your $/wRVU %ile</strong> shows where you stand vs that market curve.</p>
-                  <p className="text-background/90 font-medium">Market 25th / 50th / 75th / 90th:</p>
-                  <p className="text-background/90">Effective $/wRVU <em>derived from your market file</em>: (Market TCC at that percentile) ÷ (Market wRVU at that percentile). So they form the curve your imputed $/wRVU is compared against to get &quot;Your $/wRVU %ile&quot;.</p>
-                  <p className="text-background/90 font-medium">CF 25th / 50th / 75th / 90th:</p>
-                  <p className="text-background/90">Conversion factor ($/wRVU) at those percentiles <em>as reported in the market survey</em> (direct from the market file). Use these as reference rates when setting or reviewing CF targets.</p>
-                  <p className="text-background/90">Click a row to open provider-level detail. Use filters to find misalignments. Use the pin icon to pin columns to the left; drag headers to reorder; drag the right edge to resize.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+        <div className="flex items-start gap-3">
+          <div className={cn(iconBoxClass, 'size-10 [&_svg]:size-5 shrink-0')}>
+            <BarChart2 className="size-5 text-muted-foreground" />
           </div>
-          <p className="text-xs text-muted-foreground/80">
-            Look at <span className="font-medium text-foreground">Your $/wRVU %ile</span> (vs market) and <span className="font-medium text-foreground">Pay vs productivity</span> (alignment).
-          </p>
+          <div className="flex flex-col min-w-0 flex-1">
+            <h2 className="section-title mb-0">Market positioning (imputed)</h2>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <p>
+                <span className="font-medium text-foreground">Answers: </span>
+                Where does our effective $/wRVU stand by specialty vs market, and where are we paying above or below productivity?
+              </p>
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help inline-flex shrink-0" aria-label="About this table">
+                      <Info className="size-3.5" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[380px] text-xs font-normal space-y-2 text-background">
+                    <p className="font-medium">About this table</p>
+                    <p className="text-background/90">Compare your <strong>effective $/wRVU</strong> (total cash comp ÷ wRVUs, normalized to 1.0 cFTE) to market 25th–90th by specialty. <strong>Your $/wRVU %ile</strong> shows where you stand vs that market curve.</p>
+                    <p className="text-background/90 font-medium">Market 25th / 50th / 75th / 90th:</p>
+                    <p className="text-background/90">Effective $/wRVU <em>derived from your market file</em>: (Market TCC at that percentile) ÷ (Market wRVU at that percentile). So they form the curve your imputed $/wRVU is compared against to get &quot;Your $/wRVU %ile&quot;.</p>
+                    <p className="text-background/90 font-medium">CF 25th / 50th / 75th / 90th:</p>
+                    <p className="text-background/90">Conversion factor ($/wRVU) at those percentiles <em>as reported in the market survey</em> (direct from the market file). Use these as reference rates when setting or reviewing CF targets.</p>
+                    <p className="text-background/90">Click a row to open provider-level detail. Use filters to find misalignments. Use the pin icon to pin columns to the left; drag headers to reorder; drag the right edge to resize.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -905,40 +906,6 @@ export function ImputedVsMarketScreen({
                           </div>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </div>
-                    <div className="flex gap-3 flex-1 min-w-0 basis-full">
-                      <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-white dark:bg-background p-3 space-y-2">
-                        <div className="flex justify-between items-center gap-2">
-                          <Label className="text-xs text-muted-foreground">Avg TCC %ile</Label>
-                          <span className="text-xs tabular-nums text-muted-foreground shrink-0">
-                            {tccPercentileRange[0]} – {tccPercentileRange[1]}
-                          </span>
-                        </div>
-                        <Slider
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={tccPercentileRange}
-                          onValueChange={(v) => setTccPercentileRange(v as [number, number])}
-                          className="w-full"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-white dark:bg-background p-3 space-y-2">
-                        <div className="flex justify-between items-center gap-2">
-                          <Label className="text-xs text-muted-foreground">Avg wRVU %ile</Label>
-                          <span className="text-xs tabular-nums text-muted-foreground shrink-0">
-                            {wrvuPercentileRange[0]} – {wrvuPercentileRange[1]}
-                          </span>
-                        </div>
-                        <Slider
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={wrvuPercentileRange}
-                          onValueChange={(v) => setWrvuPercentileRange(v as [number, number])}
-                          className="w-full"
-                        />
-                      </div>
                     </div>
                     <div className="space-y-1.5 flex-1 min-w-[140px]">
                       <Label className="text-xs text-muted-foreground">Pay vs productivity</Label>
@@ -1089,6 +1056,40 @@ export function ImputedVsMarketScreen({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
+                    <div className="flex gap-3 flex-1 min-w-0 basis-full">
+                      <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-white dark:bg-background p-3 space-y-2">
+                        <div className="flex justify-between items-center gap-2">
+                          <Label className="text-xs text-muted-foreground">Avg TCC %ile</Label>
+                          <span className="text-xs tabular-nums text-muted-foreground shrink-0">
+                            {tccPercentileRange[0]} – {tccPercentileRange[1]}
+                          </span>
+                        </div>
+                        <Slider
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={tccPercentileRange}
+                          onValueChange={(v) => setTccPercentileRange(v as [number, number])}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-white dark:bg-background p-3 space-y-2">
+                        <div className="flex justify-between items-center gap-2">
+                          <Label className="text-xs text-muted-foreground">Avg wRVU %ile</Label>
+                          <span className="text-xs tabular-nums text-muted-foreground shrink-0">
+                            {wrvuPercentileRange[0]} – {wrvuPercentileRange[1]}
+                          </span>
+                        </div>
+                        <Slider
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={wrvuPercentileRange}
+                          onValueChange={(v) => setWrvuPercentileRange(v as [number, number])}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
                 </>
@@ -1115,7 +1116,7 @@ export function ImputedVsMarketScreen({
                 <>
                 <div
                   className="flex flex-col w-full rounded-md border overflow-hidden"
-                  style={{ maxHeight: `${paginatedTableHeight}px` }}
+                  style={{ maxHeight: `${paginatedTableHeight + PAGINATION_ROW_HEIGHT_PX}px` }}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
                     <p className="text-xs text-muted-foreground">
@@ -1436,61 +1437,61 @@ export function ImputedVsMarketScreen({
                     </div>
                   </div>
                   </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 px-2 py-2 border border-t-0 rounded-b-md bg-muted/20">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Rows per page</span>
-                    <Select
-                      value={String(pageSize)}
-                      onValueChange={(v) => {
-                        const n = Number(v)
-                        if (PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number])) {
-                          setPageSize(n)
-                          setPageIndex(0)
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="w-[72px] h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PAGE_SIZE_OPTIONS.map((n) => (
-                          <SelectItem key={n} value={String(n)}>
-                            {n}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span className="tabular-nums">
-                      {totalRowCount === 0
-                        ? '0 rows'
-                        : `${safePageIndex * pageSize + 1}–${Math.min((safePageIndex + 1) * pageSize, totalRowCount)} of ${totalRowCount}`}
-                    </span>
-                    <div className="flex gap-0.5">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        disabled={safePageIndex <= 0}
-                        onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-                        aria-label="Previous page"
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-2 py-2 border-t border-border rounded-b-md bg-muted/20 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Rows per page</span>
+                      <Select
+                        value={String(pageSize)}
+                        onValueChange={(v) => {
+                          const n = Number(v)
+                          if (PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number])) {
+                            setPageSize(n)
+                            setPageIndex(0)
+                          }
+                        }}
                       >
-                        <ChevronLeft className="size-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        disabled={safePageIndex >= totalPages - 1}
-                        onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
-                        aria-label="Next page"
-                      >
-                        <ChevronRight className="size-4" />
-                      </Button>
+                        <SelectTrigger className="w-[72px] h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAGE_SIZE_OPTIONS.map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span className="tabular-nums">
+                        {totalRowCount === 0
+                          ? '0 rows'
+                          : `${safePageIndex * pageSize + 1}–${Math.min((safePageIndex + 1) * pageSize, totalRowCount)} of ${totalRowCount}`}
+                      </span>
+                      <div className="flex gap-0.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={safePageIndex <= 0}
+                          onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+                          aria-label="Previous page"
+                        >
+                          <ChevronLeft className="size-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={safePageIndex >= totalPages - 1}
+                          onClick={() => setPageIndex((p) => Math.min(totalPages - 1, p + 1))}
+                          aria-label="Next page"
+                        >
+                          <ChevronRight className="size-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, Eraser, FileDown, FileSpreadsheet, Info, Lock, Printer, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Eraser, FileDown, FileSpreadsheet, Info, Lock, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
@@ -157,7 +157,11 @@ export function TccWrvuPercentilesReport({
       out = out.filter(
         (r) =>
           (r.providerName ?? '').toLowerCase().includes(q) ||
-          (r.providerId ?? '').toString().toLowerCase().includes(q)
+          (r.providerId ?? '').toString().toLowerCase().includes(q) ||
+          (r.specialty ?? '').toLowerCase().includes(q) ||
+          (r.division ?? '').toLowerCase().includes(q) ||
+          (r.providerType ?? '').toLowerCase().includes(q) ||
+          (r.productivityModel ?? '').toLowerCase().includes(q)
       )
     }
     if (payVsProdFilter !== 'all') {
@@ -233,10 +237,6 @@ export function TccWrvuPercentilesReport({
     setFmvRiskFilter('all')
     setTccPercentileRange([0, 100])
     setWrvuPercentileRange([0, 100])
-  }
-
-  const handlePrint = () => {
-    window.print()
   }
 
   const handleProviderClick = useCallback(
@@ -318,11 +318,7 @@ export function TccWrvuPercentilesReport({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="text-xs text-muted-foreground">Export / print</DropdownMenuLabel>
-                <DropdownMenuItem onClick={handlePrint} className="gap-2">
-                  <Printer className="size-4" />
-                  Print
-                </DropdownMenuItem>
+                <DropdownMenuLabel className="text-xs text-muted-foreground">Export</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => downloadBatchResultsCSV(exportResults)} className="gap-2">
                   <FileDown className="size-4" />
                   Export CSV
@@ -442,7 +438,7 @@ export function TccWrvuPercentilesReport({
                     <div className="relative">
                       <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
                       <Input
-                        placeholder="Specialty or provider..."
+                        placeholder="Provider, specialty, division, role, or comp plan…"
                         value={providerSearch}
                         onChange={(e) => setProviderSearch(e.target.value)}
                         className="bg-white pl-8 dark:bg-background h-9 w-full"
@@ -626,7 +622,7 @@ export function TccWrvuPercentilesReport({
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Filter by search, specialty, pay vs productivity, division, role, comp plan type, FMV risk, or TCC/wRVU percentile ranges. Click a provider name for details.
+                  Search matches provider name/ID, specialty, division, role, or comp plan type. Filter by dropdowns, pay vs productivity, FMV risk, or TCC/wRVU percentile ranges. Click a provider name for details.
                 </p>
                 </div>
               </div>

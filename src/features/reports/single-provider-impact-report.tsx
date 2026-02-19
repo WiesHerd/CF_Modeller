@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, ChevronDown, FileSpreadsheet, FileText, Lock, Printer } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileDown, FileSpreadsheet, FileText, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -13,6 +13,8 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -26,7 +28,7 @@ import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { ImpactReportPage } from '@/components/impact-report-page'
 import { matchMarketRow } from '@/lib/batch'
 import { computeScenario } from '@/lib/compute'
-import { exportSingleScenarioXLSX } from '@/lib/single-scenario-export'
+import { downloadSingleScenarioCSV, exportSingleScenarioXLSX } from '@/lib/single-scenario-export'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, SavedScenario } from '@/types/scenario'
@@ -88,18 +90,26 @@ export function SingleProviderImpactReport({
     return { results, marketMatch: match.marketRow }
   }, [selectedProvider, marketRows, batchSynonymMap, effectiveScenarioInputs])
 
-  const handlePrint = () => {
-    window.print()
+  const exportInput = useMemo(
+    () =>
+      selectedProvider && marketMatch
+        ? {
+            provider: selectedProvider,
+            marketRow: marketMatch,
+            results,
+            scenarioInputs: effectiveScenarioInputs,
+            mode: 'existing' as const,
+          }
+        : null,
+    [selectedProvider, marketMatch, results, effectiveScenarioInputs]
+  )
+
+  const handleExportCSV = () => {
+    if (exportInput) downloadSingleScenarioCSV(exportInput)
   }
 
-  const handleExportExcel = () => {
-    exportSingleScenarioXLSX({
-      provider: selectedProvider,
-      marketRow: marketMatch,
-      results,
-      scenarioInputs: effectiveScenarioInputs,
-      mode: 'existing',
-    })
+  const handleExportXLSX = () => {
+    if (exportInput) exportSingleScenarioXLSX(exportInput)
   }
 
   if (providerRows.length === 0) {
@@ -143,23 +153,27 @@ export function SingleProviderImpactReport({
             </p>
           )}
         </div>
-        {results && (
-          <div className="flex shrink-0 items-center gap-2 no-print">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportExcel}
-              className="gap-2"
-              aria-label="Export single scenario Excel report"
-            >
-              <FileSpreadsheet className="size-4" />
-              Export Excel Report
-            </Button>
-            <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2" aria-label="Print">
-              <Printer className="size-4" />
-              Print
-            </Button>
-          </div>
+        {results && exportInput && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 no-print" aria-label="Export data">
+                <FileDown className="size-4" />
+                Export
+                <ChevronDown className="size-4 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Export</DropdownMenuLabel>
+              <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                <FileDown className="size-4" />
+                Export CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportXLSX} className="gap-2">
+                <FileSpreadsheet className="size-4" />
+                Export XLSX
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
       {/* Row 2: Back button — standard location used in Report library, TCC percentiles, and Batch results */}
