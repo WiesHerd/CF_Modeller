@@ -60,7 +60,7 @@ const RECOMMENDATION_LABEL: Record<string, string> = {
   NO_RECOMMENDATION: 'No recommendation',
 }
 
-const QUICK_RUN_RESULTS_TABLE_LAYOUT_KEY = 'quick-run-results-table-layout-v1'
+const QUICK_RUN_RESULTS_TABLE_LAYOUT_KEY = 'quick-run-results-table-layout-v2'
 
 function formatRecommendation(row: OptimizerSpecialtyResult): string {
   if (row.recommendedAction === 'HOLD' || row.recommendedAction === 'NO_RECOMMENDATION') {
