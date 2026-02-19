@@ -25,6 +25,8 @@ export interface BatchRowResult {
   division: string
   /** Role or job type from provider upload (e.g. Staff Physician, Division Chief). */
   providerType?: string
+  /** Compensation plan type from provider (e.g. base, productivity). */
+  productivityModel?: string
   scenarioId: string
   scenarioName: string
   scenarioInputsSnapshot: ScenarioInputs

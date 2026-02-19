@@ -529,39 +529,42 @@ export function TccWrvuSummaryTable({
             )}
           </div>
         )}
-        <div className="flex flex-wrap items-center gap-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-muted-foreground cursor-help inline-flex" aria-label="Table tips">
-                <HelpCircle className="size-4" />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="max-w-[280px] text-xs">
-              Click a provider name to open details. Use the pin icon to pin columns to the left; drag headers to reorder; drag the right edge to resize. Use the icons to auto-size or show/hide columns. Arrow keys move between rows; Enter opens provider detail.
-            </TooltipContent>
-          </Tooltip>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Label htmlFor="tcc-rows-per-page" className="text-xs whitespace-nowrap">
-            Rows per page
-          </Label>
-          <Select
-            value={String(pageSize)}
-            onValueChange={(v) => table.setPageSize(Number(v))}
-          >
-            <SelectTrigger id="tcc-rows-per-page" className="h-9 w-[90px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <SelectItem key={n} value={String(n)}>
-                  {n}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="ml-auto flex items-center gap-0.5">
-          <DropdownMenu>
+        <div className="rounded-md border flex flex-col">
+          <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-border/60 bg-muted/30 shrink-0">
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-muted-foreground cursor-help inline-flex" aria-label="Table tips">
+                    <HelpCircle className="size-4" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px] text-xs">
+                  Click a provider name to open details. Use the pin icon to pin columns to the left; drag headers to reorder; drag the right edge to resize. Use the icons to auto-size or show/hide columns. Arrow keys move between rows; Enter opens provider detail.
+                </TooltipContent>
+              </Tooltip>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Label htmlFor="tcc-rows-per-page" className="text-xs whitespace-nowrap">
+                  Rows per page
+                </Label>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => table.setPageSize(Number(v))}
+                >
+                  <SelectTrigger id="tcc-rows-per-page" className="h-9 w-[90px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-0.5">
+              <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
@@ -642,17 +645,17 @@ export function TccWrvuSummaryTable({
               })}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-      </div>
-      <div
-        role="grid"
-        aria-rowcount={rowCount}
-        aria-colcount={colCount}
-        tabIndex={0}
-        className="rounded-md border border-border overflow-x-auto overflow-y-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        style={wrapperStyle}
-        onKeyDown={handleTableKeyDown}
-      >
+            </div>
+          </div>
+          <div
+            role="grid"
+            aria-rowcount={rowCount}
+            aria-colcount={colCount}
+            tabIndex={0}
+            className="rounded-b-md border border-t-0 border-border overflow-x-auto overflow-y-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            style={wrapperStyle}
+            onKeyDown={handleTableKeyDown}
+          >
         <table
           className="w-full caption-bottom text-sm min-w-max border-separate border-spacing-0"
           style={{ minWidth: 'max-content' }}
@@ -847,7 +850,8 @@ export function TccWrvuSummaryTable({
             ))}
           </tbody>
         </table>
-      </div>
+          </div>
+        </div>
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <p className="text-xs text-muted-foreground tabular-nums">
           Showing {start}–{end} of {filteredRowCount} row{filteredRowCount !== 1 ? 's' : ''}

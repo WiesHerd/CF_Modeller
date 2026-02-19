@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { ArrowLeft, ChevronDown, Eraser, FileDown, FileSpreadsheet, Info, Lock, Printer, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Eraser, FileDown, FileSpreadsheet, Info, Lock, Printer, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
@@ -26,6 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Slider } from '@/components/ui/slider'
 import { TccWrvuSummaryTable } from './tcc-wrvu-summary-table'
 import { MarketPositioningCalculationDrawer } from '@/features/optimizer/components/market-positioning-calculation-drawer'
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
@@ -35,7 +36,12 @@ import {
   DEFAULT_IMPUTED_VS_MARKET_CONFIG,
   type ImputedVsMarketProviderDetail,
 } from '@/lib/imputed-vs-market'
-import { getGapInterpretation } from '@/features/optimizer/components/optimizer-constants'
+import {
+  getGapInterpretation,
+  getFmvRiskLevel,
+  FMV_RISK_LABEL,
+  type FmvRiskLevel,
+} from '@/features/optimizer/components/optimizer-constants'
 import { FileText } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
@@ -81,6 +87,11 @@ export function TccWrvuPercentilesReport({
   const [payVsProdFilter, setPayVsProdFilter] = useState<string>('all')
   const [divisionFilter, setDivisionFilter] = useState<string>('all')
   const [providerTypeFilter, setProviderTypeFilter] = useState<string>('all')
+  const [compPlanFilter, setCompPlanFilter] = useState<string>('all')
+  const [fmvRiskFilter, setFmvRiskFilter] = useState<string>('all')
+  const [tccPercentileRange, setTccPercentileRange] = useState<[number, number]>([0, 100])
+  const [wrvuPercentileRange, setWrvuPercentileRange] = useState<[number, number]>([0, 100])
+  const [filtersOpen, setFiltersOpen] = useState<boolean>(true)
   const [drawerProvider, setDrawerProvider] = useState<ImputedVsMarketProviderDetail | null>(null)
   const [drawerSpecialtyLabel, setDrawerSpecialtyLabel] = useState<string | undefined>(undefined)
 
@@ -129,6 +140,12 @@ export function TccWrvuPercentilesReport({
     return Array.from(set).sort((a, b) => a.localeCompare(b))
   }, [results?.rows])
 
+  const compPlanOptions = useMemo(() => {
+    if (!results?.rows?.length) return []
+    const set = new Set(results.rows.map((r) => (r.productivityModel ?? '').trim()).filter(Boolean))
+    return Array.from(set).sort((a, b) => a.localeCompare(b))
+  }, [results?.rows])
+
   const filteredRows = useMemo((): BatchRowResult[] => {
     if (!results?.rows?.length) return []
     let out = results.rows
@@ -157,8 +174,33 @@ export function TccWrvuPercentilesReport({
     if (providerTypeFilter !== 'all') {
       out = out.filter((r) => (r.providerType ?? '').trim() === providerTypeFilter)
     }
+    if (compPlanFilter !== 'all') {
+      out = out.filter((r) => (r.productivityModel ?? '').trim() === compPlanFilter)
+    }
+    if (fmvRiskFilter !== 'all') {
+      out = out.filter((r) => {
+        const level = getFmvRiskLevel(r.results?.tccPercentile, r.results?.modeledTCCPercentile)
+        return level === (fmvRiskFilter as FmvRiskLevel)
+      })
+    }
+    const [tccMin, tccMax] = tccPercentileRange
+    if (tccMin > 0 || tccMax < 100) {
+      out = out.filter((r) => {
+        const p = r.results?.modeledTCCPercentile
+        if (p == null || !Number.isFinite(p)) return false
+        return p >= tccMin && p <= tccMax
+      })
+    }
+    const [wrvuMin, wrvuMax] = wrvuPercentileRange
+    if (wrvuMin > 0 || wrvuMax < 100) {
+      out = out.filter((r) => {
+        const p = r.results?.wrvuPercentile
+        if (p == null || !Number.isFinite(p)) return false
+        return p >= wrvuMin && p <= wrvuMax
+      })
+    }
     return out
-  }, [results?.rows, specialtyFilter, providerSearch, payVsProdFilter, divisionFilter, providerTypeFilter])
+  }, [results?.rows, specialtyFilter, providerSearch, payVsProdFilter, divisionFilter, providerTypeFilter, compPlanFilter, fmvRiskFilter, tccPercentileRange, wrvuPercentileRange])
 
   const reportDate = new Date().toLocaleDateString(undefined, {
     year: 'numeric',
@@ -173,7 +215,13 @@ export function TccWrvuPercentilesReport({
     providerSearch.trim() !== '' ||
     payVsProdFilter !== 'all' ||
     divisionFilter !== 'all' ||
-    providerTypeFilter !== 'all'
+    providerTypeFilter !== 'all' ||
+    compPlanFilter !== 'all' ||
+    fmvRiskFilter !== 'all' ||
+    tccPercentileRange[0] > 0 ||
+    tccPercentileRange[1] < 100 ||
+    wrvuPercentileRange[0] > 0 ||
+    wrvuPercentileRange[1] < 100
 
   const clearFilters = () => {
     setSpecialtyFilter('all')
@@ -181,6 +229,10 @@ export function TccWrvuPercentilesReport({
     setPayVsProdFilter('all')
     setDivisionFilter('all')
     setProviderTypeFilter('all')
+    setCompPlanFilter('all')
+    setFmvRiskFilter('all')
+    setTccPercentileRange([0, 100])
+    setWrvuPercentileRange([0, 100])
   }
 
   const handlePrint = () => {
@@ -311,29 +363,50 @@ export function TccWrvuPercentilesReport({
       {results && (
         <Card>
           <CardHeader className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-medium text-foreground">Total cash and wRVU percentiles</p>
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label="Scenario and FMV risk help"
-                    >
-                      <Info className="size-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-sm space-y-2 p-3">
-                    <p>
-                      <strong className="text-foreground">Scenario:</strong> Selects the inputs (e.g. CF target, PSQ). &quot;Current scenario&quot; uses the Single scenario inputs; other options are saved scenario snapshots from batch runs.
-                    </p>
-                    <p>
-                      <strong className="text-foreground">FMV risk:</strong> Total cash comp at or above the 75th percentile may warrant Fair Market Value review. Use the FMV risk column (Low / Elevated / High) to flag providers for attention.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+            <div className="flex flex-wrap items-center justify-between gap-2 w-full">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-foreground">Total cash and wRVU percentiles</p>
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label="Scenario and FMV risk help"
+                      >
+                        <Info className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-sm space-y-2 p-3">
+                      <p>
+                        <strong className="text-foreground">Scenario:</strong> Selects the inputs (e.g. CF target, PSQ). &quot;Current scenario&quot; uses the Single scenario inputs; other options are saved scenario snapshots from batch runs.
+                      </p>
+                      <p>
+                        <strong className="text-foreground">FMV risk:</strong> Total cash comp at or above the 75th percentile may warrant Fair Market Value review. Use the FMV risk column (Low / Elevated / High) to flag providers for attention.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              {hasActiveFilters && (
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={clearFilters}
+                        aria-label="Clear filters"
+                      >
+                        <Eraser className="size-4" aria-hidden />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">Clear all filters</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
             {selectedScenarioId !== 'current' && effectiveScenario && (
               <p className="text-xs text-foreground/90">
@@ -343,19 +416,43 @@ export function TccWrvuPercentilesReport({
           </CardHeader>
           <CardContent className="space-y-6">
             {results.rows.length > 0 && (
-              <div className="sticky top-0 z-20 rounded-lg border border-border/70 bg-background/95 p-3 backdrop-blur-sm">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="relative flex-1 min-w-[200px] max-w-sm">
-                    <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
-                    <Label className="sr-only">Search provider name or ID</Label>
-                    <Input
-                      placeholder="Search specialty or provider..."
-                      value={providerSearch}
-                      onChange={(e) => setProviderSearch(e.target.value)}
-                      className="bg-white pl-8 dark:bg-background h-9 w-full"
-                    />
+              <div className="sticky top-0 z-20 rounded-lg border border-border/70 bg-background/95 backdrop-blur-sm overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen((o) => !o)}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-foreground hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                  aria-expanded={filtersOpen}
+                  aria-controls="tcc-wrvu-filters-content"
+                  id="tcc-wrvu-filters-toggle"
+                >
+                  <span>Filters</span>
+                  {filtersOpen ? (
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  ) : (
+                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  )}
+                </button>
+                <div
+                  id="tcc-wrvu-filters-content"
+                  role="region"
+                  aria-labelledby="tcc-wrvu-filters-toggle"
+                  className={filtersOpen ? 'block border-t border-border/70 p-3' : 'hidden'}
+                >
+                {/* Dropdowns: 4-column grid, 2 rows (8 slots) so top and bottom are even; no item alone */}
+                <div className="grid grid-cols-4 gap-3 items-end">
+                  <div className="min-w-0 space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Search</Label>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
+                      <Input
+                        placeholder="Specialty or provider..."
+                        value={providerSearch}
+                        onChange={(e) => setProviderSearch(e.target.value)}
+                        className="bg-white pl-8 dark:bg-background h-9 w-full"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1.5 flex-1 min-w-[200px]">
+                  <div className="min-w-0 space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Specialty</Label>
                     <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
                       <DropdownMenuTrigger asChild>
@@ -365,7 +462,7 @@ export function TccWrvuPercentilesReport({
                           className="w-full min-w-0 justify-between bg-white dark:bg-background h-9 font-normal"
                         >
                           <span className="truncate">
-                            {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter || '—'}
+                            {specialtyFilter === 'all' ? 'All' : specialtyFilter || '—'}
                           </span>
                           <ChevronDown className="size-4 opacity-50 shrink-0" />
                         </Button>
@@ -385,9 +482,7 @@ export function TccWrvuPercentilesReport({
                         </Command>
                         <div className="max-h-[200px] overflow-y-auto p-1">
                           <DropdownMenuLabel>Specialty</DropdownMenuLabel>
-                          <DropdownMenuItem
-                            onSelect={() => setSpecialtyFilter('all')}
-                          >
+                          <DropdownMenuItem onSelect={() => setSpecialtyFilter('all')}>
                             All specialties
                           </DropdownMenuItem>
                           {filteredSpecialtyOptions.length === 0 ? (
@@ -406,7 +501,7 @@ export function TccWrvuPercentilesReport({
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <div className="space-y-1.5 flex-1 min-w-[180px]">
+                  <div className="min-w-0 space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Pay vs productivity</Label>
                     <Select value={payVsProdFilter} onValueChange={setPayVsProdFilter}>
                       <SelectTrigger className="w-full min-w-0 bg-white dark:bg-background h-9">
@@ -420,15 +515,15 @@ export function TccWrvuPercentilesReport({
                       </SelectContent>
                     </Select>
                   </div>
-                  {divisionOptions.length > 0 && (
-                    <div className="space-y-1.5 flex-1 min-w-[160px]">
+                  {divisionOptions.length > 0 ? (
+                    <div className="min-w-0 space-y-1.5">
                       <Label className="text-xs text-muted-foreground">Division</Label>
                       <Select value={divisionFilter} onValueChange={setDivisionFilter}>
                         <SelectTrigger className="w-full min-w-0 bg-white dark:bg-background h-9">
-                          <SelectValue placeholder="All divisions" />
+                          <SelectValue placeholder="All" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">All divisions</SelectItem>
+                          <SelectItem value="all">All</SelectItem>
                           {divisionOptions.map((d) => (
                             <SelectItem key={d} value={d}>
                               {d}
@@ -437,9 +532,11 @@ export function TccWrvuPercentilesReport({
                         </SelectContent>
                       </Select>
                     </div>
+                  ) : (
+                    <div className="min-w-0" aria-hidden />
                   )}
-                  {providerTypeOptions.length > 0 && (
-                    <div className="space-y-1.5 flex-1 min-w-[160px]">
+                  {providerTypeOptions.length > 0 ? (
+                    <div className="min-w-0 space-y-1.5">
                       <Label className="text-xs text-muted-foreground">Role / type</Label>
                       <Select value={providerTypeFilter} onValueChange={setProviderTypeFilter}>
                         <SelectTrigger className="w-full min-w-0 bg-white dark:bg-background h-9">
@@ -455,30 +552,86 @@ export function TccWrvuPercentilesReport({
                         </SelectContent>
                       </Select>
                     </div>
+                  ) : (
+                    <div className="min-w-0" aria-hidden />
                   )}
-                  {hasActiveFilters && (
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
-                            onClick={clearFilters}
-                            aria-label="Clear filters"
-                          >
-                            <Eraser className="size-4" aria-hidden />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom">Clear filters</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  {compPlanOptions.length > 0 ? (
+                    <div className="min-w-0 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Comp plan type</Label>
+                      <Select value={compPlanFilter} onValueChange={setCompPlanFilter}>
+                        <SelectTrigger className="w-full min-w-0 bg-white dark:bg-background h-9">
+                          <SelectValue placeholder="All" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          {compPlanOptions.map((c) => (
+                            <SelectItem key={c} value={c}>
+                              {c}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div className="min-w-0" aria-hidden />
                   )}
+                  <div className="min-w-0 space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">FMV risk</Label>
+                    <Select value={fmvRiskFilter} onValueChange={setFmvRiskFilter}>
+                      <SelectTrigger className="w-full min-w-0 bg-white dark:bg-background h-9">
+                        <SelectValue placeholder="All" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        {(Object.keys(FMV_RISK_LABEL) as FmvRiskLevel[]).map((level) => (
+                          <SelectItem key={level} value={level}>
+                            {FMV_RISK_LABEL[level]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-0" aria-hidden />
+                </div>
+                {/* Row 2: Sliders — equal width containers */}
+                <div className="flex gap-3 mt-3">
+                  <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-muted/10 p-3 space-y-2">
+                    <div className="flex justify-between items-center gap-2">
+                      <Label className="text-xs text-muted-foreground">TCC %ile (modeled)</Label>
+                      <span className="text-xs tabular-nums text-muted-foreground shrink-0">
+                        {tccPercentileRange[0]} – {tccPercentileRange[1]}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={tccPercentileRange}
+                      onValueChange={(v) => setTccPercentileRange(v as [number, number])}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 rounded-lg border border-border/70 bg-muted/10 p-3 space-y-2">
+                    <div className="flex justify-between items-center gap-2">
+                      <Label className="text-xs text-muted-foreground">wRVU %ile</Label>
+                      <span className="text-xs tabular-nums text-muted-foreground shrink-0">
+                        {wrvuPercentileRange[0]} – {wrvuPercentileRange[1]}
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={wrvuPercentileRange}
+                      onValueChange={(v) => setWrvuPercentileRange(v as [number, number])}
+                      className="w-full"
+                    />
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Filter by specialty, provider search, pay vs productivity, division, or role. Click a provider name for percentile details.
+                  Filter by search, specialty, pay vs productivity, division, role, comp plan type, FMV risk, or TCC/wRVU percentile ranges. Click a provider name for details.
                 </p>
+                </div>
               </div>
             )}
             {hasActiveFilters && filteredRows.length > 0 && (
