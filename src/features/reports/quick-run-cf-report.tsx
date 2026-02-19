@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { ArrowLeft, ChevronDown, ChevronUp, Eraser, FileDown, FileSpreadsheet, Gauge, Play, Search, Users } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Eraser, FileDown, FileSpreadsheet, Gauge, ListChecks, Play, Search, UserX, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -588,9 +588,14 @@ export function QuickRunCFReport({
                 <DropdownMenuCheckboxItem
                   checked={selectedTypes.size === 0}
                   onSelect={(e) => { e.preventDefault() }}
-                  onCheckedChange={(checked) => { if (checked) setSelectedTypes(new Set()) }}
+                  onCheckedChange={(checked) => {
+                    if (checked) setSelectedTypes(new Set())
+                    else setSelectedTypes(new Set(availableTypes))
+                  }}
+                  className="font-medium"
                 >
-                  All provider types
+                  <ListChecks className="size-4 shrink-0" />
+                  {selectedTypes.size === 0 ? 'All selected' : 'Select all'}
                 </DropdownMenuCheckboxItem>
                 {availableTypes.length === 0 ? (
                   <div className="px-2 py-2 text-sm text-muted-foreground">No provider types in data</div>
@@ -648,9 +653,14 @@ export function QuickRunCFReport({
                 <DropdownMenuCheckboxItem
                   checked={selectedSpecialties.size === 0}
                   onSelect={(e) => { e.preventDefault() }}
-                  onCheckedChange={(checked) => { if (checked) setSelectedSpecialties(new Set()) }}
+                  onCheckedChange={(checked) => {
+                    if (checked) setSelectedSpecialties(new Set())
+                    else setSelectedSpecialties(new Set(availableSpecialties))
+                  }}
+                  className="font-medium"
                 >
-                  All specialties
+                  <ListChecks className="size-4 shrink-0" />
+                  {selectedSpecialties.size === 0 ? 'All selected' : 'Select all'}
                 </DropdownMenuCheckboxItem>
                 {availableSpecialties.length === 0 ? (
                   <div className="px-2 py-2 text-sm text-muted-foreground">No specialties in scope</div>
@@ -757,7 +767,7 @@ export function QuickRunCFReport({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
-              className="max-h-[320px] overflow-hidden p-0 w-[var(--radix-dropdown-menu-trigger-width)]"
+              className="max-h-[320px] overflow-hidden p-0 min-w-[280px] max-w-[min(90vw,420px)] w-auto"
               onCloseAutoFocus={(e: Event) => e.preventDefault()}
             >
               <div className="flex h-9 items-center gap-2 border-b border-border px-3">
@@ -776,8 +786,37 @@ export function QuickRunCFReport({
                   checked={excludedProviderKeys.size === 0}
                   onSelect={(e) => { e.preventDefault() }}
                   onCheckedChange={(checked) => { if (checked) setExcludedProviderKeys(new Set()) }}
+                  className="font-medium"
                 >
-                  No exclusions
+                  <Eraser className="size-4 shrink-0" />
+                  Clear all
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={
+                    providersInSpecialtyScope.length > 0 &&
+                    filteredExcludedProviders.length > 0 &&
+                    filteredExcludedProviders.every((p) => excludedProviderKeys.has(getProviderScopeKey(p)))
+                  }
+                  disabled={filteredExcludedProviders.length === 0}
+                  onSelect={(e) => { e.preventDefault() }}
+                  onCheckedChange={(checked) => {
+                    const keys = new Set(filteredExcludedProviders.map((p) => getProviderScopeKey(p)))
+                    if (checked) {
+                      setExcludedProviderKeys((prev) => new Set([...prev, ...keys]))
+                    } else {
+                      setExcludedProviderKeys((prev) => {
+                        const next = new Set(prev)
+                        keys.forEach((k) => next.delete(k))
+                        return next
+                      })
+                    }
+                  }}
+                  className="font-medium"
+                >
+                  <UserX className="size-4 shrink-0" />
+                  {filteredExcludedProviders.length === 0
+                    ? 'Exclude all'
+                    : `Exclude all (${filteredExcludedProviders.length})`}
                 </DropdownMenuCheckboxItem>
                 {providersInSpecialtyScope.length === 0 ? (
                   <div className="px-2 py-2 text-sm text-muted-foreground">No providers in current scope</div>
@@ -794,8 +833,9 @@ export function QuickRunCFReport({
                         checked={excludedProviderKeys.has(key)}
                         onSelect={(e) => { e.preventDefault() }}
                         onCheckedChange={() => toggleExcludedProvider(provider)}
+                        className="min-w-0"
                       >
-                        <span className="truncate">
+                        <span className="break-words line-clamp-2">
                           {name}{subtitle ? ` — ${subtitle}` : ''}
                         </span>
                       </DropdownMenuCheckboxItem>
