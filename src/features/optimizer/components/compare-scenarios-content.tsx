@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BarChart2, Building2, ChevronDown, ChevronRight, ChevronUp, DollarSign, FileText, GitCompare, HelpCircle, Settings, Target, TrendingDown, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -18,13 +18,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
-import {
   Table,
   TableBody,
   TableCell,
@@ -35,7 +28,6 @@ import {
 import type {
   SavedOptimizerConfig,
   OptimizationObjective,
-  OptimizerScenarioComparisonN,
   OptimizerComparisonSpecialtyRowN,
   OptimizerAssumptionsPerScenario,
   ScenarioInfo,
@@ -119,7 +111,7 @@ function formatObjective(obj: OptimizationObjective): string {
       return String((obj as { kind: string }).kind)
   }
 }
-import { RollupDrillDownSheet } from '@/features/optimizer/components/rollup-drill-down-sheet'
+import { RollupDrillDownSheet, type CompareScenariosContentProps } from '@/features/optimizer/components/rollup-drill-down-sheet'
 
 export function CompareScenariosContent({
   savedOptimizerConfigs,
@@ -128,15 +120,15 @@ export function CompareScenariosContent({
   onComparisonChange,
 }: CompareScenariosContentProps) {
   const comparableConfigs = useMemo(
-    () => savedOptimizerConfigs.filter(canCompareOptimizerConfig),
+    () => savedOptimizerConfigs.filter((c: SavedOptimizerConfig) => canCompareOptimizerConfig(c)),
     [savedOptimizerConfigs]
   )
 
   const initialIds = useMemo(() => {
-    const a = initialScenarioAId && comparableConfigs.some((c) => c.id === initialScenarioAId) ? initialScenarioAId : ''
-    const b = initialScenarioBId && comparableConfigs.some((c) => c.id === initialScenarioBId) ? initialScenarioBId : ''
+    const a = initialScenarioAId && comparableConfigs.some((c: SavedOptimizerConfig) => c.id === initialScenarioAId) ? initialScenarioAId : ''
+    const b = initialScenarioBId && comparableConfigs.some((c: SavedOptimizerConfig) => c.id === initialScenarioBId) ? initialScenarioBId : ''
     if (a && b && a !== b) return [a, b]
-    if (comparableConfigs.length >= 2) return comparableConfigs.slice(0, 2).map((c) => c.id)
+    if (comparableConfigs.length >= 2) return comparableConfigs.slice(0, 2).map((c: SavedOptimizerConfig) => c.id)
     return []
   }, [initialScenarioAId, initialScenarioBId, comparableConfigs])
 
@@ -161,7 +153,7 @@ export function CompareScenariosContent({
 
   const selectedConfigs = useMemo(
     () => selectedScenarioIds
-      .map((id) => comparableConfigs.find((c) => c.id === id))
+      .map((id: string) => comparableConfigs.find((c: SavedOptimizerConfig) => c.id === id))
       .filter((c): c is SavedOptimizerConfig => c != null),
     [comparableConfigs, selectedScenarioIds]
   )
@@ -175,7 +167,7 @@ export function CompareScenariosContent({
   const filteredComparableConfigs = useMemo(() => {
     const q = scenarioSearch.trim().toLowerCase()
     if (!q) return comparableConfigs
-    return comparableConfigs.filter((c) => c.name.toLowerCase().includes(q))
+    return comparableConfigs.filter((c: SavedOptimizerConfig) => c.name.toLowerCase().includes(q))
   }, [comparableConfigs, scenarioSearch])
 
   type DrillDownMetric = 'spend' | 'incentive' | 'alignment' | 'percentile'
@@ -257,7 +249,7 @@ export function CompareScenariosContent({
                     {filteredComparableConfigs.length === 0 ? (
                       <p className="px-2 py-2 text-sm text-muted-foreground">No matches</p>
                     ) : (
-                      filteredComparableConfigs.map((c) => (
+                      filteredComparableConfigs.map((c: SavedOptimizerConfig) => (
                         <DropdownMenuCheckboxItem
                           key={c.id}
                           checked={selectedScenarioIds.includes(c.id)}

@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BarChart2, Building2, ChevronDown, ChevronRight, DollarSign, GitCompare, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency as _formatCurrency } from '@/utils/format'
@@ -16,13 +16,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
-import {
   Table,
   TableBody,
   TableCell,
@@ -30,12 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import type {
-  SavedProductivityTargetConfig,
-  ProductivityTargetScenarioComparisonN,
-  ProductivityTargetScenarioInfo,
-  ProductivityTargetComparisonSpecialtyRowN,
-} from '@/types/productivity-target'
+import type { SavedProductivityTargetConfig, ProductivityTargetScenarioInfo } from '@/types/productivity-target'
 import { MAX_COMPARE_TARGET_SCENARIOS } from '@/types/productivity-target'
 import { iconBoxClass } from '@/components/section-title-with-icon'
 import {
@@ -43,7 +31,7 @@ import {
   compareProductivityTargetScenariosN,
 } from '@/lib/productivity-target-compare'
 
-import { TargetRollupDrillDownSheet } from '@/features/optimizer/components/target-rollup-drill-down-sheet'
+import { TargetRollupDrillDownSheet, type CompareTargetScenariosContentProps, type TargetDrillDownMetric } from '@/features/optimizer/components/target-rollup-drill-down-sheet'
 
 export function CompareTargetScenariosContent({
   savedProductivityTargetConfigs,
@@ -51,19 +39,19 @@ export function CompareTargetScenariosContent({
   onComparisonChange,
 }: CompareTargetScenariosContentProps) {
   const comparableConfigs = useMemo(
-    () => savedProductivityTargetConfigs.filter(canCompareProductivityTargetConfig),
+    () => savedProductivityTargetConfigs.filter((c: SavedProductivityTargetConfig) => canCompareProductivityTargetConfig(c)),
     [savedProductivityTargetConfigs]
   )
 
   const initialIds = useMemo(() => {
     if (initialScenarioIds.length >= 2) {
-      const valid = initialScenarioIds.filter((id) =>
-        comparableConfigs.some((c) => c.id === id)
+      const valid = initialScenarioIds.filter((id: string) =>
+        comparableConfigs.some((c: SavedProductivityTargetConfig) => c.id === id)
       )
       if (valid.length >= 2) return valid.slice(0, MAX_COMPARE_TARGET_SCENARIOS)
     }
     if (comparableConfigs.length >= 2) {
-      return comparableConfigs.slice(0, 2).map((c) => c.id)
+      return comparableConfigs.slice(0, 2).map((c: SavedProductivityTargetConfig) => c.id)
     }
     return []
   }, [initialScenarioIds, comparableConfigs])
@@ -90,7 +78,7 @@ export function CompareTargetScenariosContent({
   const selectedConfigs = useMemo(
     () =>
       selectedScenarioIds
-        .map((id) => comparableConfigs.find((c) => c.id === id))
+        .map((id: string) => comparableConfigs.find((c: SavedProductivityTargetConfig) => c.id === id))
         .filter((c): c is SavedProductivityTargetConfig => c != null),
     [comparableConfigs, selectedScenarioIds]
   )
@@ -107,7 +95,7 @@ export function CompareTargetScenariosContent({
   const filteredComparableConfigs = useMemo(() => {
     const q = scenarioSearch.trim().toLowerCase()
     if (!q) return comparableConfigs
-    return comparableConfigs.filter((c) => c.name.toLowerCase().includes(q))
+    return comparableConfigs.filter((c: SavedProductivityTargetConfig) => c.name.toLowerCase().includes(q))
   }, [comparableConfigs, scenarioSearch])
 
   const canCompare = comparableConfigs.length >= 2
@@ -184,7 +172,7 @@ export function CompareTargetScenariosContent({
                     {filteredComparableConfigs.length === 0 ? (
                       <p className="px-2 py-2 text-sm text-muted-foreground">No matches</p>
                     ) : (
-                      filteredComparableConfigs.map((c) => (
+                      filteredComparableConfigs.map((c: SavedProductivityTargetConfig) => (
                         <DropdownMenuCheckboxItem
                           key={c.id}
                           checked={selectedScenarioIds.includes(c.id)}

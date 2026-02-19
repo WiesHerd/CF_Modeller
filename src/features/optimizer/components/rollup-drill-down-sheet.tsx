@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import {
   Sheet,
   SheetContent,
@@ -16,10 +15,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { cn } from '@/lib/utils'
 import type {
   SavedOptimizerConfig,
   OptimizerScenarioComparisonN,
+  OptimizerComparisonSpecialtyRowN,
   ScenarioInfo,
 } from '@/types/optimizer'
 

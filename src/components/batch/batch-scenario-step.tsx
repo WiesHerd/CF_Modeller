@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Play, Loader2, AlertCircle, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, Link2, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info } from 'lucide-react'
+import { Play, Loader2, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, Link2, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/utils/format'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'

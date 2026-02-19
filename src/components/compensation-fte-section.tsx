@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronUp, Calculator, Plus, Trash2, LayoutList, RotateCcw } from 'lucide-react'
+import { Calculator, Plus, Trash2, LayoutList, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -96,7 +96,8 @@ const COMPONENT_PRESET_LABELS = [
 ]
 
 const COMPONENT_CUSTOM_VALUE = '__custom__' as const
-function FieldRow({
+
+export function FieldRow({
   label,
   children,
 }: {
@@ -113,7 +114,7 @@ function FieldRow({
   )
 }
 
-function Section({
+export function Section({
   title,
   children,
 }: {

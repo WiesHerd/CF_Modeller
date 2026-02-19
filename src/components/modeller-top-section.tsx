@@ -1,22 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
-import { User, BarChart3, ChevronDown, ChevronUp, Calculator, Plus, Trash2, LayoutList, RotateCcw } from 'lucide-react'
+import { useState } from 'react'
+import { User, BarChart3, ChevronDown, ChevronUp } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import type { ProviderRow, BasePayComponent } from '@/types/provider'
+import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, ScenarioResults } from '@/types/scenario'
-import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/utils/format'
+import { CompensationFTESection, FieldRow, Section } from '@/components/compensation-fte-section'
 
 function fmtMoney(n: number, decimals = 2): string {
   return formatCurrency(n, { decimals })
@@ -28,10 +19,6 @@ function fmtNum(n: number, decimals = 2): string {
     maximumFractionDigits: decimals,
   })
 }
-
-/** Parse input that may include $ and commas into a number. */
-import { CompensationFTESection } from '@/components/compensation-fte-section'
-
 
 interface ModellerTopSectionProps {
   provider: ProviderRow | null

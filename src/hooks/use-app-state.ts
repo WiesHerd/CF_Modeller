@@ -5,7 +5,6 @@ import type { ScenarioInputs, ScenarioResults, SavedScenario } from '@/types/sce
 import type { ColumnMapping } from '@/types/upload'
 import type {
   BatchResults,
-  BatchRunMode,
   BatchScenarioSnapshot,
   SavedBatchRun,
   SavedBatchScenarioConfig,

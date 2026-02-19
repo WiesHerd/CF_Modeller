@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef, useCallback } from 'react'
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,21 +19,29 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  Table,
-  TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { DATA_GRID, getPinnedCellStyles, PINNED_HEADER_CLASS, PINNED_CELL_CLASS, PINNED_CELL_STRIPED_CLASS } from '@/lib/data-grid-styles'
-import { ChevronLeft, ChevronRight, GripVertical, Columns3, Eraser, Pencil, Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, GripVertical, Columns3, LayoutList, Pencil, Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react'
 import type { MarketRow } from '@/types/market'
 import { MarketEditModal } from '@/features/data/market-edit-modal'
 import {
@@ -499,7 +507,7 @@ export function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <Label htmlFor="market-page-size" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
-            <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
+            <Select value={String(pageSize)} onValueChange={(v: string) => table.setPageSize(Number(v))}>
               <SelectTrigger id="market-page-size" className="h-8 w-[75px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {PAGE_SIZE_OPTIONS.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
