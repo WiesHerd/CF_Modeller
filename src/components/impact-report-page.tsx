@@ -177,22 +177,26 @@ export function ImpactReportPage({
       </header>
 
       {takeaway && (
-        <div
-          className={cn(
-            'rounded-lg border px-3 py-2.5 text-sm',
-            takeaway.type === 'opportunity' &&
-              'border-emerald-500/40 bg-emerald-500/10 dark:border-emerald-400/30 dark:bg-emerald-500/15',
-            takeaway.type === 'risk' &&
-              'border-amber-500/40 bg-amber-500/10 dark:border-amber-400/30 dark:bg-amber-500/15',
-            takeaway.type === 'neutral' &&
-              'border-border/60 bg-muted/30'
-          )}
-        >
-          <span className="font-medium">
-            {takeaway.type === 'opportunity' ? 'Opportunity: ' : takeaway.type === 'risk' ? 'Risk: ' : 'Note: '}
-          </span>
-          <span className="text-muted-foreground">{takeaway.message}</span>
-        </div>
+        takeaway.type === 'risk' ? (
+          <p className="text-[0.9rem] font-medium text-red-600 dark:text-red-400">
+            ⚠ Risk: {takeaway.message}
+          </p>
+        ) : (
+          <div
+            className={cn(
+              'rounded-lg border px-3 py-2.5 text-sm',
+              takeaway.type === 'opportunity' &&
+                'border-emerald-500/40 bg-emerald-500/10 dark:border-emerald-400/30 dark:bg-emerald-500/15',
+              takeaway.type === 'neutral' &&
+                'border-border/60 bg-muted/30'
+            )}
+          >
+            <span className="font-medium">
+              {takeaway.type === 'opportunity' ? 'Opportunity: ' : 'Note: '}
+            </span>
+            <span className="text-muted-foreground">{takeaway.message}</span>
+          </div>
+        )
       )}
 
       {/* Position + waterfall side-by-side on md+ for a compact “results” block */}
