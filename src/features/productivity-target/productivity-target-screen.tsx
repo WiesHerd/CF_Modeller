@@ -436,21 +436,20 @@ export function ProductivityTargetScreen({
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className={result == null ? 'inline-flex' : ''}>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => result != null && setSaveDialogOpen(true)}
-                        aria-label="Save scenario"
-                        disabled={result == null}
-                      >
-                        <Save className="size-4" />
-                      </Button>
-                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSaveDialogOpen(true)}
+                      aria-label="Save scenario"
+                    >
+                      <Save className="size-4" />
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    {result == null ? 'Run the optimizer first to enable saving.' : 'Save scenario'}
+                    {result == null
+                      ? 'Save scenario (scope & method only; run after loading to add results)'
+                      : 'Save scenario'}
                   </TooltipContent>
                 </Tooltip>
                 {savedProductivityTargetConfigs.length > 0 && onLoadProductivityTargetConfig ? (
@@ -535,7 +534,13 @@ export function ProductivityTargetScreen({
           <DialogHeader>
             <DialogTitle>Save target scenario</DialogTitle>
             <DialogDescription>
-              Save the current target scope, method, and run result so you can recall them later.
+              Save the current target scope and method so you can recall them later.
+              {result == null && (
+                <span className="mt-1 block text-foreground/80">No run results yet — run the optimizer after loading to generate results.</span>
+              )}
+              {result != null && (
+                <span className="mt-1 block text-foreground/80">Run results will be included.</span>
+              )}
               {loadedProductivityTargetConfigId && (
                 <span className="mt-1 block text-foreground/80">You have a scenario loaded — update it or save as a new one.</span>
               )}
