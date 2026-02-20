@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronLeft, ChevronRight, Info, Play, Trash2 } from 'lucide-react'
 import type { Dispatch, SetStateAction } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
