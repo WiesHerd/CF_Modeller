@@ -5,14 +5,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import type {
   ProductivityTargetSpecialtyResult,
   ProviderTargetStatus,
@@ -23,6 +15,10 @@ import { formatCurrency, formatNumber as formatNum } from '@/utils/format'
 const DRAWER_WIDTH_MIN = 400
 const DRAWER_WIDTH_MAX = 1000
 const DRAWER_WIDTH_DEFAULT = 640
+
+// Same header row pattern as CF Optimizer drawer (ProviderDrilldownTable) so sticky works with native table
+const PROVIDERS_TABLE_HEADER_ROW_CLASS =
+  'border-b border-border/60 bg-muted [&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:border-b [&_th]:border-border/60 [&_th]:bg-muted [&_th]:shadow-[0_1px_0_0_hsl(var(--border))] [&_th]:text-foreground'
 
 function statusColorClass(status: ProviderTargetStatus): string {
   switch (status) {
@@ -142,43 +138,57 @@ export function ProductivityTargetDetailDrawer({
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
                   Providers ({row.providers.length})
                 </h3>
-                <div className="min-h-[200px] max-h-[420px] overflow-auto rounded-lg border border-border/60">
-                  <Table>
-                    <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
-                      <TableRow>
-                        <TableHead className="px-3 py-2.5">Provider</TableHead>
-                        <TableHead className="text-right px-3 py-2.5">cFTE</TableHead>
-                        <TableHead className="text-right px-3 py-2.5">Actual wRVUs</TableHead>
-                        <TableHead className="text-right px-3 py-2.5">Target</TableHead>
-                        <TableHead className="text-right px-3 py-2.5">% to target</TableHead>
-                        <TableHead className="text-right px-3 py-2.5">Variance</TableHead>
-                        <TableHead className="px-3 py-2.5">Status</TableHead>
-                        <TableHead className="text-right px-3 py-2.5">Potential incentive</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {row.providers.map((p) => (
-                        <TableRow key={p.providerId}>
-                          <TableCell className="font-medium px-3 py-2.5">
-                            {p.providerName || p.providerId}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums px-3 py-2.5">{formatNum(p.cFTE, 2)}</TableCell>
-                          <TableCell className="text-right tabular-nums px-3 py-2.5">{formatNum(p.actualWRVUs, 0)}</TableCell>
-                          <TableCell className="text-right tabular-nums px-3 py-2.5">{formatNum(p.rampedTargetWRVU, 0)}</TableCell>
-                          <TableCell className={`text-right tabular-nums px-3 py-2.5 ${statusColorClass(p.status)}`}>
-                            {formatNum(p.percentToTarget, 1)}%
-                          </TableCell>
-                          <TableCell className={`text-right tabular-nums px-3 py-2.5 ${statusColorClass(p.status)}`}>
-                            {formatNum(p.varianceWRVU, 0)}
-                          </TableCell>
-                          <TableCell className={`px-3 py-2.5 ${statusColorClass(p.status)}`}>{p.status}</TableCell>
-                          <TableCell className="text-right tabular-nums px-3 py-2.5">
-                            {p.planningIncentiveDollars != null ? formatCurrency(p.planningIncentiveDollars, { decimals: 0 }) : '—'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="min-h-[240px] max-h-[420px] overflow-auto rounded-lg border border-border/60">
+                  <table className="w-full caption-bottom text-sm border-collapse">
+                    <thead>
+                      <tr className={PROVIDERS_TABLE_HEADER_ROW_CLASS}>
+                        <th className="min-w-[140px] px-3 py-2.5 text-left font-medium">Provider</th>
+                        <th className="min-w-[72px] px-3 py-2.5 text-right font-medium">cFTE</th>
+                        <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">Actual wRVUs</th>
+                        <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">Target</th>
+                        <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">% to target</th>
+                        <th className="min-w-[72px] px-3 py-2.5 text-right font-medium">Variance</th>
+                        <th className="min-w-[100px] px-3 py-2.5 text-left font-medium">Status</th>
+                        <th className="min-w-[100px] px-3 py-2.5 text-right font-medium">Potential incentive</th>
+                      </tr>
+                    </thead>
+                    <tbody className="[&_tr:last-child]:border-0">
+                      {row.providers.map((p, i) => {
+                        const isOdd = i % 2 === 1
+                        return (
+                          <tr
+                            key={p.providerId}
+                            className={`border-b transition-colors ${isOdd ? 'bg-muted/30' : ''}`}
+                          >
+                            <td className="min-w-[140px] font-medium px-3 py-2.5 align-middle whitespace-nowrap">
+                              {p.providerName || p.providerId}
+                            </td>
+                            <td className="min-w-[72px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
+                              {formatNum(p.cFTE, 2)}
+                            </td>
+                            <td className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
+                              {formatNum(p.actualWRVUs, 0)}
+                            </td>
+                            <td className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
+                              {formatNum(p.rampedTargetWRVU, 0)}
+                            </td>
+                            <td className={`min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle ${statusColorClass(p.status)}`}>
+                              {formatNum(p.percentToTarget, 1)}%
+                            </td>
+                            <td className={`min-w-[72px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle ${statusColorClass(p.status)}`}>
+                              {formatNum(p.varianceWRVU, 0)}
+                            </td>
+                            <td className={`min-w-[100px] px-3 py-2.5 align-middle whitespace-nowrap text-sm ${statusColorClass(p.status)}`}>
+                              {p.status}
+                            </td>
+                            <td className="min-w-[100px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
+                              {p.planningIncentiveDollars != null ? formatCurrency(p.planningIncentiveDollars, { decimals: 0 }) : '—'}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </section>
             </>
