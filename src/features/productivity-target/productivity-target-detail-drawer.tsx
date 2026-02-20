@@ -144,16 +144,16 @@ export function ProductivityTargetDetailDrawer({
                 </h3>
                 <div className="min-h-[200px] max-h-[420px] overflow-auto rounded-lg border border-border/60">
                   <Table>
-                    <TableHeader>
-                      <TableRow className="border-b border-border/60 bg-muted [&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:border-b [&_th]:border-border/60 [&_th]:bg-muted [&_th]:py-2.5 [&_th]:text-foreground [&_th]:shadow-[0_1px_0_0_hsl(var(--border))]">
-                        <TableHead className="px-3">Provider</TableHead>
-                        <TableHead className="text-right px-3">cFTE</TableHead>
-                        <TableHead className="text-right px-3">Actual wRVUs</TableHead>
-                        <TableHead className="text-right px-3">Target</TableHead>
-                        <TableHead className="text-right px-3">% to target</TableHead>
-                        <TableHead className="text-right px-3">Variance</TableHead>
-                        <TableHead className="px-3">Status</TableHead>
-                        <TableHead className="text-right px-3">Potential incentive</TableHead>
+                    <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
+                      <TableRow>
+                        <TableHead className="px-3 py-2.5">Provider</TableHead>
+                        <TableHead className="text-right px-3 py-2.5">cFTE</TableHead>
+                        <TableHead className="text-right px-3 py-2.5">Actual wRVUs</TableHead>
+                        <TableHead className="text-right px-3 py-2.5">Target</TableHead>
+                        <TableHead className="text-right px-3 py-2.5">% to target</TableHead>
+                        <TableHead className="text-right px-3 py-2.5">Variance</TableHead>
+                        <TableHead className="px-3 py-2.5">Status</TableHead>
+                        <TableHead className="text-right px-3 py-2.5">Potential incentive</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

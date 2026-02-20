@@ -25,7 +25,7 @@ export function ProductivityTargetResultsTable({
   return (
     <div className="rounded-md border border-border/80">
       <Table>
-        <TableHeader>
+        <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground [&_th]:font-medium">
           <TableRow>
             <TableHead className="w-8" />
             <TableHead>Specialty</TableHead>
