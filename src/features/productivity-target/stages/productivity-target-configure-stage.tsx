@@ -853,6 +853,10 @@ export function ProductivityTargetConfigureStage({
                     </div>
                   </div>
 
+                  {(() => {
+                    const inScopeSpecialtyCount = targetMode === 'custom' ? selectedSpecialties.length : availableSpecialties.length
+                    if (inScopeSpecialtyCount <= 1) return null
+                    return (
                   <div className="space-y-4 rounded-xl border border-border/40 bg-muted/20 p-4">
                     <div className="flex items-center justify-between gap-2">
                       <div>
@@ -1154,12 +1158,14 @@ export function ProductivityTargetConfigureStage({
                       )
                     })()}
                   </div>
+                    )
+                  })()}
 
                   <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
                     <SectionHeaderWithTooltip
                       variant="subsection"
                       title="Planning incentive (CF for potential payout)"
-                      tooltip="The conversion factor (CF) used to estimate how much providers get paid when they hit the productivity target—i.e. the $/wRVU payout rate. Choose Market at percentile or Manual $/wRVU to enter a specific dollar rate. For planning only; does not change the CF Optimizer."
+                      tooltip="The conversion factor (CF) used to estimate how much providers get paid when they hit the productivity target—i.e. the $/wRVU payout rate. Use current rate from your upload, market at a percentile, or enter a manual $/wRVU. For planning only; does not change the CF Optimizer."
                       className="text-primary/90"
                     />
                     <p className="text-xs text-muted-foreground">
@@ -1169,9 +1175,13 @@ export function ProductivityTargetConfigureStage({
                       <div className="space-y-2">
                         <LabelWithTooltip
                           label="CF for planning"
-                          tooltip={settings.planningCFSource === 'market_percentile'
-                            ? 'Uses market CF at your chosen percentile to estimate incentive payout when they hit the target (e.g. 50th = median).'
-                            : 'Enter the dollar amount per wRVU paid when they hit the incentive (e.g. 52 = $52/wRVU). This is the payout rate for planning.'}
+                          tooltip={
+                            settings.planningCFSource === 'current_rate'
+                              ? 'Uses each provider’s current conversion factor from your uploaded data to estimate incentive payout when they hit the target.'
+                              : settings.planningCFSource === 'market_percentile'
+                                ? 'Uses market CF at your chosen percentile to estimate incentive payout when they hit the target (e.g. 50th = median).'
+                                : 'Enter the dollar amount per wRVU paid when they hit the incentive (e.g. 52 = $52/wRVU). This is the payout rate for planning.'
+                          }
                         />
                         <Select
                           value={settings.planningCFSource}
@@ -1181,6 +1191,7 @@ export function ProductivityTargetConfigureStage({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="current_rate">Current rate (from upload)</SelectItem>
                             <SelectItem value="market_percentile">Market at percentile</SelectItem>
                             <SelectItem value="manual">Manual $/wRVU (enter payout rate)</SelectItem>
                           </SelectContent>
@@ -1204,7 +1215,7 @@ export function ProductivityTargetConfigureStage({
                             className="w-24"
                           />
                         </div>
-                      ) : (
+                      ) : settings.planningCFSource === 'manual' ? (
                         <div className="space-y-2">
                           <LabelWithTooltip
                             label="Manual $/wRVU"
@@ -1224,7 +1235,7 @@ export function ProductivityTargetConfigureStage({
                             className="w-24"
                           />
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -1292,7 +1303,9 @@ export function ProductivityTargetConfigureStage({
                     </li>
                     <li>
                       <span className="text-foreground font-medium">Planning incentive:</span>{' '}
-                      {settings.planningCFSource === 'market_percentile' ? (
+                      {settings.planningCFSource === 'current_rate' ? (
+                        <span className="text-primary font-medium">Current rate (from upload)</span>
+                      ) : settings.planningCFSource === 'market_percentile' ? (
                         <span className="text-primary font-medium tabular-nums">Market at {settings.planningCFPercentile}th</span>
                       ) : (
                         <span className="text-primary font-medium tabular-nums">Manual ${settings.planningCFManual ?? '—'}/wRVU</span>

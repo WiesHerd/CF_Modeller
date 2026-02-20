@@ -126,9 +126,16 @@ export function computeProviderTargets(
   settings: ProductivityTargetSettings,
   marketRow: MarketRow | null
 ): ProductivityTargetProviderResult[] {
-  const planningCF = getPlanningCF(settings, marketRow)
+  const defaultPlanningCF = getPlanningCF(settings, marketRow)
   const results: ProductivityTargetProviderResult[] = []
   for (const inp of providerInputs) {
+    const planningCF =
+      settings.planningCFSource === 'current_rate' &&
+      inp.currentCF != null &&
+      Number.isFinite(inp.currentCF) &&
+      inp.currentCF > 0
+        ? inp.currentCF
+        : defaultPlanningCF
     const targetWRVU = groupTargetWRVU_1cFTE * inp.cFTE
     const rampedTargetWRVU = targetWRVU * inp.rampFactor
     const varianceWRVU = inp.actualWRVUs - rampedTargetWRVU
@@ -208,6 +215,10 @@ export function buildProviderInputs(
     if (!bySpecialty.has(specialty)) {
       bySpecialty.set(specialty, { inputs: [], market: market ?? null })
     }
+    const currentCF =
+      provider.currentCF != null && Number.isFinite(Number(provider.currentCF))
+        ? Number(provider.currentCF)
+        : undefined
     const entry = bySpecialty.get(specialty)!
     entry.inputs.push({
       providerId,
@@ -216,6 +227,7 @@ export function buildProviderInputs(
       cFTE,
       actualWRVUs,
       rampFactor,
+      ...(currentCF != null ? { currentCF } : {}),
     })
     if (market && !entry.market) entry.market = market
   }

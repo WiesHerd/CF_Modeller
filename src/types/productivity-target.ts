@@ -25,7 +25,7 @@ export interface SpecialtyTargetRule {
 // Planning CF source
 // ---------------------------------------------------------------------------
 
-export type PlanningCFSource = 'market_percentile' | 'manual'
+export type PlanningCFSource = 'market_percentile' | 'manual' | 'current_rate'
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -79,6 +79,8 @@ export interface ProductivityTargetProviderInput {
   cFTE: number
   actualWRVUs: number
   rampFactor: number
+  /** Current conversion factor from upload; used when planningCFSource === 'current_rate'. */
+  currentCF?: number
 }
 
 // ---------------------------------------------------------------------------
