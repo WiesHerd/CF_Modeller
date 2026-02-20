@@ -49,6 +49,31 @@ interface ProductivityTargetScreenProps {
   onNavigateToCompareScenarios?: () => void
 }
 
+/** Compare two snapshots by content so we don't push when nothing changed (avoids infinite update loop). */
+function snapshotEquals(
+  a: ProductivityTargetConfigSnapshot | null,
+  b: ProductivityTargetConfigSnapshot | null
+): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  if (a.configStep !== b.configStep || a.targetMode !== b.targetMode || a.modelScopeMode !== b.modelScopeMode ||
+      a.providerTypeScopeMode !== b.providerTypeScopeMode || a.providerScopeMode !== b.providerScopeMode) return false
+  const arrEq = (x: string[] | undefined, y: string[] | undefined) =>
+    (x?.length ?? 0) === (y?.length ?? 0) && (x ?? []).every((v, i) => (y ?? [])[i] === v)
+  if (!arrEq(a.selectedSpecialties, b.selectedSpecialties) || !arrEq(a.selectedModels, b.selectedModels) ||
+      !arrEq(a.selectedProviderTypes, b.selectedProviderTypes) || !arrEq(a.excludedProviderTypes, b.excludedProviderTypes) ||
+      !arrEq(a.excludedDivisions, b.excludedDivisions) || !arrEq(a.selectedProviderIds, b.selectedProviderIds) ||
+      !arrEq(a.excludedProviderIds, b.excludedProviderIds)) return false
+  const sA = a.settings
+  const sB = b.settings
+  if (sA.planningCFSource !== sB.planningCFSource || sA.planningCFPercentile !== sB.planningCFPercentile ||
+      sA.planningCFManual !== sB.planningCFManual || sA.targetPercentile !== sB.targetPercentile ||
+      sA.targetApproach !== sB.targetApproach || sA.manualTargetWRVU !== sB.manualTargetWRVU ||
+      sA.alignmentTolerance !== sB.alignmentTolerance) return false
+  if (a.lastRunResult !== b.lastRunResult) return false
+  return true
+}
+
 function getInitialState(config: ProductivityTargetConfigSnapshot | null) {
   const defaultSettings = DEFAULT_PRODUCTIVITY_TARGET_SETTINGS
   if (!config) {
@@ -121,6 +146,8 @@ export function ProductivityTargetScreen({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [saveScenarioName, setSaveScenarioName] = useState('')
   const lastPushedSnapshotRef = useRef<ProductivityTargetConfigSnapshot | null>(null)
+  /** When true, skip the next push so we don't overwrite a config we just loaded from the folder (push runs with stale state in same cycle). */
+  const skipNextPushRef = useRef(false)
 
   useEffect(() => {
     if (saveDialogOpen && loadedProductivityTargetConfigId && savedProductivityTargetConfigs.length > 0) {
@@ -149,6 +176,7 @@ export function ProductivityTargetScreen({
     setExcludedProviderIds(next.excludedProviderIds)
     setConfigStep(next.configStep)
     setTargetStep(next.result ? 'run' : 'configure')
+    skipNextPushRef.current = true
   }, [productivityTargetConfig])
 
   const buildSnapshot = useCallback(
@@ -187,11 +215,20 @@ export function ProductivityTargetScreen({
   )
 
   useEffect(() => {
+    if (skipNextPushRef.current) {
+      skipNextPushRef.current = false
+      lastPushedSnapshotRef.current = productivityTargetConfig
+      return
+    }
     const snapshot = buildSnapshot()
     if (lastPushedSnapshotRef.current === snapshot) return
+    if (productivityTargetConfig != null && snapshotEquals(snapshot, productivityTargetConfig)) {
+      lastPushedSnapshotRef.current = snapshot
+      return
+    }
     lastPushedSnapshotRef.current = snapshot
     onProductivityTargetConfigChange(snapshot)
-  }, [buildSnapshot, onProductivityTargetConfigChange])
+  }, [buildSnapshot, onProductivityTargetConfigChange, productivityTargetConfig])
 
   const hasData = providerRows.length > 0 && marketRows.length > 0
 

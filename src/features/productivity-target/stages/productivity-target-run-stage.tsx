@@ -14,6 +14,21 @@ import type { MarketRow } from '@/types/market'
 import { ProductivityTargetReviewWorkspace } from '@/features/productivity-target/productivity-target-review-workspace'
 import { computeTargetOptimizerPercentileRollup } from '@/features/productivity-target/productivity-target-percentiles'
 import { formatNumber as formatNum } from '@/utils/format'
+import { cn } from '@/lib/utils'
+
+const ALIGNMENT_TOLERANCE = 2
+
+function GapValue({ gap }: { gap: number }) {
+  const abs = Math.abs(gap)
+  const gapClass =
+    abs < ALIGNMENT_TOLERANCE
+      ? 'value-positive'
+      : gap > 0
+        ? 'value-warning'
+        : 'value-negative'
+  const display = gap > 0 ? `+${formatNum(gap, 1)}` : formatNum(gap, 1)
+  return <span className={cn('font-medium tabular-nums', gapClass)}>{display}</span>
+}
 
 export function ProductivityTargetRunStage({
   hasData,
@@ -123,9 +138,7 @@ export function ProductivityTargetRunStage({
                         </span>
                         <span>
                           Gap:{' '}
-                          <span className="font-medium tabular-nums text-foreground">
-                            {formatNum(rollup.meanTCCPercentile - rollup.meanWRVUPercentile, 1)}
-                          </span>
+                          <GapValue gap={rollup.meanTCCPercentile - rollup.meanWRVUPercentile} />
                         </span>
                       </p>
                     </TooltipTrigger>

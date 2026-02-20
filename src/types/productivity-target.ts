@@ -94,6 +94,8 @@ export interface ProductivityTargetProviderResult extends ProductivityTargetProv
   percentToTarget: number
   status: ProviderTargetStatus
   planningIncentiveDollars?: number
+  /** $/wRVU used for this provider's planning incentive (for display in drawer). */
+  planningCFUsed?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -125,8 +127,17 @@ export interface ProductivityTargetSpecialtyResult {
 // Full run result
 // ---------------------------------------------------------------------------
 
+/** Describes which CF was used for planning incentives (for display in drawer). */
+export interface PlanningCFSummary {
+  source: PlanningCFSource
+  percentile?: number
+  manual?: number
+}
+
 export interface ProductivityTargetRunResult {
   bySpecialty: ProductivityTargetSpecialtyResult[]
+  /** Which CF rule was used for incentives (current rate, market percentile, or manual). */
+  planningCFSummary?: PlanningCFSummary
 }
 
 // ---------------------------------------------------------------------------

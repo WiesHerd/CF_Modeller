@@ -129,12 +129,13 @@ export function computeProviderTargets(
   const defaultPlanningCF = getPlanningCF(settings, marketRow)
   const results: ProductivityTargetProviderResult[] = []
   for (const inp of providerInputs) {
+    // When "current rate from upload" is selected, use only each provider's currentCF; do not fall back to market percentile
+    // (otherwise "current rate" and "market at 50th" would show identical incentives when currentCF is missing from upload).
     const planningCF =
-      settings.planningCFSource === 'current_rate' &&
-      inp.currentCF != null &&
-      Number.isFinite(inp.currentCF) &&
-      inp.currentCF > 0
-        ? inp.currentCF
+      settings.planningCFSource === 'current_rate'
+        ? inp.currentCF != null && Number.isFinite(inp.currentCF) && inp.currentCF > 0
+          ? inp.currentCF
+          : null
         : defaultPlanningCF
     const targetWRVU = groupTargetWRVU_1cFTE * inp.cFTE
     const rampedTargetWRVU = targetWRVU * inp.rampFactor
@@ -155,6 +156,7 @@ export function computeProviderTargets(
       percentToTarget,
       status,
       planningIncentiveDollars,
+      ...(planningCF != null ? { planningCFUsed: planningCF } : {}),
     })
   }
   return results
@@ -279,5 +281,10 @@ export function runBySpecialty(
     })
   }
   bySpecialtyResults.sort((a, b) => a.specialty.localeCompare(b.specialty))
-  return { bySpecialty: bySpecialtyResults }
+  const planningCFSummary = {
+    source: settings.planningCFSource,
+    ...(settings.planningCFSource === 'market_percentile' ? { percentile: settings.planningCFPercentile } : {}),
+    ...(settings.planningCFSource === 'manual' ? { manual: settings.planningCFManual } : {}),
+  }
+  return { bySpecialty: bySpecialtyResults, planningCFSummary }
 }

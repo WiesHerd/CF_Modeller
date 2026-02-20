@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { ProductivityTargetRunResult, ProductivityTargetSpecialtyResult, ProviderTargetStatus } from '@/types/productivity-target'
+import type { ProductivityTargetRunResult, ProductivityTargetSpecialtyResult, ProviderTargetStatus, PlanningCFSummary } from '@/types/productivity-target'
 import type { SpecialtyPercentiles } from '@/features/productivity-target/productivity-target-percentiles'
 import { ProductivityTargetDetailDrawer } from '@/features/productivity-target/productivity-target-detail-drawer'
 import { ProductivityTargetResultsTable } from '@/features/productivity-target/productivity-target-results-table'
@@ -118,6 +118,7 @@ export function ProductivityTargetReviewWorkspace({
         open={drawerOpen}
         onOpenChange={handleDrawerClose}
         specialtyPercentiles={percentilesBySpecialty}
+        planningCFSummary={result?.planningCFSummary}
       />
     </div>
   )

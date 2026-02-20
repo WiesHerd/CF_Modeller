@@ -8,6 +8,7 @@ import {
 import type {
   ProductivityTargetSpecialtyResult,
   ProviderTargetStatus,
+  PlanningCFSummary,
 } from '@/types/productivity-target'
 import type { SpecialtyPercentiles } from '@/features/productivity-target/productivity-target-percentiles'
 import { formatCurrency, formatNumber as formatNum } from '@/utils/format'
@@ -32,16 +33,27 @@ function statusColorClass(status: ProviderTargetStatus): string {
   }
 }
 
+function planningCFSummaryLabel(summary: PlanningCFSummary): string {
+  if (summary.source === 'current_rate') return 'Current rate (from upload) — per provider'
+  if (summary.source === 'market_percentile')
+    return summary.percentile != null ? `Market at ${summary.percentile}th percentile` : 'Market percentile'
+  if (summary.source === 'manual')
+    return summary.manual != null ? `Manual $${summary.manual}/wRVU` : 'Manual'
+  return '—'
+}
+
 export function ProductivityTargetDetailDrawer({
   row,
   open,
   onOpenChange,
   specialtyPercentiles,
+  planningCFSummary,
 }: {
   row: ProductivityTargetSpecialtyResult | null
   open: boolean
   onOpenChange: (open: boolean) => void
   specialtyPercentiles?: Record<string, SpecialtyPercentiles>
+  planningCFSummary?: PlanningCFSummary
 }) {
   const [drawerWidth, setDrawerWidth] = useState(DRAWER_WIDTH_DEFAULT)
 
@@ -128,6 +140,11 @@ export function ProductivityTargetDetailDrawer({
                   effort is held to a fair proportion. This sets the productivity expectation only—it does not change
                   the conversion factor from the CF Optimizer.
                 </p>
+                {planningCFSummary ? (
+                  <p className="mt-2 text-foreground/90 font-medium">
+                    CF used for incentives: <span className="text-primary">{planningCFSummaryLabel(planningCFSummary)}</span>
+                  </p>
+                ) : null}
                 <p className="mt-1.5 text-xs text-muted-foreground/90">
                   Planning incentive = max(0, actual wRVUs − ramped target) × CF. Based on loaded wRVUs; for planning
                   only.
@@ -149,6 +166,7 @@ export function ProductivityTargetDetailDrawer({
                         <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">% to target</th>
                         <th className="min-w-[72px] px-3 py-2.5 text-right font-medium">Variance</th>
                         <th className="min-w-[100px] px-3 py-2.5 text-left font-medium">Status</th>
+                        <th className="min-w-[80px] px-3 py-2.5 text-right font-medium">CF used</th>
                         <th className="min-w-[100px] px-3 py-2.5 text-right font-medium">Potential incentive</th>
                       </tr>
                     </thead>
@@ -180,6 +198,9 @@ export function ProductivityTargetDetailDrawer({
                             </td>
                             <td className={`min-w-[100px] px-3 py-2.5 align-middle whitespace-nowrap text-sm ${statusColorClass(p.status)}`}>
                               {p.status}
+                            </td>
+                            <td className="min-w-[80px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle text-muted-foreground">
+                              {p.planningCFUsed != null ? formatCurrency(p.planningCFUsed, { decimals: 2 }) : '—'}
                             </td>
                             <td className="min-w-[100px] whitespace-nowrap text-right tabular-nums text-sm px-3 py-2.5 align-middle">
                               {p.planningIncentiveDollars != null ? formatCurrency(p.planningIncentiveDollars, { decimals: 0 }) : '—'}

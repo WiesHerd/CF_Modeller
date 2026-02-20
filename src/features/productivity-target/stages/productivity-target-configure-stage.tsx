@@ -327,6 +327,7 @@ export function ProductivityTargetConfigureStage({
                                     <DropdownMenuCheckboxItem
                                       key={specialty}
                                       checked={selectedSpecialties.includes(specialty)}
+                                      onSelect={(e) => e.preventDefault()}
                                       onCheckedChange={(checked) =>
                                         onSetSelectedSpecialties(
                                           checked ? [...selectedSpecialties, specialty] : selectedSpecialties.filter((s) => s !== specialty)
@@ -392,6 +393,7 @@ export function ProductivityTargetConfigureStage({
                                       <DropdownMenuCheckboxItem
                                         key={model}
                                         checked={selectedModels.includes(model)}
+                                        onSelect={(e) => e.preventDefault()}
                                         onCheckedChange={(checked) =>
                                           onSetSelectedModels(
                                             checked ? [...selectedModels, model] : selectedModels.filter((m) => m !== model)
@@ -458,6 +460,7 @@ export function ProductivityTargetConfigureStage({
                                       <DropdownMenuCheckboxItem
                                         key={providerType}
                                         checked={selectedProviderTypes.includes(providerType)}
+                                        onSelect={(e) => e.preventDefault()}
                                         onCheckedChange={(checked) =>
                                           onSetSelectedProviderTypes(
                                             checked ? [...selectedProviderTypes, providerType] : selectedProviderTypes.filter((t) => t !== providerType)
@@ -524,6 +527,7 @@ export function ProductivityTargetConfigureStage({
                                       <DropdownMenuCheckboxItem
                                         key={p.id}
                                         checked={selectedProviderIds.includes(p.id)}
+                                        onSelect={(e) => e.preventDefault()}
                                         onCheckedChange={(checked) =>
                                           onSetSelectedProviderIds(
                                             checked ? [...selectedProviderIds, p.id] : selectedProviderIds.filter((id) => id !== p.id)
@@ -581,6 +585,7 @@ export function ProductivityTargetConfigureStage({
                                     <DropdownMenuCheckboxItem
                                       key={providerType}
                                       checked={excludedProviderTypes.includes(providerType)}
+                                      onSelect={(e) => e.preventDefault()}
                                       onCheckedChange={(checked) =>
                                         onSetExcludedProviderTypes(
                                           checked
@@ -637,6 +642,7 @@ export function ProductivityTargetConfigureStage({
                                     <DropdownMenuCheckboxItem
                                       key={division}
                                       checked={excludedDivisions.includes(division)}
+                                      onSelect={(e) => e.preventDefault()}
                                       onCheckedChange={(checked) =>
                                         onSetExcludedDivisions(
                                           checked
@@ -689,6 +695,7 @@ export function ProductivityTargetConfigureStage({
                                     <DropdownMenuCheckboxItem
                                       key={p.id}
                                       checked={excludedProviderIds.includes(p.id)}
+                                      onSelect={(e) => e.preventDefault()}
                                       onCheckedChange={(checked) =>
                                         onSetExcludedProviderIds(
                                           checked
