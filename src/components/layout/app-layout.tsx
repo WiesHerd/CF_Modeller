@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
+import { ScrollToTopButton } from '@/components/scroll-to-top-button'
 import type { BatchCardId } from '@/components/batch/batch-card-picker'
 
 export type AppStep = 'upload' | 'data' | 'modeller' | 'batch-scenario' | 'batch-results' | 'compare-scenarios' | 'reports' | 'help'
@@ -551,11 +552,13 @@ export function AppLayout({
           sidebarCollapsed ? 'md:pl-[68px]' : 'md:pl-[260px]'
         )}
       >
-        <main className="safe-area-bottom flex-1 overflow-auto pb-8 pt-6">
+        <main className="safe-area-bottom flex-1 overflow-auto pb-8 pt-6" data-scroll-root>
+          <div id="top" className="h-px w-full shrink-0" aria-hidden="true" />
           <div className="mx-auto max-w-[1200px] px-4">
             {children}
           </div>
         </main>
+        <ScrollToTopButton />
 
         <footer className="mt-auto border-t border-border/60 bg-muted/20 py-4">
           <div className="mx-auto max-w-[1200px] flex flex-col items-center justify-between gap-2 px-4 sm:flex-row sm:gap-4">
