@@ -62,6 +62,7 @@ function getInitialState(config: ProductivityTargetConfigSnapshot | null) {
       providerTypeScopeMode: 'all' as const,
       selectedProviderTypes: [] as string[],
       excludedProviderTypes: [] as string[],
+      excludedDivisions: [] as string[],
       providerScopeMode: 'all' as const,
       selectedProviderIds: [] as string[],
       excludedProviderIds: [] as string[],
@@ -78,6 +79,7 @@ function getInitialState(config: ProductivityTargetConfigSnapshot | null) {
     providerTypeScopeMode: (config.providerTypeScopeMode ?? 'all') as 'all' | 'custom',
     selectedProviderTypes: [...(config.selectedProviderTypes ?? [])],
     excludedProviderTypes: [...(config.excludedProviderTypes ?? [])],
+    excludedDivisions: [...(config.excludedDivisions ?? [])],
     providerScopeMode: (config.providerScopeMode ?? 'all') as 'all' | 'custom',
     selectedProviderIds: [...(config.selectedProviderIds ?? [])],
     excludedProviderIds: [...(config.excludedProviderIds ?? [])],
@@ -110,6 +112,7 @@ export function ProductivityTargetScreen({
   const [providerTypeScopeMode, setProviderTypeScopeMode] = useState<'all' | 'custom'>(initial.providerTypeScopeMode)
   const [selectedProviderTypes, setSelectedProviderTypes] = useState<string[]>(initial.selectedProviderTypes)
   const [excludedProviderTypes, setExcludedProviderTypes] = useState<string[]>(initial.excludedProviderTypes)
+  const [excludedDivisions, setExcludedDivisions] = useState<string[]>(initial.excludedDivisions)
   const [providerScopeMode, setProviderScopeMode] = useState<'all' | 'custom'>(initial.providerScopeMode)
   const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>(initial.selectedProviderIds)
   const [excludedProviderIds, setExcludedProviderIds] = useState<string[]>(initial.excludedProviderIds)
@@ -140,6 +143,7 @@ export function ProductivityTargetScreen({
     setProviderTypeScopeMode(next.providerTypeScopeMode)
     setSelectedProviderTypes(next.selectedProviderTypes)
     setExcludedProviderTypes(next.excludedProviderTypes)
+    setExcludedDivisions(next.excludedDivisions)
     setProviderScopeMode(next.providerScopeMode)
     setSelectedProviderIds(next.selectedProviderIds)
     setExcludedProviderIds(next.excludedProviderIds)
@@ -158,6 +162,7 @@ export function ProductivityTargetScreen({
       providerTypeScopeMode,
       selectedProviderTypes: [...selectedProviderTypes],
       excludedProviderTypes: [...excludedProviderTypes],
+      excludedDivisions: [...excludedDivisions],
       providerScopeMode,
       selectedProviderIds: [...selectedProviderIds],
       excludedProviderIds: [...excludedProviderIds],
@@ -173,6 +178,7 @@ export function ProductivityTargetScreen({
       providerTypeScopeMode,
       selectedProviderTypes,
       excludedProviderTypes,
+      excludedDivisions,
       providerScopeMode,
       selectedProviderIds,
       excludedProviderIds,
@@ -241,6 +247,14 @@ export function ProductivityTargetScreen({
     return rows
   }, [rowsAfterSpecialtyAndModel, providerTypeScopeMode, selectedProviderTypes])
 
+  /** Divisions/departments available in current specialty+model+providerType scope. */
+  const availableDivisions = useMemo(() => {
+    const set = new Set(
+      rowsAfterSpecialtyModelAndProviderType.map((p) => (p.division ?? '').trim()).filter(Boolean)
+    )
+    return [...set].sort()
+  }, [rowsAfterSpecialtyModelAndProviderType])
+
   /** For provider scope dropdown: list of providers in scope (after specialty + model + provider type), deduped by id. */
   const availableProvidersForSelection = useMemo(() => {
     const seen = new Set<string>()
@@ -258,28 +272,33 @@ export function ProductivityTargetScreen({
     const availSpecSet = new Set(availableSpecialties)
     const availModelSet = new Set(availableModels)
     const availTypeSet = new Set(availableProviderTypes)
+    const availDivisionSet = new Set(availableDivisions)
     const availProviderSet = new Set(availableProvidersForSelection.map((x) => x.id))
     const nextSpec = selectedSpecialties.filter((s) => availSpecSet.has(s))
     const nextModels = selectedModels.filter((m) => availModelSet.has(m))
     const nextTypes = selectedProviderTypes.filter((t) => availTypeSet.has(t))
     const nextExcludedTypes = excludedProviderTypes.filter((t) => availTypeSet.has(t))
+    const nextExcludedDivisions = excludedDivisions.filter((d) => availDivisionSet.has(d))
     const nextProviders = selectedProviderIds.filter((id) => availProviderSet.has(id))
     const nextExcludedProviders = excludedProviderIds.filter((id) => availProviderSet.has(id))
     if (nextSpec.length !== selectedSpecialties.length) setSelectedSpecialties(nextSpec)
     if (nextModels.length !== selectedModels.length) setSelectedModels(nextModels)
     if (nextTypes.length !== selectedProviderTypes.length) setSelectedProviderTypes(nextTypes)
     if (nextExcludedTypes.length !== excludedProviderTypes.length) setExcludedProviderTypes(nextExcludedTypes)
+    if (nextExcludedDivisions.length !== excludedDivisions.length) setExcludedDivisions(nextExcludedDivisions)
     if (nextProviders.length !== selectedProviderIds.length) setSelectedProviderIds(nextProviders)
     if (nextExcludedProviders.length !== excludedProviderIds.length) setExcludedProviderIds(nextExcludedProviders)
   }, [
     availableSpecialties,
     availableModels,
     availableProviderTypes,
+    availableDivisions,
     availableProvidersForSelection,
     selectedSpecialties,
     selectedModels,
     selectedProviderTypes,
     excludedProviderTypes,
+    excludedDivisions,
     selectedProviderIds,
     excludedProviderIds,
   ])
@@ -294,6 +313,10 @@ export function ProductivityTargetScreen({
       const excludedTypeSet = new Set(excludedProviderTypes)
       rows = rows.filter((p) => !excludedTypeSet.has((p.providerType ?? '').trim()))
     }
+    if (excludedDivisions.length > 0) {
+      const excludedDivisionSet = new Set(excludedDivisions)
+      rows = rows.filter((p) => !excludedDivisionSet.has((p.division ?? '').trim()))
+    }
     if (excludedProviderIds.length > 0) {
       const excludedIdSet = new Set(excludedProviderIds)
       rows = rows.filter((p) => !excludedIdSet.has((p.providerId ?? p.providerName ?? '').toString().trim()))
@@ -304,6 +327,7 @@ export function ProductivityTargetScreen({
     providerScopeMode,
     selectedProviderIds,
     excludedProviderTypes,
+    excludedDivisions,
     excludedProviderIds,
   ])
 
@@ -366,6 +390,7 @@ export function ProductivityTargetScreen({
     setProviderTypeScopeMode('all')
     setSelectedProviderTypes([])
     setExcludedProviderTypes([])
+    setExcludedDivisions([])
     setProviderScopeMode('all')
     setSelectedProviderIds([])
     setExcludedProviderIds([])
@@ -585,6 +610,9 @@ export function ProductivityTargetScreen({
           onSetProviderTypeScopeMode={setProviderTypeScopeMode}
           onSetSelectedProviderTypes={setSelectedProviderTypes}
           onSetExcludedProviderTypes={setExcludedProviderTypes}
+          excludedDivisions={excludedDivisions}
+          availableDivisions={availableDivisions}
+          onSetExcludedDivisions={setExcludedDivisions}
           providerScopeMode={providerScopeMode}
           selectedProviderIds={selectedProviderIds}
           excludedProviderIds={excludedProviderIds}

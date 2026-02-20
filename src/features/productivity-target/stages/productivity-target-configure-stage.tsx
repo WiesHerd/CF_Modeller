@@ -115,6 +115,9 @@ export function ProductivityTargetConfigureStage({
   onSetProviderTypeScopeMode,
   onSetSelectedProviderTypes,
   onSetExcludedProviderTypes,
+  excludedDivisions,
+  availableDivisions,
+  onSetExcludedDivisions,
   providerScopeMode,
   selectedProviderIds,
   excludedProviderIds,
@@ -148,6 +151,9 @@ export function ProductivityTargetConfigureStage({
   onSetProviderTypeScopeMode: (mode: 'all' | 'custom') => void
   onSetSelectedProviderTypes: (types: string[]) => void
   onSetExcludedProviderTypes: (types: string[]) => void
+  excludedDivisions: string[]
+  availableDivisions: string[]
+  onSetExcludedDivisions: (divisions: string[]) => void
   providerScopeMode: 'all' | 'custom'
   selectedProviderIds: string[]
   excludedProviderIds: string[]
@@ -167,6 +173,7 @@ export function ProductivityTargetConfigureStage({
   const [providerTypeIncludeSearch, setProviderTypeIncludeSearch] = useState('')
   const [providerSearch, setProviderSearch] = useState('')
   const [providerTypeExcludeSearch, setProviderTypeExcludeSearch] = useState('')
+  const [divisionExcludeSearch, setDivisionExcludeSearch] = useState('')
   const [providerExcludeSearch, setProviderExcludeSearch] = useState('')
   const [addOverrideMenuOpen, setAddOverrideMenuOpen] = useState(false)
   const [addOverrideSearch, setAddOverrideSearch] = useState('')
@@ -197,6 +204,12 @@ export function ProductivityTargetConfigureStage({
     const q = providerTypeExcludeSearch.toLowerCase()
     return availableProviderTypes.filter((t) => t.toLowerCase().includes(q))
   }, [availableProviderTypes, providerTypeExcludeSearch])
+
+  const filteredDivisionsForExclusion = useMemo(() => {
+    if (!divisionExcludeSearch.trim()) return availableDivisions
+    const q = divisionExcludeSearch.toLowerCase()
+    return availableDivisions.filter((d) => d.toLowerCase().includes(q))
+  }, [availableDivisions, divisionExcludeSearch])
 
   const filteredProvidersForExclusion = useMemo(() => {
     if (!providerExcludeSearch.trim()) return availableProviders
@@ -590,6 +603,58 @@ export function ProductivityTargetConfigureStage({
                         )}
                       </div>
 
+                      {availableDivisions.length > 0 ? (
+                        <div className="space-y-2 border-t border-border/40 pt-3">
+                          <SectionHeaderWithTooltip
+                            title="Exclude divisions / departments"
+                            tooltip="Optionally exclude providers by division or department after applying inclusion filters."
+                            className="text-primary/90"
+                          />
+                          <DropdownMenu onOpenChange={(open) => !open && setDivisionExcludeSearch('')}>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" className="w-full min-w-0 justify-between gap-2">
+                                {excludedDivisions.length === 0
+                                  ? 'None excluded'
+                                  : `${excludedDivisions.length} division(s) excluded`}
+                                <ChevronDown className="size-4 opacity-50" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="max-h-[320px] overflow-hidden p-0">
+                              <Command shouldFilter={false} className="rounded-none border-0">
+                                <CommandInput
+                                  placeholder="Search divisions…"
+                                  value={divisionExcludeSearch}
+                                  onValueChange={setDivisionExcludeSearch}
+                                  className="h-9"
+                                />
+                              </Command>
+                              <div className="max-h-[240px] overflow-y-auto p-1">
+                                <DropdownMenuLabel>Exclude divisions / departments</DropdownMenuLabel>
+                                {filteredDivisionsForExclusion.length === 0 ? (
+                                  <div className="px-2 py-2 text-sm text-muted-foreground">No match.</div>
+                                ) : (
+                                  filteredDivisionsForExclusion.map((division) => (
+                                    <DropdownMenuCheckboxItem
+                                      key={division}
+                                      checked={excludedDivisions.includes(division)}
+                                      onCheckedChange={(checked) =>
+                                        onSetExcludedDivisions(
+                                          checked
+                                            ? [...excludedDivisions, division]
+                                            : excludedDivisions.filter((d) => d !== division)
+                                        )
+                                      }
+                                    >
+                                      {division}
+                                    </DropdownMenuCheckboxItem>
+                                  ))
+                                )}
+                              </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      ) : null}
+
                       <div className="space-y-2 border-t border-border/40 pt-3">
                         <SectionHeaderWithTooltip
                           title="Exclude providers"
@@ -664,6 +729,9 @@ export function ProductivityTargetConfigureStage({
                       : ''}
                     {excludedProviderTypes.length > 0
                       ? ` · ${excludedProviderTypes.length} provider type(s) excluded`
+                      : ''}
+                    {excludedDivisions.length > 0
+                      ? ` · ${excludedDivisions.length} division(s) excluded`
                       : ''}
                     {excludedProviderIds.length > 0
                       ? ` · ${excludedProviderIds.length} provider(s) excluded`

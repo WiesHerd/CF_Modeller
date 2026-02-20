@@ -144,6 +144,8 @@ export interface ProductivityTargetConfigSnapshot {
   selectedProviderTypes?: string[]
   /** Provider types (roles) to exclude after inclusion filters. */
   excludedProviderTypes?: string[]
+  /** Division or department names to exclude after inclusion filters. */
+  excludedDivisions?: string[]
   /** When 'custom', only providers whose id is in selectedProviderIds are in scope. */
   providerScopeMode?: 'all' | 'custom'
   selectedProviderIds?: string[]
