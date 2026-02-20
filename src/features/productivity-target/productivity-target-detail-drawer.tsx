@@ -17,6 +17,7 @@ import type {
   ProductivityTargetSpecialtyResult,
   ProviderTargetStatus,
 } from '@/types/productivity-target'
+import type { SpecialtyPercentiles } from '@/features/productivity-target/productivity-target-percentiles'
 import { formatCurrency, formatNumber as formatNum } from '@/utils/format'
 
 const DRAWER_WIDTH_MIN = 400
@@ -39,10 +40,12 @@ export function ProductivityTargetDetailDrawer({
   row,
   open,
   onOpenChange,
+  specialtyPercentiles,
 }: {
   row: ProductivityTargetSpecialtyResult | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  specialtyPercentiles?: Record<string, SpecialtyPercentiles>
 }) {
   const [drawerWidth, setDrawerWidth] = useState(DRAWER_WIDTH_DEFAULT)
 
@@ -80,15 +83,15 @@ export function ProductivityTargetDetailDrawer({
           className="absolute left-0 top-0 bottom-0 z-50 w-2 cursor-col-resize touch-none border-l border-transparent hover:border-primary/30 hover:bg-primary/10"
           onMouseDown={handleDrawerResize}
         />
-        <SheetHeader className="px-6 pt-6 pb-2 border-b border-border gap-2">
+        <SheetHeader className="shrink-0 px-6 pt-6 pb-2 border-b border-border gap-2">
           <SheetTitle className="pr-8 text-xl font-semibold tracking-tight text-foreground">
             {row?.specialty ?? 'Specialty detail'}
           </SheetTitle>
         </SheetHeader>
-        <div className="flex flex-1 flex-col gap-6 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto">
           {row ? (
             <>
-              <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-sm">
+              <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-sm">
                 <p className="font-medium">
                   Group target (1.0 cFTE):{' '}
                   <span className="text-primary font-semibold tabular-nums">
@@ -105,10 +108,23 @@ export function ProductivityTargetDetailDrawer({
                       : ''}
                   . Target is scaled by each provider’s cFTE.
                 </p>
+                {specialtyPercentiles?.[row.specialty] ? (
+                  <p className="mt-2 text-muted-foreground border-t border-border/60 pt-2">
+                    Mean TCC %ile:{' '}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {formatNum(specialtyPercentiles[row.specialty].meanTCCPercentile, 1)}
+                    </span>
+                    {' · '}
+                    Mean wRVU %ile:{' '}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {formatNum(specialtyPercentiles[row.specialty].meanWRVUPercentile, 1)}
+                    </span>
+                  </p>
+                ) : null}
               </div>
 
               <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3 text-sm">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-1.5 mb-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
                   How target is set
                 </h3>
                 <p className="text-muted-foreground leading-relaxed">
@@ -122,44 +138,49 @@ export function ProductivityTargetDetailDrawer({
                 </p>
               </section>
 
-              <div className="rounded-md border border-border/80">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Provider</TableHead>
-                      <TableHead className="text-right">cFTE</TableHead>
-                      <TableHead className="text-right">Actual wRVUs</TableHead>
-                      <TableHead className="text-right">Target</TableHead>
-                      <TableHead className="text-right">% to target</TableHead>
-                      <TableHead className="text-right">Variance</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Potential incentive</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {row.providers.map((p) => (
-                      <TableRow key={p.providerId}>
-                        <TableCell className="font-medium">
-                          {p.providerName || p.providerId}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNum(p.cFTE, 2)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNum(p.actualWRVUs, 0)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatNum(p.rampedTargetWRVU, 0)}</TableCell>
-                        <TableCell className={`text-right tabular-nums ${statusColorClass(p.status)}`}>
-                          {formatNum(p.percentToTarget, 1)}%
-                        </TableCell>
-                        <TableCell className={`text-right tabular-nums ${statusColorClass(p.status)}`}>
-                          {formatNum(p.varianceWRVU, 0)}
-                        </TableCell>
-                        <TableCell className={statusColorClass(p.status)}>{p.status}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {p.planningIncentiveDollars != null ? formatCurrency(p.planningIncentiveDollars, { decimals: 0 }) : '—'}
-                        </TableCell>
+              <section className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-foreground border-b border-border/60 pb-2 mb-3">
+                  Providers ({row.providers.length})
+                </h3>
+                <div className="min-h-[200px] max-h-[420px] overflow-auto rounded-lg border border-border/60">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-border/60 bg-muted [&_th]:sticky [&_th]:top-0 [&_th]:z-20 [&_th]:border-b [&_th]:border-border/60 [&_th]:bg-muted [&_th]:py-2.5 [&_th]:text-foreground [&_th]:shadow-[0_1px_0_0_hsl(var(--border))]">
+                        <TableHead className="px-3">Provider</TableHead>
+                        <TableHead className="text-right px-3">cFTE</TableHead>
+                        <TableHead className="text-right px-3">Actual wRVUs</TableHead>
+                        <TableHead className="text-right px-3">Target</TableHead>
+                        <TableHead className="text-right px-3">% to target</TableHead>
+                        <TableHead className="text-right px-3">Variance</TableHead>
+                        <TableHead className="px-3">Status</TableHead>
+                        <TableHead className="text-right px-3">Potential incentive</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {row.providers.map((p) => (
+                        <TableRow key={p.providerId}>
+                          <TableCell className="font-medium px-3 py-2.5">
+                            {p.providerName || p.providerId}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums px-3 py-2.5">{formatNum(p.cFTE, 2)}</TableCell>
+                          <TableCell className="text-right tabular-nums px-3 py-2.5">{formatNum(p.actualWRVUs, 0)}</TableCell>
+                          <TableCell className="text-right tabular-nums px-3 py-2.5">{formatNum(p.rampedTargetWRVU, 0)}</TableCell>
+                          <TableCell className={`text-right tabular-nums px-3 py-2.5 ${statusColorClass(p.status)}`}>
+                            {formatNum(p.percentToTarget, 1)}%
+                          </TableCell>
+                          <TableCell className={`text-right tabular-nums px-3 py-2.5 ${statusColorClass(p.status)}`}>
+                            {formatNum(p.varianceWRVU, 0)}
+                          </TableCell>
+                          <TableCell className={`px-3 py-2.5 ${statusColorClass(p.status)}`}>{p.status}</TableCell>
+                          <TableCell className="text-right tabular-nums px-3 py-2.5">
+                            {p.planningIncentiveDollars != null ? formatCurrency(p.planningIncentiveDollars, { decimals: 0 }) : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </section>
             </>
           ) : (
             <p className="text-sm text-muted-foreground">Select a specialty to view details.</p>

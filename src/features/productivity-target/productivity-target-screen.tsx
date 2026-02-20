@@ -635,6 +635,9 @@ export function ProductivityTargetScreen({
           onRun={handleRun}
           onStartOver={handleStartOver}
           onExport={handleExport}
+          providerRows={filteredProviderRowsForRun}
+          marketRows={marketRows}
+          synonymMap={synonymMap}
         />
       )}
     </div>

@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { ProductivityTargetRunResult, ProductivityTargetSpecialtyResult, ProviderTargetStatus } from '@/types/productivity-target'
+import type { SpecialtyPercentiles } from '@/features/productivity-target/productivity-target-percentiles'
 import { ProductivityTargetDetailDrawer } from '@/features/productivity-target/productivity-target-detail-drawer'
 import { ProductivityTargetResultsTable } from '@/features/productivity-target/productivity-target-results-table'
 import { ProductivityTargetHistogram } from '@/features/productivity-target/productivity-target-histogram'
@@ -32,7 +33,13 @@ function specialtyHasStatus(r: ProductivityTargetSpecialtyResult, status: 'all' 
   return r.providers.some((p) => p.status === status)
 }
 
-export function ProductivityTargetReviewWorkspace({ result }: { result: ProductivityTargetRunResult }) {
+export function ProductivityTargetReviewWorkspace({
+  result,
+  percentilesBySpecialty,
+}: {
+  result: ProductivityTargetRunResult
+  percentilesBySpecialty?: Record<string, SpecialtyPercentiles>
+}) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | ProviderTargetStatus>('all')
   const [detailRow, setDetailRow] = useState<ProductivityTargetSpecialtyResult | null>(null)
@@ -97,7 +104,11 @@ export function ProductivityTargetReviewWorkspace({ result }: { result: Producti
         </p>
       ) : (
         <>
-          <ProductivityTargetResultsTable rows={visibleRows} onOpenDetail={handleOpenDetail} />
+          <ProductivityTargetResultsTable
+            rows={visibleRows}
+            onOpenDetail={handleOpenDetail}
+            percentilesBySpecialty={percentilesBySpecialty}
+          />
           <ProductivityTargetHistogram result={result} />
         </>
       )}
@@ -106,6 +117,7 @@ export function ProductivityTargetReviewWorkspace({ result }: { result: Producti
         row={detailRow}
         open={drawerOpen}
         onOpenChange={handleDrawerClose}
+        specialtyPercentiles={percentilesBySpecialty}
       />
     </div>
   )

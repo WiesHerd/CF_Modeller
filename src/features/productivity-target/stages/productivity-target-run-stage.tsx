@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Target, Play, RotateCcw, FileDown, Info } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import type { ProductivityTargetRunResult } from '@/types/productivity-target'
+import type { ProviderRow } from '@/types/provider'
+import type { MarketRow } from '@/types/market'
 import { ProductivityTargetReviewWorkspace } from '@/features/productivity-target/productivity-target-review-workspace'
+import { computeTargetOptimizerPercentileRollup } from '@/features/productivity-target/productivity-target-percentiles'
+import { formatNumber as formatNum } from '@/utils/format'
 
 export function ProductivityTargetRunStage({
   hasData,
@@ -17,6 +22,9 @@ export function ProductivityTargetRunStage({
   onRun,
   onStartOver,
   onExport,
+  providerRows,
+  marketRows = [],
+  synonymMap = {},
 }: {
   hasData: boolean
   result: ProductivityTargetRunResult | null
@@ -24,7 +32,15 @@ export function ProductivityTargetRunStage({
   onRun: () => void
   onStartOver: () => void
   onExport: () => void
+  providerRows?: ProviderRow[]
+  marketRows?: MarketRow[]
+  synonymMap?: Record<string, string>
 }) {
+  const rollup = useMemo(() => {
+    if (!result || !providerRows?.length || !marketRows?.length) return null
+    return computeTargetOptimizerPercentileRollup(providerRows, marketRows, synonymMap, result)
+  }, [result, providerRows, marketRows, synonymMap])
+
   return (
     <TooltipProvider delayDuration={300}>
       <Card>
@@ -88,7 +104,43 @@ export function ProductivityTargetRunStage({
                 providers
               </p>
 
-              <ProductivityTargetReviewWorkspace result={result} />
+              {rollup ? (
+                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
+                        <span>
+                          Mean TCC %ile:{' '}
+                          <span className="font-medium tabular-nums text-foreground">
+                            {formatNum(rollup.meanTCCPercentile, 1)}
+                          </span>
+                        </span>
+                        <span>
+                          Mean wRVU %ile:{' '}
+                          <span className="font-medium tabular-nums text-foreground">
+                            {formatNum(rollup.meanWRVUPercentile, 1)}
+                          </span>
+                        </span>
+                        <span>
+                          Gap:{' '}
+                          <span className="font-medium tabular-nums text-foreground">
+                            {formatNum(rollup.meanTCCPercentile - rollup.meanWRVUPercentile, 1)}
+                          </span>
+                        </span>
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[320px] text-xs">
+                      Alignment: TCC and wRVU percentiles vs market for included providers. Gap = TCC %ile − wRVU %ile;
+                      gap near 0 suggests pay aligned with productivity. Only providers with market data are included.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              ) : null}
+
+              <ProductivityTargetReviewWorkspace
+                result={result}
+                percentilesBySpecialty={rollup?.bySpecialty}
+              />
             </>
           ) : null}
         </CardContent>
