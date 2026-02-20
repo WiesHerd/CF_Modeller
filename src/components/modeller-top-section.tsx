@@ -1,8 +1,6 @@
-import { useState } from 'react'
-import { User, BarChart3, ChevronDown, ChevronUp } from 'lucide-react'
+import { User, BarChart3 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Button } from '@/components/ui/button'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, ScenarioResults } from '@/types/scenario'
@@ -44,44 +42,20 @@ export function MarketDataCard({
   marketRow: MarketRow | null
   specialtyLabel?: string
 }) {
-  const [marketDataVisible, setMarketDataVisible] = useState(true)
   return (
     <Card className="w-full">
       <CardHeader className="pb-2">
-        <CardTitle className="flex flex-wrap items-center justify-between gap-3 text-left">
-          <div className="flex items-center gap-3">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-              <BarChart3 className="size-5" />
-            </span>
-            <span>
-              Market data
-              {specialtyLabel ? ` – ${specialtyLabel}` : ''}
-            </span>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground hover:text-foreground shrink-0"
-            onClick={() => setMarketDataVisible((v) => !v)}
-            aria-expanded={marketDataVisible}
-          >
-            {marketDataVisible ? (
-              <>
-                <span className="hidden sm:inline">Hide</span>
-                <ChevronUp className="size-4 sm:ml-1" />
-              </>
-            ) : (
-              <>
-                <span className="hidden sm:inline">Show</span>
-                <ChevronDown className="size-4 sm:ml-1" />
-              </>
-            )}
-          </Button>
+        <CardTitle className="flex flex-wrap items-center gap-3 text-left">
+          <span className="flex size-10 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+            <BarChart3 className="size-5" />
+          </span>
+          <span>
+            Market data
+            {specialtyLabel ? ` – ${specialtyLabel}` : ''}
+          </span>
         </CardTitle>
       </CardHeader>
-      {marketDataVisible && (
-        <CardContent>
+      <CardContent>
           {marketRow == null ? (
             <p className="text-muted-foreground py-6 text-center text-sm">
               Select a specialty above to see market data.
@@ -159,8 +133,7 @@ export function MarketDataCard({
               </div>
             </div>
           )}
-        </CardContent>
-      )}
+      </CardContent>
     </Card>
   )
 }

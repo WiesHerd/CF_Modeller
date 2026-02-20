@@ -18,6 +18,13 @@ const SESSION_COMPARE_TOOL_KEY = 'cf-modeler-compare-tool'
 const VALID_APP_STEPS: AppStep[] = ['upload', 'data', 'modeller', 'batch-scenario', 'batch-results', 'compare-scenarios', 'reports', 'help']
 const VALID_BATCH_CARDS: BatchCardId[] = ['cf-optimizer', 'imputed-vs-market', 'productivity-target', 'bulk-scenario', 'detailed-scenario']
 const VALID_MODELLER_STEPS: ModellerStep[] = ['provider', 'scenario', 'market', 'results']
+
+const MODELLER_STEP_PILLS: { id: ModellerStep; num: number; label: string }[] = [
+  { id: 'provider', num: 1, label: 'Provider' },
+  { id: 'scenario', num: 2, label: 'Scenario' },
+  { id: 'market', num: 3, label: 'Market' },
+  { id: 'results', num: 4, label: 'Results' },
+]
 const VALID_REPORT_VIEW_IDS = ['list', 'tcc-wrvu', 'saved-run', 'impact', 'quick-run-cf', 'custom-cf-by-specialty', 'compare-scenarios', 'manage-scenarios'] as const
 const VALID_COMPARE_TOOLS: CompareTool[] = ['cf-optimizer', 'productivity-target']
 
@@ -726,7 +733,7 @@ export default function App() {
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            {modellerStep === 'provider' && (
+            {modellerStep === 'provider' ? (
               <Tabs
                 value={modelMode}
                 onValueChange={(v) => {
@@ -740,7 +747,41 @@ export default function App() {
                   <TabsTrigger value="new">Custom</TabsTrigger>
                 </TabsList>
               </Tabs>
+            ) : (
+              <div />
             )}
+            <TooltipProvider delayDuration={200}>
+              <nav
+                className="flex items-center gap-0.5 rounded-md p-0.5 bg-muted/50"
+                aria-label="Single scenario steps"
+              >
+                {MODELLER_STEP_PILLS.map((s) => {
+                  const isActive = modellerStep === s.id
+                  return (
+                    <Tooltip key={s.id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => setModellerStep(s.id)}
+                          aria-current={isActive ? 'step' : undefined}
+                          aria-label={`${s.label}${isActive ? ' (current)' : ''}`}
+                          className={
+                            isActive
+                              ? 'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium bg-primary text-primary-foreground shadow-sm transition-colors'
+                              : 'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+                          }
+                        >
+                          {s.num}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        {s.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                })}
+              </nav>
+            </TooltipProvider>
           </div>
 
           {/* Step content: keyed so transition runs when step changes */}
@@ -836,22 +877,6 @@ export default function App() {
             <section className="space-y-6">
               {canShowScenario && state.lastResults ? (
                 <>
-                  {modelMode === 'existing' && effectiveProvider && (
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border border-border/60 bg-muted/30 px-4 py-3 text-sm">
-                      {effectiveProvider.providerName && (
-                        <span>
-                          <span className="text-muted-foreground font-medium">Provider:</span>{' '}
-                          <span className="text-foreground">{effectiveProvider.providerName}</span>
-                        </span>
-                      )}
-                      {(state.selectedSpecialty ?? effectiveProvider.specialty) && (
-                        <span>
-                          <span className="text-muted-foreground font-medium">Specialty:</span>{' '}
-                          <span className="text-foreground">{state.selectedSpecialty ?? effectiveProvider.specialty}</span>
-                        </span>
-                      )}
-                    </div>
-                  )}
                   <BaselineVsModeledSection
                     provider={effectiveProvider}
                     results={state.lastResults}
@@ -872,12 +897,6 @@ export default function App() {
           {/* Screen 3: Market data */}
           {modellerStep === 'market' && (
             <section>
-              <SectionTitleWithIcon icon={<BarChart2 className="size-5 text-muted-foreground" />}>
-                Market data
-              </SectionTitleWithIcon>
-              <p className="section-subtitle mb-4">
-                TCC, wRVU, and CF percentiles for the selected specialty.
-              </p>
               {canShowScenario ? (
                 <MarketDataCard
                   marketRow={marketRow}
