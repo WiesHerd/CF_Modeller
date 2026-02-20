@@ -320,6 +320,38 @@ export function ConversionFactorOptimizerScreen({
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
   }, [filteredProviderRowsForRun])
 
+  /** Which TCC components have data in the current (filtered) provider set; only show those in step 4. */
+  const tccComponentAvailability = useMemo(() => {
+    const rows = filteredProviderRowsForRun
+    const hasQuality = rows.some(
+      (p) => p.qualityPayments != null && Number.isFinite(p.qualityPayments)
+    )
+    const hasOtherIncentives = rows.some(
+      (p) =>
+        (p.otherIncentives != null && Number.isFinite(p.otherIncentives)) ||
+        (p.otherIncentive1 != null && Number.isFinite(p.otherIncentive1)) ||
+        (p.otherIncentive2 != null && Number.isFinite(p.otherIncentive2)) ||
+        (p.otherIncentive3 != null && Number.isFinite(p.otherIncentive3))
+    )
+    const hasStipend = rows.some(
+      (p) =>
+        (p.nonClinicalPay != null && Number.isFinite(p.nonClinicalPay)) ||
+        (p.adminPay != null && Number.isFinite(p.adminPay)) ||
+        (p.teachingPay != null && Number.isFinite(p.teachingPay)) ||
+        (p.researchPay != null && Number.isFinite(p.researchPay))
+    )
+    const hasWorkRVUIncentive = rows.some((p) => {
+      const w = p.workRVUs ?? p.totalWRVUs
+      return w != null && Number.isFinite(w)
+    })
+    return {
+      quality: hasQuality,
+      otherIncentives: hasOtherIncentives,
+      stipend: hasStipend,
+      workRVUIncentive: hasWorkRVUIncentive,
+    }
+  }, [filteredProviderRowsForRun])
+
   /** When compensation model or specialty scope changes, prune selections to only those still in scope. */
   useEffect(() => {
     const specSet = new Set(availableSpecialties)
@@ -743,6 +775,7 @@ export function ConversionFactorOptimizerScreen({
           runDisabled={runDisabled}
           runDisabledReasons={runDisabledReasons}
           filteredProviderRowsCount={filteredProviderRowsForRun.length}
+          tccComponentAvailability={tccComponentAvailability}
           targetMode={targetMode}
           selectedSpecialties={selectedSpecialties}
           selectedDivisions={selectedDivisions}

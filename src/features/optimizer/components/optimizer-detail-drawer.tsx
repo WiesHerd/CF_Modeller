@@ -34,10 +34,17 @@ const RECOMMENDATION_LABEL: Record<string, string> = {
   NO_RECOMMENDATION: 'No recommendation',
 }
 
+/** Summary card base: elevated, subtle shadow, fits app design. */
+const SUMMARY_CARD_BASE =
+  'rounded-2xl border border-border/60 bg-card shadow-sm transition-shadow hover:shadow-md'
+
 const GAP_PILL_CLASS: Record<string, string> = {
-  overpaid: 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
-  underpaid: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-  aligned: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+  overpaid:
+    'border-red-200/80 dark:border-red-800/60 bg-red-500/[0.07] dark:bg-red-500/10 text-red-700 dark:text-red-300',
+  underpaid:
+    'border-emerald-200/80 dark:border-emerald-800/60 bg-emerald-500/[0.07] dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+  aligned:
+    'border-border/80 bg-muted/40 dark:bg-muted/30 text-slate-700 dark:text-slate-300',
 }
 
 /** Match currency ($X.XX), ordinals (25th, 1st), and percentages (+5.2%) so we can style them with text-primary. */
@@ -218,26 +225,30 @@ export function OptimizerDetailDrawer({
         </SheetHeader>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto">
-          {/* Summary cards */}
+          {/* Summary cards — elevated, SV-style */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div
-              className={`rounded-xl border px-4 py-3 ${GAP_PILL_CLASS[gapInterpretation] ?? GAP_PILL_CLASS.aligned}`}
+              className={`${SUMMARY_CARD_BASE} px-4 py-3.5 ${GAP_PILL_CLASS[gapInterpretation] ?? GAP_PILL_CLASS.aligned}`}
             >
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/80">
                 Pay vs productivity
               </p>
-              <p className="mt-1 font-semibold">{GAP_INTERPRETATION_LABEL[gapInterpretation]}</p>
-              <p className="mt-1.5 text-sm text-muted-foreground">
+              <p className="mt-1.5 text-base font-semibold tracking-tight">
+                {GAP_INTERPRETATION_LABEL[gapInterpretation]}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground tabular-nums">
                 TCC {formatPercentile(row.keyMetrics.compPercentile)} · wRVU{' '}
                 {formatPercentile(row.keyMetrics.prodPercentile)}
               </p>
             </div>
-            <div className="rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <div
+              className={`${SUMMARY_CARD_BASE} border-l-4 border-l-primary/70 bg-card px-4 py-3.5`}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/80">
                 Recommendation
               </p>
-              <p className="mt-1 flex items-center gap-2 font-semibold">
-                <RecIcon className="size-4 shrink-0" />
+              <p className="mt-1.5 flex items-center gap-2 text-base font-semibold tracking-tight">
+                <RecIcon className="size-4 shrink-0 text-primary/90" />
                 {recLabel}
                 {row.cfChangePct !== 0 && (
                   <span
@@ -251,7 +262,7 @@ export function OptimizerDetailDrawer({
                   </span>
                 )}
               </p>
-              <p className="mt-1.5 text-sm text-muted-foreground">
+              <p className="mt-1 text-sm text-muted-foreground tabular-nums">
                 ${row.currentCF.toFixed(2)} → ${row.recommendedCF.toFixed(2)}
               </p>
             </div>
@@ -261,19 +272,19 @@ export function OptimizerDetailDrawer({
           {(row.recommendedAction === 'INCREASE' || row.recommendedAction === 'DECREASE') &&
             nIncluded > 0 && (
               <div
-                className={`rounded-xl border px-4 py-3 ${GAP_PILL_CLASS[postGapInterpretation] ?? GAP_PILL_CLASS.aligned}`}
+                className={`${SUMMARY_CARD_BASE} px-4 py-3.5 ${GAP_PILL_CLASS[postGapInterpretation] ?? GAP_PILL_CLASS.aligned}`}
               >
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/80">
                   After adjustment
                 </p>
-                <p className="mt-1 font-semibold">
-                  {GAP_INTERPRETATION_LABEL[postGapInterpretation]} vs productivity
+                <p className="mt-1.5 text-base font-semibold tracking-tight">
+                  {GAP_INTERPRETATION_LABEL[postGapInterpretation]}
                 </p>
-                <p className="mt-1.5 text-sm text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground tabular-nums">
                   TCC {formatPercentile(modeledCompPercentile)} · wRVU{' '}
                   {formatPercentile(row.keyMetrics.prodPercentile)}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground/90">
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground/90">
                   If you apply the recommended CF, group TCC percentile moves to align with wRVU
                   percentile. Review provider drilldown for outliers before finalizing.
                 </p>

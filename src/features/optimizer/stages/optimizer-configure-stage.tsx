@@ -121,6 +121,7 @@ export function OptimizerConfigureStage({
   runDisabled,
   runDisabledReasons = [],
   filteredProviderRowsCount,
+  tccComponentAvailability,
   targetMode,
   selectedSpecialties,
   selectedDivisions,
@@ -152,6 +153,13 @@ export function OptimizerConfigureStage({
   /** When Run is disabled, friendly reasons to show so the user knows what to select. */
   runDisabledReasons?: string[]
   filteredProviderRowsCount: number
+  /** Which TCC components have data in the current provider set; only show those in step 4. When omitted, show all. */
+  tccComponentAvailability?: {
+    quality: boolean
+    otherIncentives: boolean
+    stipend: boolean
+    workRVUIncentive: boolean
+  }
   targetMode: 'all' | 'custom'
   selectedSpecialties: string[]
   selectedDivisions: string[]
@@ -215,6 +223,31 @@ export function OptimizerConfigureStage({
       (p) => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)
     )
   }, [availableProvidersForExclusion, providerExcludeSearch])
+
+  // When availability is known, turn off inclusion for components that have no data in the current set
+  useEffect(() => {
+    if (!tccComponentAvailability) return
+    const { quality, otherIncentives, stipend, workRVUIncentive } = tccComponentAvailability
+    const needQualityOff = !quality && (settings.includeQualityPaymentsInBaselineAndModeled ?? false)
+    const needOtherOff = !otherIncentives && (settings.includeOtherIncentivesInBaselineAndModeled ?? false)
+    const needStipendOff = !stipend && (settings.includeStipendInBaselineAndModeled ?? false)
+    const needWorkRVUOff = !workRVUIncentive && (settings.includeWorkRVUIncentiveInTCC ?? false)
+    if (!needQualityOff && !needOtherOff && !needStipendOff && !needWorkRVUOff) return
+    onSetSettings((prev) => ({
+      ...prev,
+      ...(needQualityOff && { includeQualityPaymentsInBaselineAndModeled: false }),
+      ...(needOtherOff && { includeOtherIncentivesInBaselineAndModeled: false }),
+      ...(needStipendOff && { includeStipendInBaselineAndModeled: false }),
+      ...(needWorkRVUOff && { includeWorkRVUIncentiveInTCC: false }),
+    }))
+  }, [
+    tccComponentAvailability,
+    onSetSettings,
+    settings.includeQualityPaymentsInBaselineAndModeled,
+    settings.includeOtherIncentivesInBaselineAndModeled,
+    settings.includeStipendInBaselineAndModeled,
+    settings.includeWorkRVUIncentiveInTCC,
+  ])
 
   return (
     <Card>
@@ -1090,6 +1123,11 @@ export function OptimizerConfigureStage({
                     <p className="mt-1 text-xs text-muted-foreground">
                       Turn components on or off to define what counts as total cash compensation for this scenario.
                     </p>
+                    {tccComponentAvailability ? (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Only components that have data in your current upload (for the providers in scope) are shown below.
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="space-y-3 rounded-lg border border-border/50 bg-background/70 p-4 border-t border-border/40 pt-4">
@@ -1123,12 +1161,21 @@ export function OptimizerConfigureStage({
                           }
                         })
                       }
-                      const optionalComponents: { id: keyof TCCComponentInclusion; label: string }[] = [
+                      const allOptionalComponents: { id: keyof TCCComponentInclusion; label: string }[] = [
                         { id: 'workRVUIncentive', label: 'Productivity' },
                         { id: 'quality', label: 'Quality payment' },
                         { id: 'otherIncentives', label: 'Other incentives' },
                         { id: 'stipend', label: 'Non-clinical pay' },
                       ]
+                      const optionalComponents = tccComponentAvailability
+                        ? allOptionalComponents.filter(({ id }) => {
+                            if (id === 'workRVUIncentive') return tccComponentAvailability.workRVUIncentive
+                            if (id === 'quality') return tccComponentAvailability.quality
+                            if (id === 'otherIncentives') return tccComponentAvailability.otherIncentives
+                            if (id === 'stipend') return tccComponentAvailability.stipend
+                            return true
+                          })
+                        : allOptionalComponents
                       return (
                         <div className="flex flex-col gap-3">
                           <div className="flex flex-wrap items-center gap-2">
