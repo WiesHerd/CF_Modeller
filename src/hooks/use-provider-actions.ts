@@ -236,6 +236,54 @@ export function useProviderActions(setState: SetState) {
     })
   }, [setState])
 
+  /** Create a new saved scenario from name + inputs (no provider). Used by Manage scenarios "Create scenario". */
+  const addSavedScenario = useCallback(
+    (name: string, scenarioInputs: ScenarioInputs) => {
+      setState((s) => {
+        const saved: SavedScenario = {
+          id: crypto.randomUUID(),
+          name: name.trim(),
+          createdAt: new Date().toISOString(),
+          scenarioInputs: { ...scenarioInputs },
+          selectedProviderId: null,
+          selectedSpecialty: null,
+        }
+        return {
+          ...s,
+          savedScenarios: [...s.savedScenarios, saved],
+          scenarioInputs: { ...scenarioInputs },
+          currentScenarioId: saved.id,
+          lastScenarioLoadWarning: null,
+        }
+      })
+    },
+    [setState]
+  )
+
+  /** Update an existing saved scenario by id (name + inputs). Used by Manage scenarios "Edit". */
+  const updateSavedScenario = useCallback(
+    (id: string, name: string, scenarioInputs: ScenarioInputs) => {
+      setState((s) => {
+        const next = s.savedScenarios.map((sc) =>
+          sc.id === id
+            ? {
+                ...sc,
+                name: name.trim(),
+                scenarioInputs: { ...scenarioInputs },
+              }
+            : sc
+        )
+        const isCurrent = s.currentScenarioId === id
+        return {
+          ...s,
+          savedScenarios: next,
+          ...(isCurrent && { scenarioInputs: { ...scenarioInputs } }),
+        }
+      })
+    },
+    [setState]
+  )
+
   return {
     setProviderData,
     setMarketData,
@@ -256,5 +304,7 @@ export function useProviderActions(setState: SetState) {
     deleteScenario,
     clearAllScenarios,
     duplicateScenario,
+    addSavedScenario,
+    updateSavedScenario,
   }
 }

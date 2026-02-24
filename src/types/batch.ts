@@ -79,7 +79,7 @@ export interface BatchOverrides {
   byProviderId?: Record<string, Partial<ScenarioInputs>>
 }
 
-/** Saved batch scenario configuration (base inputs, overrides, run-for selection) for reload and retweak. */
+/** Saved batch scenario configuration (base inputs, overrides) for reload and retweak. */
 export interface SavedBatchScenarioConfig {
   id: string
   name: string
@@ -88,7 +88,7 @@ export interface SavedBatchScenarioConfig {
   overrides?: BatchOverrides
   selectedSpecialties: string[]
   selectedProviderIds: string[]
-  /** When true, run only the base scenario; when false, run base + scenario library. */
+  /** @deprecated No longer used; kept for backward compatibility when loading old configs. */
   runBaseScenarioOnly?: boolean
 }
 

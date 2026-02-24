@@ -1163,7 +1163,7 @@ export function OptimizerConfigureStage({
                       }
                       const allOptionalComponents: { id: keyof TCCComponentInclusion; label: string }[] = [
                         { id: 'workRVUIncentive', label: 'Productivity' },
-                        { id: 'quality', label: 'Quality payment' },
+                        { id: 'quality', label: 'Quality pay' },
                         { id: 'otherIncentives', label: 'Other incentives' },
                         { id: 'stipend', label: 'Non-clinical pay' },
                       ]
@@ -1222,7 +1222,7 @@ export function OptimizerConfigureStage({
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent side="bottom" className="max-w-[280px] text-xs">
-                                Base = Base salary (upload). Productivity = computed from Work RVUs + CF. Quality = column Quality payment (value-based) or override %. Other incentives = column Other incentives plus Other incentive 1/2/3 if mapped. Non-clinical pay = column from provider upload (admin, teaching, carve-out). Leave off if not in your upload. Stipend is separate (over and above); not sourced from the upload file.
+                                Base = Base salary (upload). Productivity = computed from Work RVUs + CF. Quality = column Quality pay or override %. Other incentives = column Other incentives plus Other incentive 1/2/3 if mapped. Non-clinical pay = column from provider upload (admin, teaching, carve-out). Leave off if not in your upload. Stipend is separate (over and above); not sourced from the upload file.
                               </TooltipContent>
                             </Tooltip>
                           </div>
@@ -1386,7 +1386,7 @@ export function OptimizerConfigureStage({
                                       : 'border border-border bg-background text-muted-foreground hover:bg-muted/50'
                                   )}
                                 >
-                                  Quality payment
+                                  Quality pay
                                 </button>
                               )}
                               {inc.otherIncentives?.included && (

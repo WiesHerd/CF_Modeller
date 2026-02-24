@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Sliders } from 'lucide-react'
-import type { ScenarioInputs, ThresholdMethod, CFSource, PSQBasis } from '@/types/scenario'
+import type { ScenarioInputs, ThresholdMethod, ThresholdProration, CFSource, PSQBasis } from '@/types/scenario'
 import type { ProviderRow } from '@/types/provider'
 
 interface ScenarioControlsProps {
@@ -36,7 +36,7 @@ export function ScenarioControls({
 
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="field-block space-y-1.5">
-          <Label className="text-sm font-medium text-foreground">PSQ basis</Label>
+          <Label className="text-sm font-medium text-foreground">Quality pay basis</Label>
           <Select
             value={inputs.psqBasis ?? 'base_salary'}
             onValueChange={(v) => onChange({ psqBasis: v as PSQBasis })}
@@ -53,10 +53,10 @@ export function ScenarioControls({
           </Select>
           <p className="min-h-[2.5rem] text-muted-foreground text-xs leading-relaxed">
             {inputs.psqBasis === 'total_guaranteed'
-              ? 'PSQ dollars = (base + non-clinical) × this %'
+              ? 'Quality pay = (base + non-clinical) × this %'
               : inputs.psqBasis === 'total_pay'
-                ? 'PSQ is this % of total compensation (base + incentive + non-clinical + PSQ)'
-                : 'PSQ dollars = base salary × this %'}
+                ? 'Quality pay is this % of total compensation (base + incentive + non-clinical + quality pay)'
+                : 'Quality pay = base salary × this %'}
           </p>
         </div>
         <div className="field-block space-y-1.5">
@@ -73,7 +73,7 @@ export function ScenarioControls({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="derived">
-                Derived (clinical base ÷ CF)
+                Clinical $ ÷ CF
               </SelectItem>
               <SelectItem value="annual">Annual threshold (direct input)</SelectItem>
               <SelectItem value="wrvu_percentile">
@@ -88,18 +88,40 @@ export function ScenarioControls({
       </div>
 
       {inputs.thresholdMethod === 'annual' && (
-        <div className="field-block border-border/40 border-t pt-4 space-y-1.5">
-          <Label className="text-sm font-medium text-foreground">Annual threshold (wRVUs)</Label>
-          <Input
-            type="number"
-            min={0}
-            value={inputs.annualThreshold ?? 0}
-            onChange={(e) =>
-              onChange({ annualThreshold: Number(e.target.value) || 0 })
-            }
-            disabled={disabled}
-            className="h-10 max-w-[8rem] touch-manipulation"
-          />
+        <div className="field-block border-border/40 border-t pt-4 space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-foreground">Annual threshold (wRVUs)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={inputs.annualThreshold ?? 0}
+              onChange={(e) =>
+                onChange({ annualThreshold: Number(e.target.value) || 0 })
+              }
+              disabled={disabled}
+              className="h-10 max-w-[8rem] touch-manipulation"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-foreground">Prorate by</Label>
+            <Select
+              value={inputs.thresholdProration ?? 'none'}
+              onValueChange={(v) => onChange({ thresholdProration: v as ThresholdProration })}
+              disabled={disabled}
+            >
+              <SelectTrigger className="h-10 w-full max-w-[12rem] touch-manipulation">
+                <SelectValue placeholder="Use as entered" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None (use as entered)</SelectItem>
+                <SelectItem value="cFTE">Clinical FTE (cFTE)</SelectItem>
+                <SelectItem value="totalFTE">Total FTE</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">
+              When prorating, the value above is treated as the threshold at 1.0 FTE; part-time providers get threshold × their FTE.
+            </p>
+          </div>
         </div>
       )}
       {inputs.thresholdMethod === 'wrvu_percentile' && (
@@ -148,7 +170,7 @@ export function ScenarioControls({
             Current (baseline)
           </h3>
           <div className="field-block space-y-1.5">
-            <Label className="text-sm font-medium text-foreground">PSQ percent (current)</Label>
+            <Label className="text-sm font-medium text-foreground">Quality pay % (current)</Label>
             <Input
               type="number"
               min={0}
@@ -163,7 +185,7 @@ export function ScenarioControls({
               className="h-10 max-w-[8rem] touch-manipulation"
             />
             <p className="text-muted-foreground text-xs leading-relaxed">
-              Value-based payment % applied to current/actual compensation. Current TCC includes this PSQ.
+              Value-based payment % applied to current/actual compensation. Current TCC includes this quality pay.
             </p>
           </div>
         </div>
@@ -267,7 +289,7 @@ export function ScenarioControls({
           )}
 
           <div className="field-block border-border/40 border-t pt-4 space-y-1.5">
-            <Label className="text-sm font-medium text-foreground">PSQ percent (modeled)</Label>
+            <Label className="text-sm font-medium text-foreground">Quality pay % (modeled)</Label>
             <Input
               type="number"
               min={0}

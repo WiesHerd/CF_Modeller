@@ -109,8 +109,8 @@ export function TCCBreakdownDrawer({
   const rows: { id: TCCComponentId; label: string; current: number; modeled: number }[] = [
     { id: 'base', label: 'Base pay (total)', current: totalBasePay, modeled: modeledBase },
     { id: 'incentive', label: 'Incentive (wRVU)', current: currentIncentiveForTCC, modeled: annualIncentiveForTCC },
-    { id: 'vbp', label: 'Quality payments (VBP)', current: currentPsq, modeled: modeledPsq },
-    ...(qualityPayments > 0 ? [{ id: null as TCCComponentId, label: 'Quality payments', current: qualityPayments, modeled: 0 as number }] : []),
+    { id: 'vbp', label: 'Quality pay', current: currentPsq, modeled: modeledPsq },
+    ...(qualityPayments > 0 ? [{ id: null as TCCComponentId, label: 'Quality pay (from file)', current: qualityPayments, modeled: 0 as number }] : []),
     ...(otherIncentives > 0 ? [{ id: null as TCCComponentId, label: 'Other incentives', current: otherIncentives, modeled: 0 as number }] : []),
     { id: null, label: 'Total (TCC)', current: currentTCC, modeled: modeledTCC },
   ]
@@ -153,7 +153,7 @@ export function TCCBreakdownDrawer({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground mb-4">
-              Current TCC = base pay (total) + wRVU incentive (if positive) + PSQ/VBP + quality payments (from file) + other incentives (Other incentives + Other incentive 1/2/3 from your upload). Base pay includes non-clinical, which is derived from FTE when not in your file. The table below shows each component.
+              Current TCC = base pay (total) + wRVU incentive (if positive) + quality pay (scenario) + quality pay (from file) + other incentives (Other incentives + Other incentive 1/2/3 from your upload). Base pay includes non-clinical, which is derived from FTE when not in your file. The table below shows each component.
             </p>
           )}
           <Table className="w-full caption-bottom text-sm table-auto border border-border rounded-md">
@@ -289,9 +289,9 @@ export function TCCBreakdownDrawer({
 
           {detailComponent === 'vbp' && (
             <div className="mt-4 rounded-lg border border-border bg-muted/30 px-3 py-3 text-sm">
-              <h4 className="font-semibold text-foreground mb-2">How Quality payments (VBP) is calculated</h4>
+              <h4 className="font-semibold text-foreground mb-2">How Quality pay is calculated</h4>
               <p className="text-muted-foreground text-xs mb-3">
-                VBP / PSQ is a percentage of a basis (base salary or total pay). Set via &quot;Quality payments $ (VBP %)&quot; on the main table.
+                Quality pay is a percentage of a basis (base salary or total pay). Set via &quot;Quality pay %&quot; on the main table.
               </p>
               <Table className="w-full text-sm border-border">
                 <TableHeader>
@@ -308,7 +308,7 @@ export function TCCBreakdownDrawer({
                     <TableCell className="text-muted-foreground text-right py-1.5 text-xs">{psqBasis === 'total_pay' ? 'modeled base + incentive' : 'modeled base'}</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="text-muted-foreground py-1.5 pr-2">VBP %</TableCell>
+                    <TableCell className="text-muted-foreground py-1.5 pr-2">Quality pay %</TableCell>
                     <TableCell className="text-right tabular-nums py-1.5"><Num>{currentPsqPercent}%</Num></TableCell>
                     <TableCell className="text-right tabular-nums py-1.5"><Num>{psqPercent}%</Num></TableCell>
                   </TableRow>

@@ -5,6 +5,9 @@ import type { ProviderRow } from '@/types/provider'
  */
 export type ThresholdMethod = 'annual' | 'wrvu_percentile' | 'derived'
 
+/** When threshold is annual (direct wRVU input), how to prorate for part-time: none = use as entered; cFTE/totalFTE = treat value as per 1.0 FTE and multiply by that FTE. */
+export type ThresholdProration = 'none' | 'cFTE' | 'totalFTE'
+
 export type CFSource = 'target_haircut' | 'target_percentile' | 'override'
 
 /** Basis for PSQ / value-based payment percentage. */
@@ -21,12 +24,16 @@ export interface ScenarioInputs {
   cfSource: CFSource
   /** PSQ % for modeled scenario (value-based payment). */
   psqPercent: number
+  /** When set, use this as the modeled PSQ dollar amount instead of computing from psqPercent and basis. */
+  psqDollars?: number
   /** PSQ % for current/baseline state; when set, current TCC includes this PSQ. */
   currentPsqPercent?: number
   /** base_salary / total_guaranteed: PSQ = % of base (total). total_pay: PSQ is % of total TCC. Base = total salary (non-clinical is part of it). */
   psqBasis?: PSQBasis
   thresholdMethod: ThresholdMethod
   annualThreshold?: number
+  /** When thresholdMethod is annual: prorate the entered threshold by cFTE, totalFTE, or not at all (use as entered). */
+  thresholdProration?: ThresholdProration
   wrvuPercentile?: number
   /** Optional override for modeled scenario base (total) pay; when set, used instead of provider baseSalary for modeled TCC. */
   modeledBasePay?: number
@@ -51,6 +58,7 @@ export const DEFAULT_SCENARIO_INPUTS: ScenarioInputs = {
   psqBasis: 'base_salary',
   thresholdMethod: 'derived',
   annualThreshold: 0,
+  thresholdProration: 'none',
   wrvuPercentile: 50,
 }
 
@@ -123,6 +131,10 @@ export interface ScenarioResults {
   wrvuPercentile: number
   wrvuPercentileBelowRange?: boolean
   wrvuPercentileAboveRange?: boolean
+  /** Modeled work wRVUs per 1.0 cFTE vs market wRVU curve. */
+  wrvuPercentileModeled: number
+  wrvuPercentileModeledBelowRange?: boolean
+  wrvuPercentileModeledAboveRange?: boolean
   tccPercentile: number
   tccPercentileBelowRange?: boolean
   tccPercentileAboveRange?: boolean

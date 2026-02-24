@@ -34,10 +34,9 @@ import { RowCalculationModal, type CalculationSection } from '@/components/batch
 import { downloadBatchResultsCSV, exportBatchResultsXLSX } from '@/lib/batch-export'
 import { isBatchRowFlagged, hasDataQualityWarning } from '@/lib/batch'
 import { formatCurrency, formatCurrencyCompact, formatDateTime as formatRunDate } from '@/utils/format'
-import type { BatchResults, BatchRowResult, BatchRiskLevel, BatchScenarioSnapshot, MarketMatchStatus, SavedBatchRun, SynonymMap } from '@/types/batch'
+import type { BatchResults, BatchRowResult, BatchRiskLevel, BatchRunMode, BatchScenarioSnapshot, MarketMatchStatus, SavedBatchRun, SynonymMap } from '@/types/batch'
 import type { MarketRow } from '@/types/market'
 import type { ProviderRow } from '@/types/provider'
-import { TccWrvuSummaryTable } from '@/features/reports/tcc-wrvu-summary-table'
 import { MarketPositioningCalculationDrawer } from '@/features/optimizer/components/market-positioning-calculation-drawer'
 import { getImputedVsMarketProviderDetail, DEFAULT_IMPUTED_VS_MARKET_CONFIG, type ImputedVsMarketProviderDetail } from '@/lib/imputed-vs-market'
 
@@ -50,6 +49,8 @@ interface BatchResultsDashboardProps {
   onSaveRun?: (name?: string) => void
   onLoadRun?: (id: string) => void
   onDeleteRun?: (id: string) => void
+  /** When set, default save name includes "Bulk" or "Detailed" so runs are always identifiable. */
+  runMode?: BatchRunMode
   onExportCSV?: () => void
   onExportXLSX?: () => void
   /** When set with headerTitle, row 1 = title, row 2 = headerLeft (e.g. Back) + Save/Saved runs. */
@@ -64,7 +65,6 @@ interface BatchResultsDashboardProps {
 
 const RISK_LEVELS: BatchRiskLevel[] = ['high', 'medium', 'low']
 const MATCH_STATUSES: MarketMatchStatus[] = ['Exact', 'Normalized', 'Synonym', 'Missing']
-const SHOW_TCC_SUMMARY_MAX_PROVIDERS = 15
 
 function columnToSection(column: CalculationColumnId): CalculationSection {
   if (column === 'incentive') return 'incentive'
@@ -87,6 +87,7 @@ export function BatchResultsDashboard({
   headerLeft,
   providerRows = [],
   synonymMap = {},
+  runMode,
 }: BatchResultsDashboardProps) {
   void scenarioSnapshot
   const [drawerProvider, setDrawerProvider] = useState<ImputedVsMarketProviderDetail | null>(null)
@@ -108,11 +109,11 @@ export function BatchResultsDashboard({
   const [showCardsSection, setShowCardsSection] = useState(true)
   const gapChartRef = useRef<HTMLDivElement>(null)
 
-  const defaultSaveRunName = useMemo(
-    () =>
-      `${results.providerCount} providers × ${results.scenarioCount} scenario(s) – ${formatRunDate(results.runAt)}`,
-    [results.providerCount, results.scenarioCount, results.runAt]
-  )
+  const defaultSaveRunName = useMemo(() => {
+    const modeLabel = runMode === 'detailed' ? 'Detailed' : runMode === 'bulk' ? 'Bulk' : null
+    const prefix = modeLabel ? `${modeLabel} – ` : ''
+    return `${prefix}${results.providerCount} providers – ${formatRunDate(results.runAt)}`
+  }, [runMode, results.providerCount, results.runAt])
 
   const sortedSavedRuns = useMemo(
     () => [...savedBatchRuns].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
@@ -312,8 +313,6 @@ export function BatchResultsDashboard({
     const set = new Set(rows.map((r) => r.providerId).filter(Boolean))
     return set.size
   }, [rows])
-
-  const showTccSummary = uniqueProviderCount > 0 && uniqueProviderCount <= SHOW_TCC_SUMMARY_MAX_PROVIDERS
 
   const hasAnyChart =
     gapBySpecialty.length > 0 ||
@@ -530,7 +529,7 @@ export function BatchResultsDashboard({
             onClick={() => setShowCardsSection((v) => !v)}
             className="shrink-0 gap-2"
           >
-            <Gauge className="size-4" aria-hidden />
+            <Gauge className="size-4 text-primary" aria-hidden />
             {showCardsSection ? 'Hide summary cards' : 'Summary cards'}
             {showCardsSection ? <ChevronDown className="size-4 opacity-50" aria-hidden /> : <ChevronRight className="size-4 opacity-50" aria-hidden />}
           </Button>
@@ -541,7 +540,7 @@ export function BatchResultsDashboard({
               onClick={() => setShowVisualsSection((v) => !v)}
               className="shrink-0 gap-2"
             >
-              <BarChart2 className="size-4" aria-hidden />
+              <BarChart2 className="size-4 text-primary" aria-hidden />
               {showVisualsSection ? 'Hide visuals' : 'View visuals'}
               {showVisualsSection ? <ChevronDown className="size-4 opacity-50" aria-hidden /> : <ChevronRight className="size-4 opacity-50" aria-hidden />}
             </Button>
@@ -574,7 +573,7 @@ export function BatchResultsDashboard({
           <DialogHeader>
             <DialogTitle>Save this run</DialogTitle>
             <DialogDescription id="save-run-desc">
-              Enter a name for this run so you can find it later (e.g. &quot;FY26 CF 50th rollout&quot;, &quot;Q1 baseline&quot;).
+              Give this run a specific name so you can tell it apart later (e.g. &quot;FY26 CF 50th rollout&quot;, &quot;Q1 baseline – IM&quot;). The default below includes Bulk/Detailed and provider count.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2 py-2">
@@ -743,7 +742,7 @@ export function BatchResultsDashboard({
               <p className="text-xl font-semibold tabular-nums text-foreground">
                 {formatCurrency(summary.psqTotal, { decimals: 0 })}
               </p>
-              <p className="text-[11px] text-muted-foreground">modeled PSQ dollars</p>
+              <p className="text-[11px] text-muted-foreground">modeled Quality pay</p>
             </div>
           </CardContent>
         </Card>
@@ -1065,8 +1064,8 @@ export function BatchResultsDashboard({
       )}
 
       <div className="rounded-lg border border-border/70 bg-background/95 p-4 backdrop-blur-sm">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-1.5 min-w-[140px] max-w-[200px]">
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+          <div className="space-y-1.5 flex-1 min-w-[100px] max-w-[200px]">
             <Label className="text-xs text-muted-foreground">Specialty</Label>
             <Select value={specialtyFilter} onValueChange={setSpecialtyFilter}>
               <SelectTrigger className="w-full bg-white dark:bg-background">
@@ -1082,7 +1081,7 @@ export function BatchResultsDashboard({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 min-w-[120px] max-w-[180px]">
+          <div className="space-y-1.5 flex-1 min-w-[100px] max-w-[200px]">
             <Label className="text-xs text-muted-foreground">Division</Label>
             <Select value={divisionFilter} onValueChange={setDivisionFilter}>
               <SelectTrigger className="w-full bg-white dark:bg-background">
@@ -1098,7 +1097,7 @@ export function BatchResultsDashboard({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 min-w-[120px] max-w-[180px]">
+          <div className="space-y-1.5 flex-1 min-w-[100px] max-w-[200px]">
             <Label className="text-xs text-muted-foreground">Type / Role</Label>
             <Select value={providerTypeFilter} onValueChange={setProviderTypeFilter}>
               <SelectTrigger className="w-full bg-white dark:bg-background">
@@ -1114,7 +1113,7 @@ export function BatchResultsDashboard({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 w-[100px] shrink-0">
+          <div className="space-y-1.5 flex-1 min-w-[90px] max-w-[140px]">
             <Label className="text-xs text-muted-foreground">Risk</Label>
             <Select value={riskFilter} onValueChange={setRiskFilter}>
               <SelectTrigger className="w-full bg-white dark:bg-background">
@@ -1130,7 +1129,7 @@ export function BatchResultsDashboard({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 w-[110px] shrink-0">
+          <div className="space-y-1.5 flex-1 min-w-[100px] max-w-[160px]">
             <Label className="text-xs text-muted-foreground">Match</Label>
             <Select value={matchStatusFilter} onValueChange={setMatchStatusFilter}>
               <SelectTrigger className="w-full bg-white dark:bg-background">
@@ -1146,7 +1145,7 @@ export function BatchResultsDashboard({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5 shrink-0 border-l border-border pl-4">
+          <div className="space-y-1.5 shrink-0 border-l border-border/80 pl-6 ml-1">
             <Label className="text-xs text-muted-foreground">Quick filters</Label>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -1167,20 +1166,6 @@ export function BatchResultsDashboard({
           </div>
         </div>
       </div>
-
-      {showTccSummary && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Total cash summary</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Compare providers: TCC and wRVU percentiles and pay vs productivity (modeled). Shown when run has {SHOW_TCC_SUMMARY_MAX_PROVIDERS} or fewer providers.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <TccWrvuSummaryTable rows={rows} showScenarioName={true} />
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>

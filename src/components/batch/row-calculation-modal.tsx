@@ -132,7 +132,7 @@ export function RowCalculationModal({
                       <TableCell className="text-muted-foreground px-3 py-2.5">Threshold method</TableCell>
                       <TableCell className="text-right px-3 py-2.5">
                         {(inputs.thresholdMethod ?? 'derived') === 'derived'
-                          ? 'Derived (modeled clinical salary ÷ CF)'
+                          ? 'Clinical $ ÷ CF'
                           : (inputs.thresholdMethod ?? '') === 'annual'
                             ? 'Annual (manual or override)'
                             : `wRVU percentile (market at ${inputs.wrvuPercentile ?? 50}% × clinical FTE)`}

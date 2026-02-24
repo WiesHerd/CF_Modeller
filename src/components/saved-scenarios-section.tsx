@@ -91,7 +91,7 @@ export function SaveScenarioDialog({
             id="scenario-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={currentScenarioName ?? 'e.g. 40th %ile + 5% carve-out'}
+            placeholder={currentScenarioName ?? 'e.g. FY26 50th %ile CF, Q1 baseline, or a short descriptive name'}
             onKeyDown={(e) => e.key === 'Enter' && handleSaveAsNew()}
           />
         </div>

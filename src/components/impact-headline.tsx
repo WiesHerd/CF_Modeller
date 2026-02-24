@@ -5,7 +5,7 @@ import type { ScenarioResults } from '@/types/scenario'
 
 interface ImpactHeadlineProps {
   results: ScenarioResults
-  /** Optional one-line summary of what drove the change (e.g. "Incentive and PSQ drive the increase"). */
+  /** Optional one-line summary of what drove the change (e.g. "Incentive and quality pay drive the increase"). */
   summary?: string
   /** When true, render without Card wrapper (e.g. for impact report hero). */
   minimal?: boolean

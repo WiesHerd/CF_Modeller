@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowLeft, FileText, FolderOpen, User, BarChart2, GitCompare, Gauge, Percent, Settings2, Target } from 'lucide-react'
+import { ArrowLeft, FileText, FolderOpen, User, Gauge, Percent, Settings2, BarChart2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
@@ -9,113 +9,63 @@ import { SingleProviderImpactReport } from './single-provider-impact-report'
 import { QuickRunCFReport } from './quick-run-cf-report'
 import { CustomCfBySpecialtyReport } from './custom-cf-by-specialty-report'
 import { ManageScenariosScreen } from './manage-scenarios-screen'
+import { ImputedVsMarketScreen } from '@/features/optimizer/imputed-vs-market-screen'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, SavedScenario } from '@/types/scenario'
 import type { SavedBatchRun, SavedBatchScenarioConfig } from '@/types/batch'
 import type { SynonymMap } from '@/types/batch'
 import type { SavedOptimizerConfig } from '@/types/optimizer'
+import type { BatchCardId } from '@/components/batch/batch-card-picker'
 import { cn } from '@/lib/utils'
 
-export type ReportViewId = 'list' | 'tcc-wrvu' | 'saved-run' | 'impact' | 'quick-run-cf' | 'custom-cf-by-specialty' | 'compare-scenarios' | 'manage-scenarios'
-
-export type ReportLibraryCardId = ReportViewId | 'market-positioning' | 'cf-optimizer' | 'productivity-target'
-
-const REPORT_SECTION_ORDER = ['quick-run', 'reports', 'batch-compare', 'manage'] as const
-type ReportSectionId = (typeof REPORT_SECTION_ORDER)[number]
+export type ReportViewId = 'list' | 'tcc-wrvu' | 'saved-run' | 'impact' | 'quick-run-cf' | 'custom-cf-by-specialty' | 'market-positioning' | 'manage-scenarios'
 
 interface ReportCardConfig {
-  id: ReportLibraryCardId
-  section: ReportSectionId
+  id: ReportViewId
   title: string
   description: string
   icon: React.ReactNode
-  navigateOnly?: boolean
 }
 
 const REPORT_CARDS: ReportCardConfig[] = [
   {
     id: 'quick-run-cf',
-    section: 'quick-run',
     title: 'Recommended Conversion Factors',
     description: 'One-click analysis: recommended $/wRVU by specialty from your data. No configuration required.',
     icon: <Gauge className="size-6" />,
   },
   {
     id: 'tcc-wrvu',
-    section: 'reports',
     title: 'TCC & wRVU Percentiles',
     description: 'Total cash compensation and work RVU percentiles for all loaded providers under one scenario.',
     icon: <Percent className="size-6" />,
   },
   {
     id: 'custom-cf-by-specialty',
-    section: 'reports',
     title: 'Custom CF By Specialty',
     description: 'Set $/wRVU or market percentile per specialty and run TCC & wRVU results.',
     icon: <Gauge className="size-6" />,
   },
   {
     id: 'impact',
-    section: 'reports',
     title: 'Compensation Impact Report',
     description: 'Single-provider compensation impact: TCC waterfall, market percentiles, and summary.',
     icon: <User className="size-6" />,
   },
   {
-    id: 'market-positioning',
-    section: 'batch-compare',
-    title: 'Market Positioning',
-    description: 'Effective $/wRVU by specialty vs market 25th–90th; export for research.',
-    icon: <BarChart2 className="size-6" />,
-    navigateOnly: true,
-  },
-  {
-    id: 'cf-optimizer',
-    section: 'batch-compare',
-    title: 'CF Optimizer',
-    description: 'Specialty-level CF recommendations and policy guardrails; export to Excel.',
-    icon: <Gauge className="size-6" />,
-    navigateOnly: true,
-  },
-  {
-    id: 'productivity-target',
-    section: 'batch-compare',
-    title: 'Target Optimizer',
-    description: 'wRVU targets by specialty from market percentiles; group target, provider table, and planning incentive.',
-    icon: <Target className="size-6" />,
-    navigateOnly: true,
-  },
-  {
-    id: 'compare-scenarios',
-    section: 'batch-compare',
-    title: 'Scenario Comparison',
-    description: 'Compare two saved optimizer scenarios side-by-side and export to Excel.',
-    icon: <GitCompare className="size-6" />,
-    navigateOnly: true,
-  },
-  {
     id: 'saved-run',
-    section: 'manage',
     title: 'Saved Batch Run Report',
     description: 'View and export a saved batch run: TCC and wRVU summary and metrics.',
     icon: <FolderOpen className="size-6" />,
   },
   {
-    id: 'manage-scenarios',
-    section: 'manage',
-    title: 'Manage Scenarios & Runs',
-    description: 'View, load, or clear saved model scenarios, batch runs, batch configs, and CF optimizer scenarios.',
-    icon: <Settings2 className="size-6" />,
+    id: 'market-positioning',
+    title: 'Market positioning (imputed)',
+    description: 'Compare your effective $/wRVU to market 25th–90th by specialty; see your percentile and market CF targets.',
+    icon: <BarChart2 className="size-6" />,
   },
 ]
-
-const REPORT_SECTION_LABELS: Record<ReportSectionId, string> = {
-  'quick-run': 'Quick run',
-  reports: 'Reports',
-  'batch-compare': 'Batch & compare',
-  manage: 'Manage',
-}
 
 const cardClass = cn(
   'cursor-pointer transition-colors hover:border-primary/50 hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
@@ -139,15 +89,17 @@ export interface ReportsScreenProps {
   savedBatchScenarioConfigs: SavedBatchScenarioConfig[]
   batchSynonymMap: SynonymMap
   onBack: () => void
-  /** When provided, the Scenario comparison card navigates to Compare scenarios. */
-  onNavigateToCompareScenarios?: () => void
-  /** When provided, Market positioning, CF Optimizer, and Target Optimizer cards navigate to Batch. */
-  onNavigateToBatchCard?: (id: 'imputed-vs-market' | 'cf-optimizer' | 'productivity-target') => void
+  /** When provided, Quick Run CF report can link to CF Optimizer batch workflow. */
+  onNavigateToBatchCard?: (id: BatchCardId) => void
   /** Manage scenarios screen callbacks. */
   onLoadScenario?: (id: string) => void
+  /** Load scenario and navigate to Single scenario (used when opening from Report library). */
+  onLoadScenarioAndGoToSingle?: (id: string) => void
   onDeleteScenario?: (id: string) => void
   onClearAllScenarios?: () => void
   onDuplicateScenario?: (id: string) => void
+  onAddSavedScenario?: (name: string, scenarioInputs: ScenarioInputs) => void
+  onUpdateSavedScenario?: (id: string, name: string, scenarioInputs: ScenarioInputs) => void
   onLoadBatchRun?: (id: string) => void
   onDeleteBatchRun?: (id: string) => void
   onClearAllBatchRuns?: () => void
@@ -175,12 +127,14 @@ export function ReportsScreen({
   savedBatchScenarioConfigs,
   batchSynonymMap,
   onBack,
-  onNavigateToCompareScenarios,
   onNavigateToBatchCard,
   onLoadScenario,
+  onLoadScenarioAndGoToSingle,
   onDeleteScenario,
   onClearAllScenarios,
   onDuplicateScenario,
+  onAddSavedScenario,
+  onUpdateSavedScenario,
   onLoadBatchRun,
   onDeleteBatchRun,
   onClearAllBatchRuns,
@@ -195,6 +149,17 @@ export function ReportsScreen({
 }: ReportsScreenProps) {
   // When reportLibraryFocusKey changes (e.g. user clicks Reports in sidebar), parent resets reportView to 'list' and selectedSavedRunId to null.
 
+  if (reportView === 'market-positioning') {
+    return (
+      <ImputedVsMarketScreen
+        providerRows={providerRows}
+        marketRows={marketRows}
+        synonymMap={batchSynonymMap}
+        onBack={() => setReportView('list')}
+      />
+    )
+  }
+
   if (reportView === 'manage-scenarios') {
     return (
       <ManageScenariosScreen
@@ -203,9 +168,12 @@ export function ReportsScreen({
         savedBatchScenarioConfigs={savedBatchScenarioConfigs}
         savedOptimizerConfigs={savedOptimizerConfigs}
         onLoadScenario={onLoadScenario ?? (() => {})}
+        onLoadScenarioAndGoToSingle={onLoadScenarioAndGoToSingle}
         onDeleteScenario={onDeleteScenario ?? (() => {})}
         onClearAllScenarios={onClearAllScenarios ?? (() => {})}
         onDuplicateScenario={onDuplicateScenario ?? (() => {})}
+        onAddSavedScenario={onAddSavedScenario}
+        onUpdateSavedScenario={onUpdateSavedScenario}
         onLoadBatchRun={onLoadBatchRun ?? (() => {})}
         onDeleteBatchRun={onDeleteBatchRun ?? (() => {})}
         onClearAllBatchRuns={onClearAllBatchRuns ?? (() => {})}
@@ -243,6 +211,7 @@ export function ReportsScreen({
           setReportView('list')
           setSelectedSavedRunId(null)
         }}
+        onManageRuns={() => setReportView('manage-scenarios')}
       />
     )
   }
@@ -292,16 +261,26 @@ export function ReportsScreen({
 
   return (
     <div className="space-y-8">
-      <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
-        Report library
-      </SectionTitleWithIcon>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
+            Report library
+          </SectionTitleWithIcon>
+          <button
+            type="button"
+            onClick={() => setReportView('manage-scenarios')}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Settings2 className="size-4" />
+            Manage scenarios & runs
+          </button>
+        </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={onBack}
-          className="gap-2"
+          className="gap-2 shrink-0"
           aria-label="Back"
         >
           <ArrowLeft className="size-4" />
@@ -309,73 +288,31 @@ export function ReportsScreen({
         </Button>
       </div>
 
-      {REPORT_SECTION_ORDER.map((sectionId) => {
-        const sectionCards = REPORT_CARDS.filter((c) => c.section === sectionId)
-        if (sectionCards.length === 0) return null
-        const sectionLabel = REPORT_SECTION_LABELS[sectionId]
-        const sectionSubtitle = sectionId === 'batch-compare'
-          ? 'These open the Batch or Compare scenarios area.'
-          : null
-        return (
-          <section key={sectionId} className="space-y-3">
-            <div>
-              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                {sectionLabel}
-              </h2>
-              {sectionSubtitle && (
-                <p className="text-xs text-muted-foreground mt-0.5">{sectionSubtitle}</p>
-              )}
-            </div>
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
-              {sectionCards.map((card) => (
-                <Card
-                  key={card.id}
-                  className={cardClass}
-                  tabIndex={0}
-                  role="button"
-                  onClick={() => {
-                    if (card.navigateOnly && card.id === 'compare-scenarios' && onNavigateToCompareScenarios) {
-                      onNavigateToCompareScenarios()
-                    } else if (card.navigateOnly && card.id === 'market-positioning' && onNavigateToBatchCard) {
-                      onNavigateToBatchCard('imputed-vs-market')
-                    } else if (card.navigateOnly && card.id === 'cf-optimizer' && onNavigateToBatchCard) {
-                      onNavigateToBatchCard('cf-optimizer')
-                    } else if (card.navigateOnly && card.id === 'productivity-target' && onNavigateToBatchCard) {
-                      onNavigateToBatchCard('productivity-target')
-                    } else if (!card.navigateOnly) {
-                      setReportView(card.id as ReportViewId)
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      if (card.navigateOnly && card.id === 'compare-scenarios' && onNavigateToCompareScenarios) {
-                        onNavigateToCompareScenarios()
-                      } else if (card.navigateOnly && card.id === 'market-positioning' && onNavigateToBatchCard) {
-                        onNavigateToBatchCard('imputed-vs-market')
-                      } else if (card.navigateOnly && card.id === 'cf-optimizer' && onNavigateToBatchCard) {
-                        onNavigateToBatchCard('cf-optimizer')
-                      } else if (card.navigateOnly && card.id === 'productivity-target' && onNavigateToBatchCard) {
-                        onNavigateToBatchCard('productivity-target')
-                      } else if (!card.navigateOnly) {
-                        setReportView(card.id as ReportViewId)
-                      }
-                    }
-                  }}
-                >
-                  <CardContent className="flex flex-col gap-3 pt-6 flex-1">
-                    <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      {card.icon}
-                    </span>
-                    <h3 className="font-semibold text-foreground shrink-0">{card.title}</h3>
-                    <p className="text-muted-foreground text-sm flex-1 min-h-[2.5rem]">{card.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-        )
-      })}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
+        {REPORT_CARDS.map((card) => (
+          <Card
+            key={card.id}
+            className={cardClass}
+            tabIndex={0}
+            role="button"
+            onClick={() => setReportView(card.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setReportView(card.id)
+              }
+            }}
+          >
+            <CardContent className="flex flex-col gap-3 pt-6 flex-1">
+              <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                {card.icon}
+              </span>
+              <h3 className="font-semibold text-foreground shrink-0">{card.title}</h3>
+              <p className="text-muted-foreground text-xs flex-1 min-h-[2.5rem]">{card.description}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }

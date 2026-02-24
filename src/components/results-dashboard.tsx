@@ -181,7 +181,7 @@ export function ResultsDashboard({ results }: ResultsDashboardProps) {
               <span className="flex size-8 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
                 <BadgeDollarSign className="size-4" />
               </span>
-              PSQ dollars
+              Quality pay
             </CardTitle>
           </CardHeader>
           <CardContent>

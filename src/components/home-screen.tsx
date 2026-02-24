@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card'
-import { User, Gauge, BarChart2, Target, LayoutGrid, Sliders, FileUp } from 'lucide-react'
+import { User, Gauge, Target, LayoutGrid, FileUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BatchCardId } from '@/components/batch/batch-card-picker'
 
@@ -25,28 +25,16 @@ const BATCH_CARDS: { id: BatchCardId; title: string; description: string; icon: 
     icon: <Gauge className="size-6" />,
   },
   {
-    id: 'imputed-vs-market',
-    title: 'Market positioning (imputed)',
-    description: 'Compare your effective $/wRVU to market 25th–90th by specialty; see your percentile and market CF targets.',
-    icon: <BarChart2 className="size-6" />,
-  },
-  {
     id: 'productivity-target',
     title: 'Target Optimizer',
     description: 'Set a group wRVU target per specialty (1.0 cFTE) and scale by cFTE; compare actuals to target, plan incentive, and export.',
     icon: <Target className="size-6" />,
   },
   {
-    id: 'bulk-scenario',
-    title: 'Run Batch Scenario',
-    description: 'Apply one set of inputs (CF, wRVU target, PSQ) to all providers and run. Use scope and guardrails to filter who’s included.',
+    id: 'run-scenario',
+    title: 'Scenario Studio',
+    description: 'Design and run scenarios across your cohort — base inputs plus optional overrides by specialty or provider.',
     icon: <LayoutGrid className="size-6" />,
-  },
-  {
-    id: 'detailed-scenario',
-    title: 'Detailed scenarios',
-    description: 'Overrides by specialty and by provider, then run.',
-    icon: <Sliders className="size-6" />,
   },
 ]
 

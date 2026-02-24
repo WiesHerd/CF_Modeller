@@ -124,6 +124,16 @@ export interface ProductivityTargetSpecialtyResult {
 }
 
 // ---------------------------------------------------------------------------
+// Incentive distribution (post-run option)
+// ---------------------------------------------------------------------------
+
+/** How to distribute planning incentive within each specialty after a run. */
+export type IncentiveDistributionMethod =
+  | 'individual'
+  | 'pool_by_wrvu_share'
+  | 'pool_by_wrvu_above_target_share'
+
+// ---------------------------------------------------------------------------
 // Full run result
 // ---------------------------------------------------------------------------
 
@@ -166,6 +176,8 @@ export interface ProductivityTargetConfigSnapshot {
   excludedProviderIds?: string[]
   selectedDivisions?: string[]
   lastRunResult?: ProductivityTargetRunResult | null
+  /** Post-run: how to distribute incentive (individual vs pool by wRVU share). Default individual. */
+  incentiveDistributionMethod?: IncentiveDistributionMethod
 }
 
 // ---------------------------------------------------------------------------

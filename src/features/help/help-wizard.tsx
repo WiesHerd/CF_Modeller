@@ -97,7 +97,7 @@ const WIZARD_STEPS: {
         <ul className="text-muted-foreground text-sm list-disc pl-5 space-y-1 mb-2">
           <li><strong className="text-foreground">CF Optimizer</strong> — specialty-level CF recommendations and guardrails</li>
           <li><strong className="text-foreground">Market positioning</strong> — your $/wRVU vs market percentiles by specialty</li>
-          <li><strong className="text-foreground">Create and Run Scenario</strong> — one scenario for all providers</li>
+          <li><strong className="text-foreground">Scenario Studio</strong> — design and run scenarios across your cohort</li>
           <li><strong className="text-foreground">Detailed scenarios</strong> — overrides by specialty and provider</li>
         </ul>
         <p className="text-muted-foreground text-sm">
@@ -106,7 +106,7 @@ const WIZARD_STEPS: {
       </>
     ),
     tryItStep: 'batch-scenario',
-    tryItBatchCard: 'bulk-scenario',
+    tryItBatchCard: 'run-scenario',
     tryItLabel: 'Go to Batch',
   },
   {

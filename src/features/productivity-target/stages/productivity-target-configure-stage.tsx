@@ -28,7 +28,7 @@ import {
 import { Command, CommandInput } from '@/components/ui/command'
 import { ChevronDown, Eraser, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ProductivityTargetSettings, TargetApproach, PlanningCFSource } from '@/types/productivity-target'
+import type { ProductivityTargetSettings, TargetApproach, PlanningCFSource, IncentiveDistributionMethod } from '@/types/productivity-target'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 
 const CONFIG_STEPS = [
@@ -131,6 +131,8 @@ export function ProductivityTargetConfigureStage({
   onSetSettings,
   configStep,
   onSetConfigStep,
+  incentiveDistributionMethod,
+  onIncentiveDistributionMethodChange,
 }: {
   hasData: boolean
   settings: ProductivityTargetSettings
@@ -167,6 +169,8 @@ export function ProductivityTargetConfigureStage({
   onSetSettings: React.Dispatch<React.SetStateAction<ProductivityTargetSettings>>
   configStep: number
   onSetConfigStep: (step: number) => void
+  incentiveDistributionMethod: IncentiveDistributionMethod
+  onIncentiveDistributionMethodChange: (method: IncentiveDistributionMethod) => void
 }) {
   const [specialtySearch, setSpecialtySearch] = useState('')
   const [modelSearch, setModelSearch] = useState('')
@@ -1245,6 +1249,31 @@ export function ProductivityTargetConfigureStage({
                       ) : null}
                     </div>
                   </div>
+
+                  <div className="space-y-2 rounded-lg border border-border/50 bg-background/70 p-4">
+                    <SectionHeaderWithTooltip
+                      variant="subsection"
+                      title="Incentive distribution"
+                      tooltip="Choose how to distribute planning incentive within each specialty. Individual = each provider gets (wRVUs above target) × CF. Pool options sum that amount per specialty and redistribute by wRVU share (or by share of wRVUs above target)."
+                      className="text-primary/90"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Applied after run; you can also change it on the Run and review screen.
+                    </p>
+                    <Select
+                      value={incentiveDistributionMethod}
+                      onValueChange={(v) => onIncentiveDistributionMethodChange(v as IncentiveDistributionMethod)}
+                    >
+                      <SelectTrigger className="w-full max-w-md bg-white dark:bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="individual">Individual (above target × CF)</SelectItem>
+                        <SelectItem value="pool_by_wrvu_share">Pool by specialty — allocate by share of group wRVUs</SelectItem>
+                        <SelectItem value="pool_by_wrvu_above_target_share">Pool by specialty — allocate by share of wRVUs above target</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               ) : null}
 
@@ -1317,6 +1346,16 @@ export function ProductivityTargetConfigureStage({
                       ) : (
                         <span className="text-primary font-medium tabular-nums">Manual ${settings.planningCFManual ?? '—'}/wRVU</span>
                       )}
+                    </li>
+                    <li>
+                      <span className="text-foreground font-medium">Incentive distribution:</span>{' '}
+                      <span className="text-primary font-medium">
+                        {incentiveDistributionMethod === 'individual'
+                          ? 'Individual (above target × CF)'
+                          : incentiveDistributionMethod === 'pool_by_wrvu_share'
+                            ? 'Pool by specialty — share of group wRVUs'
+                            : 'Pool by specialty — share of wRVUs above target'}
+                      </span>
                     </li>
                   </ul>
                   <p className="text-xs text-muted-foreground">

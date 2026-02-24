@@ -543,7 +543,7 @@ export function CompensationFTESection({
                 </span>
               )}
             </InlineField>
-            <InlineField label="Quality payments">
+            <InlineField label="Quality pay">
               {canEdit ? (
                 <CurrencyField
                   value={qualityPayments ?? 0}
@@ -576,7 +576,7 @@ export function CompensationFTESection({
             <InlineField label="TCC" labelIcon={<Calculator className="size-3.5" />}>
               <Input
                 readOnly
-                title="Base salary (total) + quality payments + other incentives. Non-Clinical is not added—it is part of base. Full TCC also includes wRVU incentive and PSQ from the Scenario step."
+                title="Base salary (total) + quality pay + other incentives. Non-Clinical is not added—it is part of base. Full TCC also includes wRVU incentive and quality pay from the Scenario step."
                 value={
                   (baseSalary ?? 0) + (qualityPayments ?? 0) + (otherIncentives ?? 0) > 0
                     ? fmtMoney((baseSalary ?? 0) + (qualityPayments ?? 0) + (otherIncentives ?? 0))

@@ -1525,7 +1525,7 @@ export function ImputedVsMarketScreen({
           </SheetHeader>
           <div className="flex flex-col flex-1 min-h-0 -mx-6 px-6 min-w-0">
             <p className="text-sm text-muted-foreground mb-3">
-              TCC here = Clinical base + Quality payments (if enabled) + Work RVU incentive (if
+              TCC here = Clinical base + Quality pay (if enabled) + Work RVU incentive (if
               enabled). Same logic as the main table. Click a provider to open the calculation breakdown.
             </p>
             <div className="flex flex-col flex-1 min-h-0 min-w-0">

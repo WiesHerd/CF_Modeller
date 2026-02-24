@@ -65,6 +65,7 @@ const defaultScenarioInputs: ScenarioInputs = {
   psqBasis: 'base_salary',
   thresholdMethod: 'derived',
   annualThreshold: 0,
+  thresholdProration: 'none',
   wrvuPercentile: 50,
 }
 

@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import type { ProductivityTargetRunResult } from '@/types/productivity-target'
+import type { ProductivityTargetRunResult, IncentiveDistributionMethod } from '@/types/productivity-target'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import { ProductivityTargetReviewWorkspace } from '@/features/productivity-target/productivity-target-review-workspace'
@@ -33,6 +33,9 @@ function GapValue({ gap }: { gap: number }) {
 export function ProductivityTargetRunStage({
   hasData,
   result,
+  viewResult,
+  incentiveDistributionMethod,
+  onIncentiveDistributionMethodChange,
   runDisabled,
   onRun,
   onStartOver,
@@ -43,6 +46,9 @@ export function ProductivityTargetRunStage({
 }: {
   hasData: boolean
   result: ProductivityTargetRunResult | null
+  viewResult: ProductivityTargetRunResult | null
+  incentiveDistributionMethod: IncentiveDistributionMethod
+  onIncentiveDistributionMethodChange: (method: IncentiveDistributionMethod) => void
   runDisabled: boolean
   onRun: () => void
   onStartOver: () => void
@@ -83,7 +89,7 @@ export function ProductivityTargetRunStage({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           {!result && hasData ? (
             <div className="flex flex-wrap items-center gap-2">
               <Button onClick={onRun} disabled={runDisabled} className="gap-2">
@@ -95,64 +101,50 @@ export function ProductivityTargetRunStage({
 
           {result ? (
             <>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={onRun} disabled={runDisabled} className="gap-2">
-                  <Play className="size-4" />
-                  Run again
-                </Button>
-                <Button type="button" variant="outline" onClick={onStartOver} className="gap-2">
-                  <RotateCcw className="size-4" />
-                  Start over
-                </Button>
-                <Button type="button" variant="outline" size="sm" onClick={onExport} className="gap-2">
-                  <FileDown className="size-4" />
-                  Export CSV
-                </Button>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium tabular-nums">{result.bySpecialty.length}</span> specialties
-                {' · '}
-                <span className="font-medium tabular-nums">
-                  {result.bySpecialty.reduce((sum, s) => sum + s.providers.length, 0)}
-                </span>{' '}
-                providers
-              </p>
-
-              {rollup ? (
-                <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border/60 pb-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button onClick={onRun} disabled={runDisabled} className="gap-2" size="sm">
+                    <Play className="size-4" />
+                    Run again
+                  </Button>
+                  <Button type="button" variant="outline" onClick={onStartOver} className="gap-2" size="sm">
+                    <RotateCcw className="size-4" />
+                    Start over
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={onExport} className="gap-2">
+                    <FileDown className="size-4" />
+                    Export CSV
+                  </Button>
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  <span className="font-medium tabular-nums text-foreground">{result.bySpecialty.length}</span> specialties
+                  {' · '}
+                  <span className="font-medium tabular-nums text-foreground">
+                    {result.bySpecialty.reduce((sum, s) => sum + s.providers.length, 0)}
+                  </span>{' '}
+                  providers
+                </span>
+                {rollup ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
-                        <span>
-                          Mean TCC %ile:{' '}
-                          <span className="font-medium tabular-nums text-foreground">
-                            {formatNum(rollup.meanTCCPercentile, 1)}
-                          </span>
-                        </span>
-                        <span>
-                          Mean wRVU %ile:{' '}
-                          <span className="font-medium tabular-nums text-foreground">
-                            {formatNum(rollup.meanWRVUPercentile, 1)}
-                          </span>
-                        </span>
-                        <span>
-                          Gap:{' '}
-                          <GapValue gap={rollup.meanTCCPercentile - rollup.meanWRVUPercentile} />
-                        </span>
-                      </p>
+                      <span className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
+                        <span>Mean TCC %ile: <span className="font-medium tabular-nums text-foreground">{formatNum(rollup.meanTCCPercentile, 1)}</span></span>
+                        <span>Mean wRVU %ile: <span className="font-medium tabular-nums text-foreground">{formatNum(rollup.meanWRVUPercentile, 1)}</span></span>
+                        <span>Gap: <GapValue gap={rollup.meanTCCPercentile - rollup.meanWRVUPercentile} /></span>
+                      </span>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-[320px] text-xs">
-                      Alignment: TCC and wRVU percentiles vs market for included providers. Gap = TCC %ile − wRVU %ile;
-                      gap near 0 suggests pay aligned with productivity. Only providers with market data are included.
+                      Alignment: TCC and wRVU percentiles vs market. Gap = TCC %ile − wRVU %ile; near 0 suggests pay aligned with productivity.
                     </TooltipContent>
                   </Tooltip>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
 
               <ProductivityTargetReviewWorkspace
-                result={result}
+                result={viewResult ?? result}
                 percentilesBySpecialty={rollup?.bySpecialty}
+                incentiveDistributionMethod={incentiveDistributionMethod}
+                onIncentiveDistributionMethodChange={onIncentiveDistributionMethodChange}
               />
             </>
           ) : null}

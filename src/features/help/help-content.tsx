@@ -10,7 +10,6 @@ import {
   BarChart2,
   Target,
   LayoutGrid,
-  Sliders,
   Layers,
   GitCompare,
   ChevronRight,
@@ -178,8 +177,8 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
               </p>
               <p className="text-muted-foreground text-[15px] leading-relaxed">
                 <strong className="text-foreground">Total Cash Compensation (TCC)</strong> is built
-                from: base pay (base salary + non-clinical) + wRVU incentive (if positive) + PSQ +
-                quality payments + other incentives. Non-clinical pay can come from{' '}
+                from: base pay (base salary + non-clinical) + wRVU incentive (if positive) + quality pay +
+                other incentives. Non-clinical pay can come from{' '}
                 <strong className="text-foreground">Admin pay</strong> +{' '}
                 <strong className="text-foreground">Teaching pay</strong> +{' '}
                 <strong className="text-foreground">Research pay</strong> when you map those columns,
@@ -253,7 +252,7 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
                 </li>
                 <li>
                   <strong className="text-foreground">Scenario:</strong> Set conversion factor, wRVU
-                  target, PSQ, and other levers
+                  target, quality pay, and other levers
                 </li>
                 <li>
                   <strong className="text-foreground">Market data:</strong> View TCC, wRVU, and CF
@@ -309,23 +308,13 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
               },
               {
                 icon: <LayoutGrid className="size-5" />,
-                title: 'Create and Run Scenario',
+                title: 'Scenario Studio',
                 description:
-                  'Apply one set of inputs (CF, wRVU target, PSQ) to all providers and run. Use scope and guardrails to filter who’s included.',
+                  'Design and run scenarios across your cohort — base inputs plus optional overrides by specialty or provider.',
                 when: 'Broad “what-if” across the whole cohort with a single scenario.',
                 step: 'batch-scenario' as AppStep,
-                batchCard: 'bulk-scenario' as BatchCardId,
-                goToLabel: 'Create and Run Scenario',
-              },
-              {
-                icon: <Sliders className="size-5" />,
-                title: 'Detailed scenarios',
-                description:
-                  'Overrides by specialty and by provider, then run. More control than the bulk scenario when you need different assumptions for different groups or individuals.',
-                when: 'Targeted what-ifs; different CF or targets by specialty or provider.',
-                step: 'batch-scenario' as AppStep,
-                batchCard: 'detailed-scenario' as BatchCardId,
-                goToLabel: 'Detailed scenarios',
+                batchCard: 'run-scenario' as BatchCardId,
+                goToLabel: 'Scenario Studio',
               },
             ].map((item) => (
               <Card
@@ -343,6 +332,23 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
                       <p className="text-muted-foreground text-xs mt-2">
                         <strong className="text-foreground">When:</strong> {item.when}
                       </p>
+                      {item.title === 'Scenario Studio' && (
+                        <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 p-4 space-y-2">
+                          <p className="text-sm font-medium text-foreground">
+                            What does Scenario Studio do?
+                          </p>
+                          <p className="text-muted-foreground text-[15px] leading-relaxed">
+                            You work through three steps: (1) <strong className="text-foreground">Base scenario</strong> — set
+                            CF, quality pay, and threshold inputs that apply to everyone in the run. (2) <strong className="text-foreground">Overrides</strong> — optionally
+                            add different inputs by specialty or by provider; if you add overrides, only those
+                            providers are included in the run. (3) <strong className="text-foreground">Run</strong> — run the
+                            scenario and view results. So you can run for <strong className="text-foreground">everyone</strong> in your
+                            upload (no overrides) or run for <strong className="text-foreground">specific</strong> specialties or
+                            providers (add overrides in step 2). There is no separate toggle — scope is determined
+                            by whether you add overrides and who they target.
+                          </p>
+                        </div>
+                      )}
                       <GoToButton
                         label={item.goToLabel}
                         step={item.step}
@@ -373,7 +379,7 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
                 switch between saved runs.
               </p>
               <p className="text-muted-foreground text-[15px] leading-relaxed">
-                <strong className="text-foreground">When to use:</strong> After running Create and Run
+                <strong className="text-foreground">When to use:</strong> After running Scenario Studio
                 Scenario or Detailed scenarios; when you need to review, export, or compare batch run
                 outputs.
               </p>

@@ -8,7 +8,6 @@ import {
   FileSpreadsheet,
   FileText,
   FolderOpen,
-  Lock,
   Printer,
   Save,
   Search,
@@ -690,7 +689,6 @@ export function CustomCfBySpecialtyReport({
         selectedProviderIds: scopedProviderRows
           .map((p) => String(p.providerId ?? p.providerName ?? '').trim())
           .filter(Boolean),
-        runBaseScenarioOnly: true,
       })
     },
     [onSaveScenarioConfig, baseScenarioInputs, overrides, specialtyScope, scopedProviderRows]
@@ -729,10 +727,6 @@ export function CustomCfBySpecialtyReport({
       <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
         Custom CF by specialty
       </SectionTitleWithIcon>
-      <p className="flex items-center gap-1.5 text-xs text-muted-foreground -mt-4">
-        <Lock className="size-3.5 shrink-0" aria-hidden />
-        Confidential — compensation planning
-      </p>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -879,7 +873,7 @@ export function CustomCfBySpecialtyReport({
         <CardContent className="space-y-4 pt-0">
           <div className="space-y-3">
             <div className="flex flex-wrap items-end gap-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5 flex-1 min-w-0">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 flex-1 min-w-0">
               <div className="space-y-1.5 min-w-0">
                 <Label className="text-xs text-muted-foreground">Specialty</Label>
                 <DropdownMenu onOpenChange={(open) => !open && setSpecialtyScopeSearch('')}>
@@ -1072,20 +1066,20 @@ export function CustomCfBySpecialtyReport({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5 min-w-0">
-                <Label className="text-xs text-muted-foreground">Use for all specialties</Label>
-                <Input
-                  type="number"
-                  min={mode === 'dollar' ? 0 : 0}
-                  max={mode === 'percentile' ? 100 : undefined}
-                  step={mode === 'dollar' ? 0.01 : 1}
-                  placeholder={mode === 'percentile' ? 'Percentile (default: 40th)' : 'e.g. 44.00 (default: $0)'}
-                  value={defaultForAll}
-                  onChange={(e) => setDefaultForAll(e.target.value)}
-                  className="h-9 w-full"
-                  aria-label="Value applied to all specialties when set"
-                />
-              </div>
+            </div>
+            <div className="space-y-1.5 min-w-0 ml-auto shrink-0">
+              <Label className="text-xs text-muted-foreground">Use for all specialties</Label>
+              <Input
+                type="number"
+                min={mode === 'dollar' ? 0 : 0}
+                max={mode === 'percentile' ? 100 : undefined}
+                step={mode === 'dollar' ? 0.01 : 1}
+                placeholder={mode === 'percentile' ? 'Percentile (default: 40th)' : 'e.g. 44.00 (default: $0)'}
+                value={defaultForAll}
+                onChange={(e) => setDefaultForAll(e.target.value)}
+                className="h-9 w-full min-w-[200px]"
+                aria-label="Value applied to all specialties when set"
+              />
             </div>
             {(specialtyScope.length > 0 || providerTypeScope.length > 0 || compTypeScope.length > 0) && (
               <TooltipProvider delayDuration={300}>

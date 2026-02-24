@@ -1,6 +1,5 @@
-import { ArrowLeft, DollarSign, ArrowRightLeft } from 'lucide-react'
+import { ArrowLeft, DollarSign, ArrowRightLeft, TrendingUp, Gauge, Gift } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ImpactHeadline } from '@/components/impact-headline'
 import { ImpactComparisonTable } from '@/components/impact-comparison-table'
 import { PercentilePositionChart } from '@/components/charts/percentile-position-chart'
 import { TCCWaterfallChart } from '@/components/charts/tcc-waterfall-chart'
@@ -49,6 +48,8 @@ interface ImpactReportPageProps {
   scenarioInputs: ScenarioInputs
   providerLabel?: string
   onBackToModeller?: () => void
+  /** When set, rendered on the same line as provider name (e.g. Back + Export). */
+  headerActions?: React.ReactNode
 }
 
 export function ImpactReportPage({
@@ -57,6 +58,7 @@ export function ImpactReportPage({
   scenarioInputs,
   providerLabel,
   onBackToModeller,
+  headerActions,
 }: ImpactReportPageProps) {
   const segments = buildWaterfallSegments(results, provider, scenarioInputs)
   const summary = buildImpactSummary(results, provider, scenarioInputs)
@@ -68,67 +70,96 @@ export function ImpactReportPage({
   const reportSpecialty = provider?.specialty ?? normalizedSpecialtyFromLabel
 
   return (
-    <div className="impact-report w-full max-w-full space-y-5 pb-6">
-      <header className="space-y-4">
-        {/* Top row: report title + provider/specialty on left; impact delta + % on right */}
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 space-y-0.5">
-            <p className="text-muted-foreground text-sm font-semibold uppercase tracking-[0.16em]">
-              Compensation Impact Report
+    <div className="impact-report w-full max-w-full space-y-6 pb-6">
+      <header className="space-y-6">
+        {/* Provider and specialty on left; optional Back/Export on right */}
+        {(reportProviderName || reportSpecialty || headerActions) && (
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <p className="text-base font-medium tracking-tight text-foreground sm:text-lg min-w-0">
+              {reportProviderName ? (
+                <span className="text-primary font-semibold">{reportProviderName}</span>
+              ) : null}
+              {reportProviderName && reportSpecialty ? (
+                <span className="text-muted-foreground px-2 font-normal">·</span>
+              ) : null}
+              {reportSpecialty ? (
+                <span className="text-muted-foreground">{reportSpecialty}</span>
+              ) : null}
             </p>
-            {(reportProviderName || reportSpecialty) && (
-              <p className="text-base font-semibold tracking-tight sm:text-lg">
-                {reportProviderName ? (
-                  <span className="text-primary font-medium">{reportProviderName}</span>
-                ) : null}
-                {reportProviderName && reportSpecialty ? (
-                  <span className="text-muted-foreground px-2 font-normal">·</span>
-                ) : null}
-                {reportSpecialty ? (
-                  <span className="text-muted-foreground text-sm font-medium sm:text-base">
-                    {reportSpecialty}
-                  </span>
-                ) : null}
-              </p>
-            )}
+            {headerActions && <div className="flex flex-wrap items-center gap-2 shrink-0 no-print">{headerActions}</div>}
           </div>
-          <div className="shrink-0 text-right">
-            <ImpactHeadline results={results} summary={summary} minimal />
-          </div>
-        </div>
-        {/* KPI cards: full width, 3 cards (delta + % are in header right) */}
-        <div className="grid grid-cols-1 gap-3 border-border/40 border-t pt-4 sm:grid-cols-3">
-          <div className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-border bg-card px-3 py-3 shadow-sm">
+        )}
+        {/* KPI cards: full-width grid, cards fill space with consistent proportions */}
+        <div className="grid grid-cols-1 gap-4 border-border/40 border-t pt-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-                <DollarSign className="size-4" />
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <DollarSign className="size-5" />
               </span>
-              <p className="text-xs font-medium uppercase tracking-wider">Current TCC</p>
+              <p className="text-base font-medium tracking-tight">Current TCC</p>
             </div>
-            <p className="tabular-nums text-center text-base font-semibold tracking-tight text-foreground">
+            <p className="tabular-nums text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               {formatCurrency(results.currentTCC, { decimals: 0 })}
             </p>
           </div>
-          <div className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-border bg-card px-3 py-3 shadow-sm">
+          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-                <DollarSign className="size-4" />
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <DollarSign className="size-5" />
               </span>
-              <p className="text-xs font-medium uppercase tracking-wider">Modeled TCC</p>
+              <p className="text-base font-medium tracking-tight">Modeled TCC</p>
             </div>
-            <p className="tabular-nums text-center text-base font-semibold tracking-tight text-foreground">
+            <p className="tabular-nums text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               {formatCurrency(results.modeledTCC, { decimals: 0 })}
             </p>
           </div>
-          <div className="flex min-w-0 flex-col items-center gap-2 rounded-xl border border-border bg-card px-3 py-3 shadow-sm">
+          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
             <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-                <ArrowRightLeft className="size-4" />
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <ArrowRightLeft className="size-5" />
               </span>
-              <p className="text-xs font-medium uppercase tracking-wider">TCC %ile</p>
+              <p className="text-base font-medium tracking-tight">TCC %ile</p>
             </div>
-            <p className="tabular-nums text-center text-base font-semibold tracking-tight text-foreground">
+            <p className="tabular-nums text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               {formatOrdinal(results.tccPercentile)} → {formatOrdinal(results.modeledTCCPercentile)}
+            </p>
+          </div>
+          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <TrendingUp className="size-5" />
+              </span>
+              <p className="text-base font-medium tracking-tight">Change in TCC</p>
+            </div>
+            <p
+              className={cn(
+                'tabular-nums text-center text-xl font-semibold tracking-tight sm:text-2xl',
+                results.changeInTCC >= 0 ? 'value-positive' : 'value-negative'
+              )}
+            >
+              {results.changeInTCC >= 0 ? '+' : ''}{formatCurrency(results.changeInTCC, { decimals: 0 })}
+            </p>
+          </div>
+          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <Gauge className="size-5" />
+              </span>
+              <p className="text-base font-medium tracking-tight">CF ($/wRVU)</p>
+            </div>
+            <p className="tabular-nums text-center text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+              {formatCurrency(results.currentCF, { decimals: 2 })} → {formatCurrency(results.modeledCF, { decimals: 2 })}
+            </p>
+          </div>
+          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
+                <Gift className="size-5" />
+              </span>
+              <p className="text-base font-medium tracking-tight">Modeled incentive</p>
+            </div>
+            <p className="tabular-nums text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+              {formatCurrency(results.annualIncentive, { decimals: 0 })}
             </p>
           </div>
         </div>

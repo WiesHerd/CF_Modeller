@@ -109,9 +109,15 @@ export function computeScenario(
   if (scenario.thresholdMethod === 'derived') {
     annualThreshold = derivedThreshold
   } else if (scenario.thresholdMethod === 'annual') {
-    const manual = num(scenario.annualThreshold) ?? num(provider.currentThreshold)
+    let manual = num(scenario.annualThreshold) ?? num(provider.currentThreshold)
     // If no valid manual threshold, use derived (clinical base ÷ CF) so incentive is only above break-even
     annualThreshold = manual > 0 ? manual : derivedThreshold
+    // Prorate by cFTE or total FTE when option is set (treat entered value as threshold at 1.0 FTE)
+    const proration = scenario.thresholdProration ?? 'none'
+    if (annualThreshold > 0 && proration === 'cFTE')
+      annualThreshold = annualThreshold * clinicalFTE
+    else if (annualThreshold > 0 && proration === 'totalFTE')
+      annualThreshold = annualThreshold * totalFTE
   } else {
     const wrvuPct = scenario.wrvuPercentile ?? 50
     const thresholdPerFTE = interpPercentile(
@@ -147,19 +153,20 @@ export function computeScenario(
     (num(provider.otherIncentive2) || 0) +
     (num(provider.otherIncentive3) || 0)
 
-  // PSQ dollars: current uses currentPsqPercent, modeled uses psqPercent. Same basis for both.
+  // PSQ dollars: current uses currentPsqPercent, modeled uses psqPercent (or scenario.psqDollars override). Same basis for both.
   let psqDollars: number
+  const explicitPsqDollars = scenario.psqDollars != null && Number.isFinite(scenario.psqDollars) ? scenario.psqDollars : null
   let currentPsqDollars: number
   if (psqBasis === 'total_pay') {
     const otherComp = modeledBase + annualIncentiveForTCC
-    psqDollars = psqPercent > 0 && psqPercent < 100 ? (otherComp * (psqPercent / 100)) / (1 - psqPercent / 100) : 0
+    psqDollars = explicitPsqDollars ?? (psqPercent > 0 && psqPercent < 100 ? (otherComp * (psqPercent / 100)) / (1 - psqPercent / 100) : 0)
     const currentOther = totalBasePay + currentIncentiveForTCC
     currentPsqDollars = currentPsqPercent > 0 && currentPsqPercent < 100 ? (currentOther * (currentPsqPercent / 100)) / (1 - currentPsqPercent / 100) : 0
   } else {
     const psqBase = totalBasePay
     currentPsqDollars = psqBase * (currentPsqPercent / 100)
     const modeledPsqBase = modeledBase
-    psqDollars = modeledPsqBase * (psqPercent / 100)
+    psqDollars = explicitPsqDollars ?? (modeledPsqBase * (psqPercent / 100))
   }
 
   // When the file supplies Current TCC, use it as the total. Otherwise compute from components.
@@ -173,11 +180,19 @@ export function computeScenario(
   const changeInTCC = modeledTCC - currentTCC
 
   const wrvuNorm = safeDiv(totalWRVUs, clinicalFTE, totalWRVUs)
+  const modeledWrvuNorm = safeDiv(modeledTotalWRVUs, clinicalFTE, modeledTotalWRVUs)
   const tccNorm = safeDiv(currentTCC, totalFTE, currentTCC)
   const modeledTccNorm = safeDiv(modeledTCC, totalFTE, modeledTCC)
 
   const wrvuPctResult = inferPercentile(
     wrvuNorm,
+    market.WRVU_25,
+    market.WRVU_50,
+    market.WRVU_75,
+    market.WRVU_90
+  )
+  const wrvuModeledPctResult = inferPercentile(
+    modeledWrvuNorm,
     market.WRVU_25,
     market.WRVU_50,
     market.WRVU_75,
@@ -299,6 +314,9 @@ export function computeScenario(
     wrvuPercentile: wrvuPctResult.percentile,
     wrvuPercentileBelowRange: wrvuPctResult.belowRange,
     wrvuPercentileAboveRange: wrvuPctResult.aboveRange,
+    wrvuPercentileModeled: wrvuModeledPctResult.percentile,
+    wrvuPercentileModeledBelowRange: wrvuModeledPctResult.belowRange,
+    wrvuPercentileModeledAboveRange: wrvuModeledPctResult.aboveRange,
     tccPercentile: tccPctResult.percentile,
     tccPercentileBelowRange: tccPctResult.belowRange,
     tccPercentileAboveRange: tccPctResult.aboveRange,

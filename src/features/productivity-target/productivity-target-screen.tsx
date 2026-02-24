@@ -26,9 +26,11 @@ import type {
   ProductivityTargetSettings,
   ProductivityTargetRunResult,
   SavedProductivityTargetConfig,
+  IncentiveDistributionMethod,
 } from '@/types/productivity-target'
 import { DEFAULT_PRODUCTIVITY_TARGET_SETTINGS } from '@/types/productivity-target'
 import { runBySpecialty } from '@/lib/productivity-target-engine'
+import { applyIncentiveDistribution } from '@/lib/productivity-target-distribution'
 import { downloadProductivityTargetCSV } from '@/lib/productivity-target-export'
 import { ProductivityTargetConfigureStage } from '@/features/productivity-target/stages/productivity-target-configure-stage'
 import { ProductivityTargetRunStage } from '@/features/productivity-target/stages/productivity-target-run-stage'
@@ -71,6 +73,7 @@ function snapshotEquals(
       sA.targetApproach !== sB.targetApproach || sA.manualTargetWRVU !== sB.manualTargetWRVU ||
       sA.alignmentTolerance !== sB.alignmentTolerance) return false
   if (a.lastRunResult !== b.lastRunResult) return false
+  if ((a.incentiveDistributionMethod ?? 'individual') !== (b.incentiveDistributionMethod ?? 'individual')) return false
   return true
 }
 
@@ -92,6 +95,7 @@ function getInitialState(config: ProductivityTargetConfigSnapshot | null) {
       selectedProviderIds: [] as string[],
       excludedProviderIds: [] as string[],
       configStep: 1,
+      incentiveDistributionMethod: 'individual' as IncentiveDistributionMethod,
     }
   }
   return {
@@ -109,6 +113,7 @@ function getInitialState(config: ProductivityTargetConfigSnapshot | null) {
     selectedProviderIds: [...(config.selectedProviderIds ?? [])],
     excludedProviderIds: [...(config.excludedProviderIds ?? [])],
     configStep: Math.min(3, Math.max(1, config.configStep ?? 1)),
+    incentiveDistributionMethod: (config.incentiveDistributionMethod ?? 'individual') as IncentiveDistributionMethod,
   }
 }
 
@@ -142,6 +147,9 @@ export function ProductivityTargetScreen({
   const [selectedProviderIds, setSelectedProviderIds] = useState<string[]>(initial.selectedProviderIds)
   const [excludedProviderIds, setExcludedProviderIds] = useState<string[]>(initial.excludedProviderIds)
   const [configStep, setConfigStep] = useState(initial.configStep)
+  const [incentiveDistributionMethod, setIncentiveDistributionMethod] = useState<IncentiveDistributionMethod>(
+    initial.incentiveDistributionMethod ?? 'individual'
+  )
   const [targetStep, setTargetStep] = useState<'configure' | 'run'>(initial.result ? 'run' : 'configure')
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [saveScenarioName, setSaveScenarioName] = useState('')
@@ -175,6 +183,7 @@ export function ProductivityTargetScreen({
     setSelectedProviderIds(next.selectedProviderIds)
     setExcludedProviderIds(next.excludedProviderIds)
     setConfigStep(next.configStep)
+    setIncentiveDistributionMethod(next.incentiveDistributionMethod ?? 'individual')
     setTargetStep(next.result ? 'run' : 'configure')
     skipNextPushRef.current = true
   }, [productivityTargetConfig])
@@ -195,6 +204,7 @@ export function ProductivityTargetScreen({
       selectedProviderIds: [...selectedProviderIds],
       excludedProviderIds: [...excludedProviderIds],
       lastRunResult: result ?? undefined,
+      incentiveDistributionMethod: incentiveDistributionMethod ?? 'individual',
     }),
     [
       settings,
@@ -211,6 +221,7 @@ export function ProductivityTargetScreen({
       selectedProviderIds,
       excludedProviderIds,
       result,
+      incentiveDistributionMethod,
     ]
   )
 
@@ -413,9 +424,14 @@ export function ProductivityTargetScreen({
     setConfigStep(1)
   }, [])
 
+  const viewResult = useMemo(() => {
+    if (!result) return null
+    return applyIncentiveDistribution(result, incentiveDistributionMethod ?? 'individual')
+  }, [result, incentiveDistributionMethod])
+
   const handleExport = useCallback(() => {
-    if (result) downloadProductivityTargetCSV(result)
-  }, [result])
+    if (viewResult) downloadProductivityTargetCSV(viewResult)
+  }, [viewResult])
 
   const handleClearConfig = useCallback(() => {
     setSettings(DEFAULT_PRODUCTIVITY_TARGET_SETTINGS)
@@ -668,11 +684,16 @@ export function ProductivityTargetScreen({
           onSetSettings={setSettings}
           configStep={configStep}
           onSetConfigStep={setConfigStep}
+          incentiveDistributionMethod={incentiveDistributionMethod ?? 'individual'}
+          onIncentiveDistributionMethodChange={setIncentiveDistributionMethod}
         />
       ) : (
         <ProductivityTargetRunStage
           hasData={hasData}
           result={result}
+          viewResult={viewResult}
+          incentiveDistributionMethod={incentiveDistributionMethod ?? 'individual'}
+          onIncentiveDistributionMethodChange={setIncentiveDistributionMethod}
           runDisabled={runDisabled}
           onRun={handleRun}
           onStartOver={handleStartOver}

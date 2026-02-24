@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useMemo, useEffect } from 'react'
+import { useRef, useState, useCallback, useMemo, useEffect, Fragment } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -29,18 +29,137 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Play, Loader2, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, Link2, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Play, Loader2, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info, RotateCcw } from 'lucide-react'
 import { formatDate } from '@/utils/format'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { BatchScenarioInline } from '@/components/batch/batch-scenario-inline'
-import { ScenarioControls } from '@/components/scenario-controls'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { ProviderRow } from '@/types/provider'
 import type { ScenarioInputs, SavedScenario } from '@/types/scenario'
+import { DEFAULT_SCENARIO_INPUTS } from '@/types/scenario'
 import type { BatchOverrides, BatchResults, BatchScenarioSnapshot, SavedBatchRun, SavedBatchScenarioConfig, SynonymMap } from '@/types/batch'
 import type { BatchWorkerRunPayload, BatchWorkerOutMessage } from '@/workers/batch-worker'
+import type { ThresholdMethod } from '@/types/scenario'
+import { cn } from '@/lib/utils'
+
+/** CF override: by target percentile or fixed dollar. */
+type CFOverrideMode = 'percentile' | 'dollar'
+/** PSQ override: by percent of basis or fixed dollar. */
+type PSQOverrideMode = 'percent' | 'dollar'
+
+/** One row in By specialty overrides: optional advanced fields (empty = use base). */
+interface SpecialtyOverrideRow {
+  specialties: string[]
+  cfMode: CFOverrideMode
+  proposedCFPercentile: string
+  overrideCF: string
+  psqMode: PSQOverrideMode
+  psqPercent: string
+  psqDollars: string
+  psqBasis?: string
+  thresholdMethod?: string
+  annualThreshold?: string
+  wrvuPercentile?: string
+}
+/** One row in By provider overrides. */
+interface ProviderOverrideRow {
+  providerIds: string[]
+  cfMode: CFOverrideMode
+  proposedCFPercentile: string
+  overrideCF: string
+  psqMode: PSQOverrideMode
+  psqPercent: string
+  psqDollars: string
+  psqBasis?: string
+  thresholdMethod?: string
+  annualThreshold?: string
+  wrvuPercentile?: string
+}
+
+const DEFAULT_SPECIALTY_OVERRIDE_ROW: SpecialtyOverrideRow = {
+  specialties: [],
+  cfMode: 'percentile',
+  proposedCFPercentile: '',
+  overrideCF: '',
+  psqMode: 'percent',
+  psqPercent: '',
+  psqDollars: '',
+  psqBasis: '',
+  thresholdMethod: '',
+  annualThreshold: '',
+  wrvuPercentile: '',
+}
+const DEFAULT_PROVIDER_OVERRIDE_ROW: ProviderOverrideRow = {
+  providerIds: [],
+  cfMode: 'percentile',
+  proposedCFPercentile: '',
+  overrideCF: '',
+  psqMode: 'percent',
+  psqPercent: '',
+  psqDollars: '',
+  psqBasis: '',
+  thresholdMethod: '',
+  annualThreshold: '',
+  wrvuPercentile: '',
+}
+
+/** Step labels for bulk (Scenario Studio bulk flow). */
+const CONFIG_STEPS_BULK = [
+  { id: 1 as const, label: 'Target scope' },
+  { id: 2 as const, label: 'Scope & guardrails' },
+  { id: 3 as const, label: 'Run' },
+] as const
+
+/** Step labels for full (Scenario Studio full flow). */
+const CONFIG_STEPS_FULL = [
+  { id: 1 as const, label: 'Base scenario' },
+  { id: 2 as const, label: 'Overrides' },
+  { id: 3 as const, label: 'Run' },
+] as const
+
+function SectionHeaderWithTooltip({
+  title,
+  tooltip,
+  variant = 'subsection',
+  className,
+}: {
+  title: string
+  tooltip: string
+  variant?: 'section' | 'subsection'
+  className?: string
+}) {
+  return (
+    <div className={cn('flex items-center gap-2', className)}>
+      <h3 className={cn(
+        'font-medium',
+        variant === 'section' ? 'text-base' : 'text-sm'
+      )}>{title}</h3>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="More information"
+          >
+            <Info className="size-4" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[320px] text-xs">
+          {tooltip}
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  )
+}
 
 interface BatchScenarioStepProps {
   providerRows: ProviderRow[]
@@ -107,6 +226,7 @@ export function BatchScenarioStep({
   /* eslint-enable @typescript-eslint/no-unused-vars */
   void savedScenarios
   void onClearSavedScenarios
+  void onNavigateToUpload
   void lastResults
   void lastScenarioSnapshot
   void savedBatchRuns
@@ -115,6 +235,7 @@ export function BatchScenarioStep({
   void onDeleteRun
   const isBulk = mode === 'bulk'
   const isDetailed = mode === 'detailed'
+  const isFull = mode === 'full'
   const isCardView = isBulk || isDetailed
   const [isRunning, setIsRunning] = useState(false)
   const [saveScenarioDialogOpen, setSaveScenarioDialogOpen] = useState(false)
@@ -124,8 +245,6 @@ export function BatchScenarioStep({
       setSaveScenarioName(appliedBatchScenarioConfig.name)
     if (!saveScenarioDialogOpen) setSaveScenarioName('')
   }, [saveScenarioDialogOpen, appliedBatchScenarioConfig?.name])
-  /** When true, run only the base scenario (controls at top). When false, run base + all from scenario library. */
-  const [runBaseScenarioOnly, setRunBaseScenarioOnly] = useState(true)
   const [progress, setProgress] = useState({ processed: 0, total: 1, elapsedMs: 0 })
   const [error, setError] = useState<string | null>(null)
   const workerRef = useRef<Worker | null>(null)
@@ -140,13 +259,13 @@ export function BatchScenarioStep({
   const specialtyOverrideSearchRef = useRef<HTMLInputElement>(null)
   const providerOverrideSearchRef = useRef<HTMLInputElement>(null)
   /** Override rows: each row can apply to multiple specialties. */
-  const [specialtyOverrides, setSpecialtyOverrides] = useState<
-    { specialties: string[]; proposedCFPercentile: string; overrideCF: string; psqPercent: string }[]
-  >([])
+  const [specialtyOverrides, setSpecialtyOverrides] = useState<SpecialtyOverrideRow[]>([])
   /** Override rows: each row can apply to multiple providers. */
-  const [providerOverrides, setProviderOverrides] = useState<
-    { providerIds: string[]; proposedCFPercentile: string; overrideCF: string; psqPercent: string }[]
-  >([])
+  const [providerOverrides, setProviderOverrides] = useState<ProviderOverrideRow[]>([])
+  /** Which specialty override row has Advanced expanded (null = none). */
+  const [expandedSpecialtyRow, setExpandedSpecialtyRow] = useState<number | null>(null)
+  /** Which provider override row has Advanced expanded (null = none). */
+  const [expandedProviderRow, setExpandedProviderRow] = useState<number | null>(null)
 
   useEffect(() => {
     if (!appliedBatchScenarioConfig || !onBatchScenarioConfigApplied) return
@@ -157,20 +276,33 @@ export function BatchScenarioStep({
     setSpecialtyOverrides(
       Object.entries(bySpec).map(([spec, inputs]) => ({
         specialties: [spec],
+        cfMode: inputs.overrideCF != null && String(inputs.overrideCF).trim() !== '' ? 'dollar' : 'percentile',
         proposedCFPercentile: inputs.proposedCFPercentile != null ? String(inputs.proposedCFPercentile) : '',
         overrideCF: inputs.overrideCF != null ? String(inputs.overrideCF) : '',
+        psqMode: inputs.psqDollars != null && String(inputs.psqDollars).trim() !== '' ? 'dollar' : 'percent',
         psqPercent: inputs.psqPercent != null ? String(inputs.psqPercent) : '',
+        psqDollars: inputs.psqDollars != null ? String(inputs.psqDollars) : '',
+        psqBasis: inputs.psqBasis ?? '',
+        thresholdMethod: inputs.thresholdMethod ?? '',
+        annualThreshold: inputs.annualThreshold != null ? String(inputs.annualThreshold) : '',
+        wrvuPercentile: inputs.wrvuPercentile != null ? String(inputs.wrvuPercentile) : '',
       }))
     )
     setProviderOverrides(
       Object.entries(byProv).map(([id, inputs]) => ({
         providerIds: [id],
+        cfMode: inputs.overrideCF != null && String(inputs.overrideCF).trim() !== '' ? 'dollar' : 'percentile',
         proposedCFPercentile: inputs.proposedCFPercentile != null ? String(inputs.proposedCFPercentile) : '',
         overrideCF: inputs.overrideCF != null ? String(inputs.overrideCF) : '',
+        psqMode: inputs.psqDollars != null && String(inputs.psqDollars).trim() !== '' ? 'dollar' : 'percent',
         psqPercent: inputs.psqPercent != null ? String(inputs.psqPercent) : '',
+        psqDollars: inputs.psqDollars != null ? String(inputs.psqDollars) : '',
+        psqBasis: inputs.psqBasis ?? '',
+        thresholdMethod: inputs.thresholdMethod ?? '',
+        annualThreshold: inputs.annualThreshold != null ? String(inputs.annualThreshold) : '',
+        wrvuPercentile: inputs.wrvuPercentile != null ? String(inputs.wrvuPercentile) : '',
       }))
     )
-    setRunBaseScenarioOnly(c.runBaseScenarioOnly ?? true)
     onBatchScenarioConfigApplied()
   }, [appliedBatchScenarioConfig, onBatchScenarioConfigApplied])
 
@@ -179,8 +311,10 @@ export function BatchScenarioStep({
     return Array.from(set).sort() as string[]
   }, [providerRows])
 
-  /** Bulk step-through: 1 = Base scenario, 2 = Scope & guardrails, 3 = Run */
+  /** Bulk step-through: 1 = Target scope, 2 = Scope & guardrails, 3 = Run */
   const [bulkStep, setBulkStep] = useState<1 | 2 | 3>(1)
+  /** Full mode step-through: 1 = Base scenario, 2 = Overrides, 3 = Run */
+  const [fullStep, setFullStep] = useState<1 | 2 | 3>(1)
   /** Bulk guardrails (same idea as CF Optimizer): exclude low FTE / low wRVU volume */
   const [minBasisFTE, setMinBasisFTE] = useState(0.5)
   const [minWRVUPer1p0CFTE, setMinWRVUPer1p0CFTE] = useState(1000)
@@ -253,38 +387,56 @@ export function BatchScenarioStep({
     })
   }, [providerOverridePool, providerOverrideSearch])
 
+  /** Build partial ScenarioInputs from an override row (CF, PSQ, and advanced fields). */
+  const rowToPartial = useCallback((row: SpecialtyOverrideRow | ProviderOverrideRow): Partial<ScenarioInputs> => {
+    const partial: Partial<ScenarioInputs> = {}
+    const pct = row.proposedCFPercentile.trim() === '' ? undefined : Number(row.proposedCFPercentile)
+    const cf = row.overrideCF.trim() === '' ? undefined : Number(row.overrideCF)
+    const psq = row.psqPercent.trim() === '' ? undefined : Number(row.psqPercent)
+    const psq$ = row.psqDollars?.trim() === '' ? undefined : Number(row.psqDollars)
+    if (row.cfMode === 'dollar' && cf !== undefined && !Number.isNaN(cf)) {
+      partial.overrideCF = cf
+      partial.cfSource = 'override'
+    } else if (pct !== undefined && !Number.isNaN(pct)) {
+      partial.proposedCFPercentile = pct
+      partial.cfSource = 'target_percentile'
+    }
+    const useBaseQualityPay = !row.psqBasis || row.psqBasis === '_base'
+    if (!useBaseQualityPay) {
+      if (row.psqMode === 'dollar' && psq$ !== undefined && !Number.isNaN(psq$)) partial.psqDollars = psq$
+      else if (psq !== undefined && !Number.isNaN(psq)) partial.psqPercent = psq
+    }
+    if (row.psqBasis === 'base_salary' || row.psqBasis === 'total_guaranteed' || row.psqBasis === 'total_pay') partial.psqBasis = row.psqBasis
+    if (row.thresholdMethod === 'derived' || row.thresholdMethod === 'annual' || row.thresholdMethod === 'wrvu_percentile') partial.thresholdMethod = row.thresholdMethod as ThresholdMethod
+    const ann = row.annualThreshold?.trim() === '' ? undefined : Number(row.annualThreshold)
+    if (ann !== undefined && !Number.isNaN(ann)) partial.annualThreshold = ann
+    const wrvu = row.wrvuPercentile?.trim() === '' ? undefined : Number(row.wrvuPercentile)
+    if (wrvu !== undefined && !Number.isNaN(wrvu)) partial.wrvuPercentile = wrvu
+    return partial
+  }, [])
+
   const batchOverrides = useMemo((): BatchOverrides | undefined => {
     const bySpecialty: Record<string, Partial<ScenarioInputs>> = {}
     for (const row of specialtyOverrides) {
-      const pct = row.proposedCFPercentile.trim() === '' ? undefined : Number(row.proposedCFPercentile)
-      const cf = row.overrideCF.trim() === '' ? undefined : Number(row.overrideCF)
-      const psq = row.psqPercent.trim() === '' ? undefined : Number(row.psqPercent)
-      if (pct === undefined && cf === undefined && psq === undefined) continue
+      const partial = rowToPartial(row)
+      if (Object.keys(partial).length === 0) continue
       for (const s of row.specialties) {
         if (!s.trim()) continue
-        bySpecialty[s] = {}
-        if (pct !== undefined && !Number.isNaN(pct)) bySpecialty[s].proposedCFPercentile = pct
-        if (cf !== undefined && !Number.isNaN(cf)) bySpecialty[s].overrideCF = cf
-        if (psq !== undefined && !Number.isNaN(psq)) bySpecialty[s].psqPercent = psq
+        bySpecialty[s] = { ...partial }
       }
     }
     const byProviderId: Record<string, Partial<ScenarioInputs>> = {}
     for (const row of providerOverrides) {
-      const pct = row.proposedCFPercentile.trim() === '' ? undefined : Number(row.proposedCFPercentile)
-      const cf = row.overrideCF.trim() === '' ? undefined : Number(row.overrideCF)
-      const psq = row.psqPercent.trim() === '' ? undefined : Number(row.psqPercent)
-      if (pct === undefined && cf === undefined && psq === undefined) continue
+      const partial = rowToPartial(row)
+      if (Object.keys(partial).length === 0) continue
       for (const id of row.providerIds) {
         if (!id.trim()) continue
-        byProviderId[id] = {}
-        if (pct !== undefined && !Number.isNaN(pct)) byProviderId[id].proposedCFPercentile = pct
-        if (cf !== undefined && !Number.isNaN(cf)) byProviderId[id].overrideCF = cf
-        if (psq !== undefined && !Number.isNaN(psq)) byProviderId[id].psqPercent = psq
+        byProviderId[id] = { ...partial }
       }
     }
     if (Object.keys(bySpecialty).length === 0 && Object.keys(byProviderId).length === 0) return undefined
     return { bySpecialty: Object.keys(bySpecialty).length ? bySpecialty : undefined, byProviderId: Object.keys(byProviderId).length ? byProviderId : undefined }
-  }, [specialtyOverrides, providerOverrides])
+  }, [specialtyOverrides, providerOverrides, rowToPartial])
 
   const runBatch = useCallback(() => {
     if (providerRows.length === 0 || marketRows.length === 0) {
@@ -360,803 +512,1879 @@ export function BatchScenarioStep({
   const pct = Math.min(100, Math.round((100 * progress.processed) / total))
   const overrideCount = specialtyOverrides.reduce((n, r) => n + r.specialties.length, 0) + providerOverrides.reduce((n, r) => n + r.providerIds.length, 0)
 
-  /** Base scenario uses Override CF ($); when false, only CF %ile is used in overrides. */
-  const baseUsesOverrideCF = scenarioInputs.cfSource === 'override'
+  const isWizardView = isBulk || isFull
+  const wizardSteps = isBulk ? CONFIG_STEPS_BULK : CONFIG_STEPS_FULL
+  const wizardStep = isBulk ? bulkStep : fullStep
+  const setWizardStep = isBulk ? setBulkStep : setFullStep
 
-  const synonymCount = Object.keys(batchSynonymMap).length
+  const wizardStepPillsNav = isWizardView && (
+    <TooltipProvider delayDuration={200}>
+      <nav
+        className="flex items-center justify-end gap-0.5 rounded-md p-0.5 bg-muted/50 w-fit ml-auto"
+        aria-label="Scenario Studio steps"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {wizardSteps.map((s) => {
+          const isActive = wizardStep === s.id
+          return (
+            <Tooltip key={s.id}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(s.id)}
+                  aria-current={isActive ? 'step' : undefined}
+                  aria-label={`${s.label}${isActive ? ' (current)' : ''}`}
+                  className={cn(
+                    'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium transition-colors',
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                >
+                  {s.id}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {s.label}
+              </TooltipContent>
+            </Tooltip>
+          )
+        })}
+      </nav>
+    </TooltipProvider>
+  )
 
   return (
     <div className="space-y-6">
       {isCardView && (
-        <>
-          <SectionTitleWithIcon
-            icon={isBulk ? <LayoutGrid /> : <Sliders />}
-          >
-            {isBulk ? 'Create and Run Scenario' : 'Detailed scenario'}
-          </SectionTitleWithIcon>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {onBack && (
-                <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2">
-                  <ArrowLeft className="size-4" />
-                  Back
-                </Button>
-              )}
-              {isBulk && bulkStep === 3 && (
-                <Button type="button" variant="outline" size="sm" onClick={() => setBulkStep(2)} className="gap-2">
-                  <ArrowLeft className="size-4" />
-                  Back to Scope & guardrails
-                </Button>
-              )}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div>
+              <SectionTitleWithIcon
+                icon={isBulk ? <LayoutGrid /> : <Sliders />}
+              >
+                {isBulk ? 'Scenario Studio' : 'Detailed scenario'}
+              </SectionTitleWithIcon>
+              <p className="text-muted-foreground text-sm mt-1">
+                {isBulk ? 'Design and run scenarios — base inputs plus optional overrides by specialty or provider.' : 'Run with overrides only; base comes from step 1.'}
+              </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <TooltipProvider delayDuration={300}>
-                {onSaveScenario && (
+            {onBack && (
+              <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2">
+                <ArrowLeft className="size-4" />
+                Back
+              </Button>
+            )}
+            {isWizardView && wizardStep === 3 && (
+              <Button type="button" variant="outline" size="sm" onClick={() => setWizardStep(2)} className="gap-2">
+                <ArrowLeft className="size-4" />
+                Change requirements
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <TooltipProvider delayDuration={300}>
+              {onSaveScenario && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSaveScenarioName('')
+                        setSaveScenarioDialogOpen(true)
+                      }}
+                      disabled={isRunning}
+                      aria-label="Save scenario"
+                    >
+                      <Save className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Save scenario</TooltipContent>
+                </Tooltip>
+              )}
+              {onLoadBatchScenarioConfig && onDeleteBatchScenarioConfig && (
+                <DropdownMenu>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSaveScenarioName('')
-                          setSaveScenarioDialogOpen(true)
-                        }}
-                        disabled={isRunning}
-                        aria-label="Save scenario"
-                      >
-                        <Save className="size-4" />
-                      </Button>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`Saved batch scenarios (${savedBatchScenarioConfigs.length})`}
+                        >
+                          <FolderOpen className="size-4" />
+                          <ChevronDown className="size-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom">Save scenario</TooltipContent>
+                    <TooltipContent side="bottom">
+                      Saved batch scenarios{savedBatchScenarioConfigs.length > 0 ? ` (${savedBatchScenarioConfigs.length})` : ''}
+                    </TooltipContent>
                   </Tooltip>
-                )}
-                {onLoadBatchScenarioConfig && onDeleteBatchScenarioConfig && (
-                  <DropdownMenu>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            aria-label={`Saved batch scenarios (${savedBatchScenarioConfigs.length})`}
-                          >
-                            <FolderOpen className="size-4" />
-                            <ChevronDown className="size-4 opacity-50" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        Saved batch scenarios{savedBatchScenarioConfigs.length > 0 ? ` (${savedBatchScenarioConfigs.length})` : ''}
-                      </TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent align="end" className="w-[320px]">
-                      {savedBatchScenarioConfigs.length === 0 ? (
-                        <DropdownMenuItem disabled className="text-muted-foreground">
-                          No saved batch scenarios yet. Use &quot;Save scenario&quot; to save base inputs, overrides, and run-for selection.
-                        </DropdownMenuItem>
-                      ) : (
-                        <ScrollArea className="max-h-[280px]">
-                          <div className="p-1">
-                            {[...savedBatchScenarioConfigs].reverse().map((config) => (
-                              <div
-                                key={config.id}
-                                className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
-                              >
-                                <div className="min-w-0 flex-1 text-sm">
-                                  <p className="font-medium truncate" title={config.name}>
-                                    {config.name}
-                                  </p>
-                                  <p className="text-muted-foreground text-xs">
-                                    {formatDate(config.createdAt)}
-                                  </p>
-                                </div>
-                                <div className="flex shrink-0 gap-0.5">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-8"
-                                    onClick={() => onLoadBatchScenarioConfig(config)}
-                                    title="Load this scenario"
-                                  >
-                                    <FolderOpen className="size-4" />
-                                    <span className="sr-only">Load</span>
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-8 text-destructive hover:text-destructive"
-                                    onClick={() => {
-                                      if (window.confirm(`Delete "${config.name}"?`)) {
-                                        onDeleteBatchScenarioConfig(config.id)
-                                      }
-                                    }}
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="size-4" />
-                                    <span className="sr-only">Delete</span>
-                                  </Button>
-                                </div>
+                  <DropdownMenuContent align="end" className="w-[320px]">
+                    {savedBatchScenarioConfigs.length === 0 ? (
+                      <DropdownMenuItem disabled className="text-muted-foreground">
+                        No saved batch scenarios yet. Use &quot;Save scenario&quot; to save base inputs and overrides.
+                      </DropdownMenuItem>
+                    ) : (
+                      <ScrollArea className="max-h-[280px]">
+                        <div className="p-1">
+                          {[...savedBatchScenarioConfigs].reverse().map((config) => (
+                            <div
+                              key={config.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
+                            >
+                              <div className="min-w-0 flex-1 text-sm">
+                                <p className="font-medium truncate" title={config.name}>
+                                  {config.name}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                  {formatDate(config.createdAt)}
+                                </p>
                               </div>
-                            ))}
-                          </div>
-                        </ScrollArea>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </TooltipProvider>
-            </div>
+                              <div className="flex shrink-0 gap-0.5">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-8"
+                                  onClick={() => onLoadBatchScenarioConfig(config)}
+                                  title="Load this scenario"
+                                >
+                                  <FolderOpen className="size-4" />
+                                  <span className="sr-only">Load</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-8 text-destructive hover:text-destructive"
+                                  onClick={() => {
+                                    if (window.confirm(`Delete "${config.name}"?`)) {
+                                      onDeleteBatchScenarioConfig(config.id)
+                                    }
+                                  }}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="size-4" />
+                                  <span className="sr-only">Delete</span>
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </TooltipProvider>
           </div>
-        </>
+        </div>
       )}
       {!isCardView && (
       <>
-        <SectionTitleWithIcon
-          icon={isBulk ? <LayoutGrid /> : <Sliders />}
-        >
-          {isBulk ? 'Create and Run Scenario' : 'Detailed scenario'}
-        </SectionTitleWithIcon>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 shrink-0">
-          <TooltipProvider delayDuration={300}>
-            {onSaveScenario && (
+        <div>
+          <SectionTitleWithIcon icon={<LayoutGrid className="size-5 text-muted-foreground" />}>
+            {isFull ? 'Scenario Studio' : isBulk ? 'Scenario Studio' : 'Detailed scenario'}
+          </SectionTitleWithIcon>
+          <p className="text-muted-foreground text-sm mt-1">
+            {isFull || isBulk ? 'Design and run scenarios — base inputs plus optional overrides by specialty or provider.' : 'Run with overrides only; base comes from step 1.'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {onBack && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onBack}
+                className="gap-2"
+              >
+                <ArrowLeft className="size-4" />
+                Back
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <TooltipProvider delayDuration={300}>
+              {onSaveScenario && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSaveScenarioName('')
+                        setSaveScenarioDialogOpen(true)
+                      }}
+                      disabled={isRunning}
+                      aria-label="Save scenario"
+                    >
+                      <Save className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Save scenario</TooltipContent>
+                </Tooltip>
+              )}
+              {onLoadBatchScenarioConfig && onDeleteBatchScenarioConfig && (
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          aria-label={`Saved scenarios (${savedBatchScenarioConfigs.length})`}
+                        >
+                          <FolderOpen className="size-4" />
+                          <ChevronDown className="size-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      Saved scenarios ({savedBatchScenarioConfigs.length})
+                    </TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="end" className="max-h-[280px] overflow-y-auto">
+                    {savedBatchScenarioConfigs.length === 0 ? (
+                      <DropdownMenuItem disabled className="text-muted-foreground">
+                        No saved scenarios yet. Use Save scenario to save base inputs and overrides.
+                      </DropdownMenuItem>
+                    ) : (
+                      [...savedBatchScenarioConfigs].reverse().map((config) => (
+                        <DropdownMenuItem
+                          key={config.id}
+                          onSelect={(e) => {
+                            e.preventDefault()
+                            onLoadBatchScenarioConfig(config)
+                          }}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="truncate">{config.name}</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              onDeleteBatchScenarioConfig(config.id)
+                            }}
+                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Delete ${config.name}`}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={() => {
-                      setSaveScenarioName('')
-                      setSaveScenarioDialogOpen(true)
+                      setScenarioInputs({ ...DEFAULT_SCENARIO_INPUTS })
+                      setSpecialtyOverrides([])
+                      setProviderOverrides([])
+                      setExpandedSpecialtyRow(null)
+                      setExpandedProviderRow(null)
                     }}
-                    disabled={isRunning}
-                    aria-label="Save scenario"
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Reset configuration"
                   >
-                    <Save className="size-4" />
+                    <RotateCcw className="size-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Save scenario</TooltipContent>
+                <TooltipContent side="bottom">Reset configuration</TooltipContent>
               </Tooltip>
-            )}
-            {onLoadBatchScenarioConfig && onDeleteBatchScenarioConfig && (
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        aria-label={`Saved batch scenarios (${savedBatchScenarioConfigs.length})`}
-                      >
-                        <FolderOpen className="size-4" />
-                        <ChevronDown className="size-4 opacity-50" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    Saved batch scenarios{savedBatchScenarioConfigs.length > 0 ? ` (${savedBatchScenarioConfigs.length})` : ''}
-                  </TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent align="end" className="w-[320px]">
-                  {savedBatchScenarioConfigs.length === 0 ? (
-                    <DropdownMenuItem disabled className="text-muted-foreground">
-                      No saved batch scenarios yet. Use &quot;Save scenario&quot; to save base inputs, overrides, and run-for selection.
-                    </DropdownMenuItem>
-                  ) : (
-                    <ScrollArea className="max-h-[280px]">
-                      <div className="p-1">
-                        {[...savedBatchScenarioConfigs].reverse().map((config) => (
-                          <div
-                            key={config.id}
-                            className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
-                          >
-                            <div className="min-w-0 flex-1 text-sm">
-                              <p className="font-medium truncate" title={config.name}>
-                                {config.name}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {formatDate(config.createdAt)}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 gap-0.5">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-8"
-                                onClick={() => onLoadBatchScenarioConfig(config)}
-                                title="Load this scenario"
-                              >
-                                <FolderOpen className="size-4" />
-                                <span className="sr-only">Load</span>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 text-destructive hover:text-destructive"
-                                onClick={() => {
-                                  if (window.confirm(`Delete "${config.name}"?`)) {
-                                    onDeleteBatchScenarioConfig(config.id)
-                                  }
-                                }}
-                                title="Delete"
-                              >
-                                <Trash2 className="size-4" />
-                                <span className="sr-only">Delete</span>
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </TooltipProvider>
-          {onNavigateToUpload && synonymCount > 0 && (
-            <button
-              type="button"
-              onClick={onNavigateToUpload}
-              className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-            >
-              <Link2 className="size-4" />
-              <span className="hidden sm:inline">{synonymCount} specialty synonym{synonymCount !== 1 ? 's' : ''} mapped — Edit in Upload</span>
-            </button>
-          )}
-          {onNavigateToUpload && synonymCount === 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="size-9 shrink-0"
-              onClick={onNavigateToUpload}
-              title="Edit synonyms (Upload)"
-              aria-label="Edit synonyms (Upload)"
-            >
-              <Link2 className="size-4" />
-            </Button>
-          )}
+            </TooltipProvider>
+          </div>
         </div>
-      </div>
       </>
       )}
 
-      {/* Base scenario: for Detailed mode in a collapsible; for Bulk mode step 1 */}
-      {(!isBulk || bulkStep === 1) && (
-      <div id="batch-scenario" className="scroll-mt-6 space-y-6">
-        <details open className="group rounded-lg border border-border/60 bg-card">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-foreground hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
-            <ChevronRight className="size-4 shrink-0 transition-transform group-open:rotate-90" />
-            Base scenario
-            {isBulk && (
-              <span className="text-muted-foreground font-normal text-xs ml-1">
-                — Set conversion factor, wRVU target, and PSQ
-              </span>
+      {/* Single Card wizard (CF Optimizer parity): bulk and full mode */}
+      {isWizardView && (
+      <Card id="batch-scenario" className="scroll-mt-6 rounded-2xl border-border/50 shadow-sm overflow-hidden">
+        <CardContent className="space-y-6 pt-6 pb-6 px-6 sm:px-8">
+          <TooltipProvider delayDuration={200}>
+            {wizardStepPillsNav}
+
+            {/* Step 1: Bulk = Target scope (two-panel). Full = Base scenario (two-panel). */}
+            {wizardStep === 1 && (
+              <div className="space-y-6 rounded-2xl border border-border/40 bg-muted/30 p-6">
+                <div>
+                  <SectionHeaderWithTooltip
+                    variant="section"
+                    title={isFull ? 'Base scenario' : 'Target scope'}
+                    tooltip={isFull
+                      ? 'Set base scenario inputs (CF, wRVU target, quality pay, threshold) for the batch. In step 2 you can add overrides by specialty or provider.'
+                      : 'Set base scenario inputs (CF, wRVU target, quality pay, threshold) for the batch. Scope and guardrails are configured in the next step.'}
+                    className="text-foreground/90"
+                  />
+                  <p className="mt-1.5 text-sm text-muted-foreground">
+                    {isFull ? 'Set base inputs below. They apply to every provider in the run.' : 'Set base inputs first, then apply scope and guardrails.'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border/40 bg-background p-5">
+                  <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                    Base scenario
+                  </Label>
+                  <div className="mt-4">
+                    <BatchScenarioInline
+                      inputs={scenarioInputs}
+                      onChange={setScenarioInputs}
+                      disabled={isRunning}
+                      variant="panel"
+                    />
+                  </div>
+                  <div className="mt-5 pt-4 border-t border-border/40 text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">{providerRows.length}</span> provider(s) in upload
+                    {isBulk ? ' — scope and exclusions apply in step 2.' : ' — overrides (step 2) can narrow who is run.'}
+                  </div>
+                </div>
+              </div>
             )}
-          </summary>
-          <div className="border-t border-border/60 px-4 pt-4 pb-4">
-            <div className="space-y-4">
-              <BatchScenarioInline
-                inputs={scenarioInputs}
-                onChange={setScenarioInputs}
-                disabled={isRunning}
-              />
-              <div className="border-t border-border/60 pt-4">
-                <ScenarioControls
-                inputs={scenarioInputs}
-                onChange={setScenarioInputs}
-                selectedProvider={null}
-                disabled={isRunning}
-                variant="sharedOnly"
-              />
+
+            {/* Step 2: Bulk = Scope & guardrails. Full = Overrides. */}
+            {wizardStep === 2 && isBulk && (
+              <div className="space-y-6 rounded-2xl border border-border/40 bg-muted/30 p-6">
+                <div>
+                  <SectionHeaderWithTooltip
+                    variant="section"
+                    title="Scope & guardrails"
+                    tooltip="Exclude providers below these thresholds so the run focuses on those with stable volume (same idea as the CF Optimizer). Leave defaults to include everyone."
+                    className="text-primary/90"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Exclude providers below min FTE or min wRVU per 1.0 cFTE.
+                  </p>
+                </div>
+                <TooltipProvider delayDuration={200}>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="bulk-min-fte">Min clinical FTE</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button type="button" className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground" aria-label="Help">
+                              <Info className="size-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[260px] text-xs">
+                            Exclude providers with clinical FTE below this (e.g. 0.5 = exclude &lt; half-time).
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Input
+                        id="bulk-min-fte"
+                        type="number"
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        value={minBasisFTE}
+                        onChange={(e) => setMinBasisFTE(Math.max(0, Math.min(1, Number(e.target.value) || 0.5)))}
+                        disabled={isRunning}
+                        className="w-24"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="bulk-min-wrvu">Min wRVU per 1.0 cFTE</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button type="button" className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground" aria-label="Help">
+                              <Info className="size-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[260px] text-xs">
+                            Exclude providers whose wRVUs per 1.0 clinical FTE are below this (low volume; ratios can be unstable). Same as CF Optimizer bumper.
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Input
+                        id="bulk-min-wrvu"
+                        type="number"
+                        min={0}
+                        value={minWRVUPer1p0CFTE}
+                        onChange={(e) => setMinWRVUPer1p0CFTE(Math.max(0, Number(e.target.value) || 1000))}
+                        disabled={isRunning}
+                        className="w-28"
+                      />
+                    </div>
+                  </div>
+                </TooltipProvider>
+                <div className="rounded-md border border-border/50 bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{providersToRun.length}</span> provider(s) in scope
+                  {providerRows.length > 0 && providersToRun.length < providerRows.length && (
+                    <span> ({providerRows.length - providersToRun.length} excluded by guardrails)</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {wizardStep === 2 && isFull && (
+              <div className="space-y-6 rounded-2xl border border-border/40 bg-muted/30 p-6">
+                <div>
+                  <SectionHeaderWithTooltip
+                    variant="section"
+                    title="Overrides"
+                    tooltip="Set different quality pay, percentiles, or conversion factor by specialty and/or by provider. Base scenario comes from step 1. Provider overrides take precedence over specialty overrides."
+                    className="text-foreground/90"
+                  />
+                  <p className="mt-1.5 text-sm text-muted-foreground">
+                    Optional. Add rows to apply different inputs to specific specialties or providers.
+                  </p>
+                </div>
+                <div className="space-y-6">
+                  {/* By specialty */}
+                  <section className="rounded-xl border border-border/40 bg-background overflow-hidden shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-b border-border/40 bg-muted/40">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-medium text-foreground">By specialty</h3>
+                        {specialtyOverrides.length > 0 && (
+                          <Badge variant="secondary" className="font-mono text-xs tabular-nums rounded-md">
+                            {specialtyOverrides.length}
+                          </Badge>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isRunning || providerSpecialties.length === 0}
+                        onClick={() =>
+                          setSpecialtyOverrides((prev) => [...prev, { ...DEFAULT_SPECIALTY_OVERRIDE_ROW }])
+                        }
+                        className="gap-1.5 rounded-lg border-border/50"
+                      >
+                        <Plus className="size-4" />
+                        Add row
+                      </Button>
+                    </div>
+                    <div className="p-5">
+                      {specialtyOverrides.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border/50 bg-muted/20 py-10 text-center">
+                          <p className="text-sm text-muted-foreground">No overrides for specialties yet.</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-5 gap-1.5 rounded-lg"
+                            disabled={isRunning || providerSpecialties.length === 0}
+                            onClick={() =>
+                              setSpecialtyOverrides((prev) => [...prev, { ...DEFAULT_SPECIALTY_OVERRIDE_ROW }])
+                            }
+                          >
+                            <Plus className="size-4" />
+                            Add by specialty
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="w-full overflow-auto rounded-xl border border-border/40 bg-background">
+                          <Table className="w-full caption-bottom text-sm">
+                            <TableHeader>
+                              <TableRow className="border-border/40 hover:bg-transparent bg-muted/30">
+                                <TableHead className="min-w-[180px] px-4 py-3 text-muted-foreground font-medium">Apply to</TableHead>
+                                <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">CF</TableHead>
+                                <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">Quality pay · basis</TableHead>
+                                <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">Quality pay · amount</TableHead>
+                                <TableHead className="min-w-[140px] px-4 py-3 text-muted-foreground font-medium">Threshold</TableHead>
+                                <TableHead className="w-14 px-4 py-3" />
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {specialtyOverrides.map((row, idx) => (
+                                <TableRow key={`spec-${idx}`} className="hover:bg-muted/30 transition-colors border-border/30">
+                                  <TableCell className="px-4 py-3">
+                                    <DropdownMenu
+                                      open={openSpecialtyOverrideRow === idx}
+                                      onOpenChange={(open) => {
+                                        if (open) {
+                                          setOpenSpecialtyOverrideRow(idx)
+                                          setSpecialtyOverrideSearch('')
+                                          setTimeout(() => specialtyOverrideSearchRef.current?.focus(), 0)
+                                        } else {
+                                          setOpenSpecialtyOverrideRow(null)
+                                          setSpecialtyOverrideSearch('')
+                                        }
+                                      }}
+                                    >
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          className="h-9 w-full justify-between font-normal border-border/60"
+                                          disabled={isRunning}
+                                        >
+                                          <span className="truncate">
+                                            {row.specialties.length === 0
+                                              ? 'Select specialties…'
+                                              : row.specialties.length === 1
+                                                ? row.specialties[0]
+                                                : `${row.specialties.length} selected`}
+                                          </span>
+                                          <ChevronDown className="size-4 shrink-0 opacity-50" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent
+                                        className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[280px] overflow-hidden flex flex-col p-0"
+                                        align="start"
+                                        onCloseAutoFocus={(e) => e.preventDefault()}
+                                      >
+                                        <div className="flex items-center gap-2 border-b px-2 py-1.5">
+                                          <Search className="size-4 shrink-0 text-muted-foreground" />
+                                          <Input
+                                            ref={openSpecialtyOverrideRow === idx ? specialtyOverrideSearchRef : undefined}
+                                            placeholder="Search…"
+                                            value={openSpecialtyOverrideRow === idx ? specialtyOverrideSearch : ''}
+                                            onChange={(e) => setSpecialtyOverrideSearch(e.target.value)}
+                                            onKeyDown={(e) => e.stopPropagation()}
+                                            className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                          />
+                                        </div>
+                                        <div className="max-h-[220px] overflow-y-auto p-1">
+                                          <DropdownMenuLabel>Specialty</DropdownMenuLabel>
+                                          {filteredSpecialtyOverrideOptions.length === 0 ? (
+                                            <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching specialties</p>
+                                          ) : (
+                                            filteredSpecialtyOverrideOptions.map((s) => (
+                                              <DropdownMenuCheckboxItem
+                                                key={s}
+                                                checked={row.specialties.includes(s)}
+                                                onCheckedChange={(checked) => {
+                                                  setSpecialtyOverrides((prev) =>
+                                                    prev.map((r, i) =>
+                                                      i === idx
+                                                        ? {
+                                                            ...r,
+                                                            specialties: checked ? [...r.specialties, s] : r.specialties.filter((x) => x !== s),
+                                                          }
+                                                        : r
+                                                    )
+                                                  )
+                                                }}
+                                                onSelect={(e) => e.preventDefault()}
+                                              >
+                                                {s}
+                                              </DropdownMenuCheckboxItem>
+                                            ))
+                                          )}
+                                        </div>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    <div className="space-y-1.5">
+                                      <Label className="text-[11px] text-muted-foreground font-normal">Type</Label>
+                                      <Select
+                                        value={row.cfMode}
+                                        onValueChange={(v: CFOverrideMode) =>
+                                          setSpecialtyOverrides((prev) =>
+                                            prev.map((r, i) => (i === idx ? { ...r, cfMode: v } : r))
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                      >
+                                        <SelectTrigger className="h-8 w-full min-w-0 border-border/60 text-xs">
+                                          <SelectValue placeholder="Select…" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="percentile">CF %ile</SelectItem>
+                                          <SelectItem value="dollar">CF ($)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        max={row.cfMode === 'percentile' ? 100 : undefined}
+                                        step={row.cfMode === 'dollar' ? 0.01 : 1}
+                                        placeholder={row.cfMode === 'percentile' ? '%ile' : '$'}
+                                        value={row.cfMode === 'dollar' ? row.overrideCF : row.proposedCFPercentile}
+                                        onChange={(e) =>
+                                          setSpecialtyOverrides((prev) =>
+                                            prev.map((r, i) =>
+                                              i === idx
+                                                ? {
+                                                    ...r,
+                                                    ...(row.cfMode === 'dollar'
+                                                      ? { overrideCF: e.target.value }
+                                                      : { proposedCFPercentile: e.target.value }),
+                                                  }
+                                                : r
+                                            )
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                        className="h-9 w-full border-border/60"
+                                      />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    <Select
+                                      value={row.psqBasis || '_base'}
+                                      onValueChange={(v) =>
+                                        setSpecialtyOverrides((prev) =>
+                                          prev.map((r, i) => (i === idx ? { ...r, psqBasis: v === '_base' ? '' : v } : r))
+                                        )
+                                      }
+                                      disabled={isRunning}
+                                    >
+                                      <SelectTrigger className="h-9 w-full min-w-0 border-border/60">
+                                        <SelectValue placeholder="From base" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="_base">From base</SelectItem>
+                                        <SelectItem value="base_salary">% of base salary</SelectItem>
+                                        <SelectItem value="total_guaranteed">% of total guaranteed</SelectItem>
+                                        <SelectItem value="total_pay">% of total pay (TCC)</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    {(row.psqBasis === '_base' || !row.psqBasis) ? (
+                                      <span className="text-muted-foreground text-sm">—</span>
+                                    ) : (
+                                    <div className="space-y-1.5">
+                                      <Label className="text-[11px] text-muted-foreground font-normal">Type</Label>
+                                      <Select
+                                        value={row.psqMode}
+                                        onValueChange={(v: PSQOverrideMode) =>
+                                          setSpecialtyOverrides((prev) =>
+                                            prev.map((r, i) => (i === idx ? { ...r, psqMode: v } : r))
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                      >
+                                        <SelectTrigger className="h-8 w-full min-w-0 border-border/60 text-xs">
+                                          <SelectValue placeholder="Select…" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="percent">%</SelectItem>
+                                          <SelectItem value="dollar">$</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        max={row.psqMode === 'percent' ? 100 : undefined}
+                                        step={row.psqMode === 'dollar' ? 0.01 : 0.5}
+                                        placeholder={row.psqMode === 'percent' ? '%' : '$'}
+                                        value={row.psqMode === 'dollar' ? row.psqDollars : row.psqPercent}
+                                        onChange={(e) =>
+                                          setSpecialtyOverrides((prev) =>
+                                            prev.map((r, i) =>
+                                              i === idx
+                                                ? {
+                                                    ...r,
+                                                    ...(row.psqMode === 'dollar'
+                                                      ? { psqDollars: e.target.value }
+                                                      : { psqPercent: e.target.value }),
+                                                  }
+                                                : r
+                                            )
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                        className="h-9 w-full border-border/60"
+                                      />
+                                    </div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    <div className="space-y-1.5">
+                                      <Select
+                                        value={row.thresholdMethod || '_base'}
+                                        onValueChange={(v) =>
+                                          setSpecialtyOverrides((prev) =>
+                                            prev.map((r, i) => (i === idx ? { ...r, thresholdMethod: v === '_base' ? '' : v } : r))
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                      >
+                                        <SelectTrigger className="h-9 w-full min-w-0 border-border/60">
+                                          <SelectValue placeholder="From base scenario" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="_base">From base scenario</SelectItem>
+                                          <SelectItem value="derived">Clinical $ ÷ CF</SelectItem>
+                                          <SelectItem value="annual">Annual threshold (enter wRVUs)</SelectItem>
+                                          <SelectItem value="wrvu_percentile">wRVU percentile (from market)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      {row.thresholdMethod === 'annual' && (
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          placeholder="wRVUs"
+                                          value={row.annualThreshold ?? ''}
+                                          onChange={(e) =>
+                                            setSpecialtyOverrides((prev) =>
+                                              prev.map((r, i) => (i === idx ? { ...r, annualThreshold: e.target.value } : r))
+                                            )
+                                          }
+                                          disabled={isRunning}
+                                          className="h-9 w-full border-border/60"
+                                        />
+                                      )}
+                                      {row.thresholdMethod === 'wrvu_percentile' && (
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          max={100}
+                                          placeholder="%ile"
+                                          value={row.wrvuPercentile ?? ''}
+                                          onChange={(e) =>
+                                            setSpecialtyOverrides((prev) =>
+                                              prev.map((r, i) => (i === idx ? { ...r, wrvuPercentile: e.target.value } : r))
+                                            )
+                                          }
+                                          disabled={isRunning}
+                                          className="h-9 w-full border-border/60"
+                                        />
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => setSpecialtyOverrides((prev) => prev.filter((_, i) => i !== idx))}
+                                      disabled={isRunning}
+                                      aria-label="Remove row"
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  {/* By provider - full step 2: reuse same table block from current Overrides card */}
+                  <section className="rounded-xl border border-border/40 bg-background overflow-hidden shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-b border-border/40 bg-muted/40">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-medium text-foreground">By provider</h3>
+                        {providerOverrides.length > 0 && (
+                          <Badge variant="secondary" className="font-mono text-xs tabular-nums rounded-md">
+                            {providerOverrides.length}
+                          </Badge>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isRunning || providersToRun.length === 0}
+                        onClick={() =>
+                          setProviderOverrides((prev) => [...prev, { ...DEFAULT_PROVIDER_OVERRIDE_ROW }])
+                        }
+                        className="gap-1.5 rounded-lg border-border/50"
+                      >
+                        <Plus className="size-4" />
+                        Add row
+                      </Button>
+                    </div>
+                    <div className="p-5">
+                      {providerOverrides.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-border/50 bg-muted/20 py-10 text-center">
+                          <p className="text-sm text-muted-foreground">No overrides for individual providers yet.</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-4 gap-1.5 rounded-lg"
+                            disabled={isRunning || providersToRun.length === 0}
+                            onClick={() =>
+                              setProviderOverrides((prev) => [...prev, { ...DEFAULT_PROVIDER_OVERRIDE_ROW }])
+                            }
+                          >
+                            <Plus className="size-4" />
+                            Add by provider
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="w-full overflow-auto rounded-xl border border-border/40 bg-background">
+                          <Table className="w-full caption-bottom text-sm">
+                            <TableHeader>
+                              <TableRow className="border-border/40 hover:bg-transparent bg-muted/30">
+                                <TableHead className="min-w-[180px] px-4 py-3 text-muted-foreground font-medium">Apply to</TableHead>
+                                <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">CF</TableHead>
+                                <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">Quality pay · basis</TableHead>
+                                <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">Quality pay · amount</TableHead>
+                                <TableHead className="min-w-[140px] px-4 py-3 text-muted-foreground font-medium">Threshold</TableHead>
+                                <TableHead className="w-14 px-4 py-3" />
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {providerOverrides.map((row, idx) => (
+                                <TableRow key={`prov-${idx}`} className="hover:bg-muted/30 transition-colors border-border/30">
+                                  <TableCell className="px-4 py-3">
+                                    <DropdownMenu
+                                      open={openProviderOverrideRow === idx}
+                                      onOpenChange={(open) => {
+                                        if (open) {
+                                          setOpenProviderOverrideRow(idx)
+                                          setProviderOverrideSearch('')
+                                          setTimeout(() => providerOverrideSearchRef.current?.focus(), 0)
+                                        } else {
+                                          setOpenProviderOverrideRow(null)
+                                          setProviderOverrideSearch('')
+                                        }
+                                      }}
+                                    >
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          className="h-9 w-full justify-between font-normal border-border/60"
+                                          disabled={isRunning}
+                                        >
+                                          <span className="truncate">
+                                            {row.providerIds.length === 0
+                                              ? 'Select providers…'
+                                              : row.providerIds.length === 1
+                                                ? (providersToRun.find((p) => (p.providerId ?? p.providerName ?? '').toString() === row.providerIds[0])?.providerName ?? row.providerIds[0])
+                                                : `${row.providerIds.length} selected`}
+                                          </span>
+                                          <ChevronDown className="size-4 shrink-0 opacity-50" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent
+                                        className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden flex flex-col p-0"
+                                        align="start"
+                                        onCloseAutoFocus={(e) => e.preventDefault()}
+                                      >
+                                        <div className="flex items-center gap-2 border-b px-2 py-1.5">
+                                          <Search className="size-4 shrink-0 text-muted-foreground" />
+                                          <Input
+                                            ref={openProviderOverrideRow === idx ? providerOverrideSearchRef : undefined}
+                                            placeholder="Search by name or specialty…"
+                                            value={openProviderOverrideRow === idx ? providerOverrideSearch : ''}
+                                            onChange={(e) => setProviderOverrideSearch(e.target.value)}
+                                            onKeyDown={(e) => e.stopPropagation()}
+                                            className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                          />
+                                        </div>
+                                        <div className="max-h-[260px] overflow-y-auto p-1">
+                                          <DropdownMenuLabel>Providers</DropdownMenuLabel>
+                                          {filteredProviderOverrideOptions.length === 0 ? (
+                                            <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching providers</p>
+                                          ) : (
+                                            filteredProviderOverrideOptions.map((p) => {
+                                              const id = (p.providerId ?? p.providerName ?? '').toString()
+                                              const name = (p.providerName ?? id).toString()
+                                              const spec = (p.specialty ?? '').trim()
+                                              return (
+                                                <DropdownMenuCheckboxItem
+                                                  key={id}
+                                                  checked={row.providerIds.includes(id)}
+                                                  onCheckedChange={(checked) => {
+                                                    setProviderOverrides((prev) =>
+                                                      prev.map((r, i) =>
+                                                        i === idx
+                                                          ? {
+                                                              ...r,
+                                                              providerIds: checked ? [...r.providerIds, id] : r.providerIds.filter((x) => x !== id),
+                                                            }
+                                                          : r
+                                                      )
+                                                    )
+                                                  }}
+                                                  onSelect={(e) => e.preventDefault()}
+                                                >
+                                                  {name}
+                                                  {spec ? ` · ${spec}` : ''}
+                                                </DropdownMenuCheckboxItem>
+                                              )
+                                            })
+                                          )}
+                                        </div>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    <div className="space-y-1.5">
+                                      <Label className="text-[11px] text-muted-foreground font-normal">Type</Label>
+                                      <Select
+                                        value={row.cfMode}
+                                        onValueChange={(v: CFOverrideMode) =>
+                                          setProviderOverrides((prev) =>
+                                            prev.map((r, i) => (i === idx ? { ...r, cfMode: v } : r))
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                      >
+                                        <SelectTrigger className="h-8 w-full min-w-0 border-border/60 text-xs">
+                                          <SelectValue placeholder="Select…" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="percentile">CF %ile</SelectItem>
+                                          <SelectItem value="dollar">CF ($)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        max={row.cfMode === 'percentile' ? 100 : undefined}
+                                        step={row.cfMode === 'dollar' ? 0.01 : 1}
+                                        placeholder={row.cfMode === 'percentile' ? '%ile' : '$'}
+                                        value={row.cfMode === 'dollar' ? row.overrideCF : row.proposedCFPercentile}
+                                        onChange={(e) =>
+                                          setProviderOverrides((prev) =>
+                                            prev.map((r, i) =>
+                                              i === idx
+                                                ? {
+                                                    ...r,
+                                                    ...(row.cfMode === 'dollar'
+                                                      ? { overrideCF: e.target.value }
+                                                      : { proposedCFPercentile: e.target.value }),
+                                                  }
+                                                : r
+                                            )
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                        className="h-9 w-full border-border/60"
+                                      />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    <Select
+                                      value={row.psqBasis || '_base'}
+                                      onValueChange={(v) =>
+                                        setProviderOverrides((prev) =>
+                                          prev.map((r, i) => (i === idx ? { ...r, psqBasis: v === '_base' ? '' : v } : r))
+                                        )
+                                      }
+                                      disabled={isRunning}
+                                    >
+                                      <SelectTrigger className="h-9 w-full min-w-0 border-border/60">
+                                        <SelectValue placeholder="From base" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="_base">From base</SelectItem>
+                                        <SelectItem value="base_salary">% of base salary</SelectItem>
+                                        <SelectItem value="total_guaranteed">% of total guaranteed</SelectItem>
+                                        <SelectItem value="total_pay">% of total pay (TCC)</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    {(row.psqBasis === '_base' || !row.psqBasis) ? (
+                                      <span className="text-muted-foreground text-sm">—</span>
+                                    ) : (
+                                    <div className="space-y-1.5">
+                                      <Label className="text-[11px] text-muted-foreground font-normal">Type</Label>
+                                      <Select
+                                        value={row.psqMode}
+                                        onValueChange={(v: PSQOverrideMode) =>
+                                          setProviderOverrides((prev) =>
+                                            prev.map((r, i) => (i === idx ? { ...r, psqMode: v } : r))
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                      >
+                                        <SelectTrigger className="h-8 w-full min-w-0 border-border/60 text-xs">
+                                          <SelectValue placeholder="Select…" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="percent">%</SelectItem>
+                                          <SelectItem value="dollar">$</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <Input
+                                        type="number"
+                                        min={0}
+                                        max={row.psqMode === 'percent' ? 100 : undefined}
+                                        step={row.psqMode === 'dollar' ? 0.01 : 0.5}
+                                        placeholder={row.psqMode === 'percent' ? '%' : '$'}
+                                        value={row.psqMode === 'dollar' ? row.psqDollars : row.psqPercent}
+                                        onChange={(e) =>
+                                          setProviderOverrides((prev) =>
+                                            prev.map((r, i) =>
+                                              i === idx
+                                                ? {
+                                                    ...r,
+                                                    ...(row.psqMode === 'dollar'
+                                                      ? { psqDollars: e.target.value }
+                                                      : { psqPercent: e.target.value }),
+                                                  }
+                                                : r
+                                            )
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                        className="h-9 w-full border-border/60"
+                                      />
+                                    </div>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    <div className="space-y-1.5">
+                                      <Select
+                                        value={row.thresholdMethod || '_base'}
+                                        onValueChange={(v) =>
+                                          setProviderOverrides((prev) =>
+                                            prev.map((r, i) => (i === idx ? { ...r, thresholdMethod: v === '_base' ? '' : v } : r))
+                                          )
+                                        }
+                                        disabled={isRunning}
+                                      >
+                                        <SelectTrigger className="h-9 w-full min-w-0 border-border/60">
+                                          <SelectValue placeholder="From base scenario" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="_base">From base scenario</SelectItem>
+                                          <SelectItem value="derived">Clinical $ ÷ CF</SelectItem>
+                                          <SelectItem value="annual">Annual threshold (enter wRVUs)</SelectItem>
+                                          <SelectItem value="wrvu_percentile">wRVU percentile (from market)</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      {row.thresholdMethod === 'annual' && (
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          placeholder="wRVUs"
+                                          value={row.annualThreshold ?? ''}
+                                          onChange={(e) =>
+                                            setProviderOverrides((prev) =>
+                                              prev.map((r, i) => (i === idx ? { ...r, annualThreshold: e.target.value } : r))
+                                            )
+                                          }
+                                          disabled={isRunning}
+                                          className="h-9 w-full border-border/60"
+                                        />
+                                      )}
+                                      {row.thresholdMethod === 'wrvu_percentile' && (
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          max={100}
+                                          placeholder="%ile"
+                                          value={row.wrvuPercentile ?? ''}
+                                          onChange={(e) =>
+                                            setProviderOverrides((prev) =>
+                                              prev.map((r, i) => (i === idx ? { ...r, wrvuPercentile: e.target.value } : r))
+                                            )
+                                          }
+                                          disabled={isRunning}
+                                          className="h-9 w-full border-border/60"
+                                        />
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="px-4 py-3">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                      onClick={() => setProviderOverrides((prev) => prev.filter((_, i) => i !== idx))}
+                                      disabled={isRunning}
+                                      aria-label="Remove row"
+                                    >
+                                      <Trash2 className="size-4" />
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Run — summary, error, and progress only; Run is in the footer below */}
+            {wizardStep === 3 && (
+              <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Check className="size-4 shrink-0 text-primary" strokeWidth={2.5} />
+                    <span className="tabular-nums">
+                      {providersToRun.length} provider{providersToRun.length !== 1 ? 's' : ''} × 1 scenario
+                      {overrideCount > 0 && ` · ${overrideCount} override${overrideCount !== 1 ? 's' : ''}`}
+                    </span>
+                  </div>
+                  {isFull && (
+                    <p className="text-xs text-muted-foreground pl-6">
+                      {providersToRun.length === providerRows.length && overrideCount === 0
+                        ? 'No overrides — running for everyone in upload.'
+                        : 'Overrides applied — running only for selected specialties/providers.'}
+                    </p>
+                  )}
+                </div>
+                {error && (
+                  <WarningBanner message={error} tone="error" />
+                )}
+                {isRunning && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>
+                        {progress.processed} / {total} rows
+                      </span>
+                      <span>{Math.round(progress.elapsedMs / 1000)}s</span>
+                    </div>
+                    <Progress value={pct} className="h-2" />
+                    <p className="text-muted-foreground text-xs">Results open when done.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step navigation footer */}
+            <div className="flex flex-col gap-3 border-t border-border/40 pt-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  {wizardStep > 1 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setWizardStep(wizardStep - 1)}
+                      className="gap-1.5"
+                    >
+                      <ChevronLeft className="size-4" />
+                      Back
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="flex gap-2">
+                  {wizardStep < 3 ? (
+                    <Button
+                      type="button"
+                      onClick={() => setWizardStep(wizardStep + 1)}
+                      className="gap-1.5"
+                    >
+                      Next: {wizardSteps[wizardStep]?.label ?? ''}
+                      <ChevronRight className="size-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={runBatch}
+                      disabled={isRunning || providersToRun.length === 0 || marketRows.length === 0}
+                      className="gap-2"
+                    >
+                      <Play className="size-4" />
+                      Run
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
-            {isBulk && bulkStep === 1 && (
-              <div className="flex justify-end border-t border-border/60 pt-4 mt-4">
-                <Button type="button" onClick={() => setBulkStep(2)} className="gap-1.5">
-                  Next: Scope & guardrails
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
-            )}
-          </div>
-        </details>
-      </div>
+          </TooltipProvider>
+        </CardContent>
+      </Card>
       )}
 
-      {/* Bulk only: Step 2 — Scope & guardrails (wRVU bumper, min FTE) */}
-      {isBulk && bulkStep === 2 && (
-        <Card id="batch-bulk-guardrails" className="scroll-mt-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="size-4" />
-              Scope & guardrails
+      {/* Detailed mode: Overrides card + Run card (no wizard) */}
+      {isDetailed && (
+      <Card id="batch-overrides" className="scroll-mt-6 rounded-2xl border-border/50 shadow-sm overflow-hidden">
+        <CardHeader className="pb-4 px-6 sm:px-8 pt-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+              <Sliders className="size-5 text-muted-foreground" />
+              Overrides
             </CardTitle>
-            <p className="text-muted-foreground text-sm">
-              Exclude providers below these thresholds so the run focuses on those with stable volume (same idea as the CF Optimizer). Leave defaults to include everyone.
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <TooltipProvider delayDuration={200}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="bulk-min-fte">Min clinical FTE</Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground" aria-label="Help">
-                        <Info className="size-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[260px] text-xs">
-                      Exclude providers with clinical FTE below this (e.g. 0.5 = exclude &lt; half-time).
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Input
-                  id="bulk-min-fte"
-                  type="number"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  value={minBasisFTE}
-                  onChange={(e) => setMinBasisFTE(Math.max(0, Math.min(1, Number(e.target.value) || 0.5)))}
-                  disabled={isRunning}
-                  className="w-24"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="bulk-min-wrvu">Min wRVU per 1.0 cFTE</Label>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground" aria-label="Help">
-                        <Info className="size-4" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[260px] text-xs">
-                      Exclude providers whose wRVUs per 1.0 clinical FTE are below this (low volume; ratios can be unstable). Same as CF Optimizer bumper.
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <Input
-                  id="bulk-min-wrvu"
-                  type="number"
-                  min={0}
-                  value={minWRVUPer1p0CFTE}
-                  onChange={(e) => setMinWRVUPer1p0CFTE(Math.max(0, Number(e.target.value) || 1000))}
-                  disabled={isRunning}
-                  className="w-28"
-                />
-              </div>
-            </div>
-            </TooltipProvider>
-            <p className="text-xs text-muted-foreground border-t border-border/40 pt-3">
-              <strong>{providersToRun.length}</strong> provider{providersToRun.length !== 1 ? 's' : ''} in scope
-              {providerRows.length > 0 && providersToRun.length < providerRows.length && (
-                <span> ({providerRows.length - providersToRun.length} excluded by guardrails)</span>
-              )}
-            </p>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-3">
-              <Button type="button" variant="outline" onClick={() => setBulkStep(1)} className="gap-1.5">
-                <ChevronLeft className="size-4" />
-                Back
-              </Button>
-              <Button type="button" onClick={() => setBulkStep(3)} className="gap-1.5">
-                Next: Run
-                <ChevronRight className="size-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {!isBulk && (
-      <Card id="batch-overrides" className="scroll-mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sliders className="size-4" />
-            Overrides by specialty or provider (optional)
-          </CardTitle>
-          <p className="text-muted-foreground text-sm">
-            Set different inputs (PSQ, percentiles, CF) by specialty and/or by provider. Base scenario is from the controls above. Provider overrides beat specialty overrides.
-          </p>
-          <p className="text-muted-foreground text-xs mt-1">
-            The CF column matches the base scenario’s <strong>CF method</strong> above (Fixed CF ($) vs Target percentile).
+            <Badge variant="outline" className="font-normal text-muted-foreground rounded-md">
+              Optional
+            </Badge>
+          </div>
+          <p className="text-muted-foreground text-sm mt-1.5 max-w-2xl">
+            Override only what you need. Use <strong>From base</strong> to keep step 1 values for that column. Provider overrides win over specialty overrides.
           </p>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 px-6 sm:px-8 pb-6">
           {/* By specialty */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium text-foreground">By specialty</h4>
+          <section className="rounded-xl border border-border/40 bg-background overflow-hidden shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-b border-border/40 bg-muted/40">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-foreground">By specialty</h3>
+                {specialtyOverrides.length > 0 && (
+                  <Badge variant="secondary" className="font-mono text-xs tabular-nums rounded-md">
+                    {specialtyOverrides.length}
+                  </Badge>
+                )}
+              </div>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={isRunning || providerSpecialties.length === 0}
                 onClick={() =>
-                  setSpecialtyOverrides((prev) => [
-                    ...prev,
-                    { specialties: [], proposedCFPercentile: '', overrideCF: '', psqPercent: '' },
-                  ])
+                  setSpecialtyOverrides((prev) => [...prev, { ...DEFAULT_SPECIALTY_OVERRIDE_ROW }])
                 }
+                className="gap-1.5 rounded-lg border-border/50"
               >
-                <Plus className="size-4 mr-2" />
-                Add by specialty
+                <Plus className="size-4" />
+                Add row
               </Button>
             </div>
-            {specialtyOverrides.length === 0 ? (
-              <p className="text-muted-foreground text-sm py-2">No specialty overrides.</p>
-            ) : (
-              <div className="w-full overflow-auto rounded-md border border-border">
-              <Table className="w-full caption-bottom text-sm">
-                <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
-                  <TableRow>
-                    <TableHead className="min-w-[160px] px-3 py-2.5">Specialties</TableHead>
-                    {baseUsesOverrideCF ? (
-                      <TableHead className="w-[100px] px-3 py-2.5">Target CF ($)</TableHead>
-                    ) : (
-                      <TableHead className="w-[90px] px-3 py-2.5">CF %ile</TableHead>
-                    )}
-                    <TableHead className="w-[80px] px-3 py-2.5">PSQ %</TableHead>
-                    <TableHead className="w-[60px] px-3 py-2.5" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {specialtyOverrides.map((row, idx) => (
-                    <TableRow key={`spec-${idx}`} className={cn(idx % 2 === 1 && 'bg-muted/30')}>
-                      <TableCell className="px-3 py-2.5">
-                        <DropdownMenu
-                          open={openSpecialtyOverrideRow === idx}
-                          onOpenChange={(open) => {
-                            if (open) {
-                              setOpenSpecialtyOverrideRow(idx)
-                              setSpecialtyOverrideSearch('')
-                              setTimeout(() => specialtyOverrideSearchRef.current?.focus(), 0)
-                            } else {
-                              setOpenSpecialtyOverrideRow(null)
-                              setSpecialtyOverrideSearch('')
-                            }
-                          }}
-                        >
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="h-9 w-full justify-between font-normal"
-                              disabled={isRunning}
+            <div className="p-5">
+              {specialtyOverrides.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/50 bg-muted/20 py-12 text-center">
+                  <p className="text-sm text-muted-foreground">No specialty overrides yet.</p>
+                  <p className="text-sm text-muted-foreground/80 mt-1">Add a row to apply different inputs to specific specialties.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 gap-1.5 rounded-lg"
+                    disabled={isRunning || providerSpecialties.length === 0}
+                    onClick={() =>
+                      setSpecialtyOverrides((prev) => [...prev, { ...DEFAULT_SPECIALTY_OVERRIDE_ROW }])
+                    }
+                  >
+                    <Plus className="size-4" />
+                    Add by specialty
+                  </Button>
+                </div>
+              ) : (
+                <div className="w-full overflow-auto rounded-xl border border-border/40 bg-background">
+                  <Table className="w-full caption-bottom text-sm">
+                    <TableHeader>
+                      <TableRow className="border-border/40 hover:bg-transparent bg-muted/30">
+                        <TableHead className="min-w-[180px] px-4 py-3 text-muted-foreground font-medium">Apply to</TableHead>
+                        <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">CF</TableHead>
+                        <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">Quality pay · basis</TableHead>
+                        <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">Quality pay · amount</TableHead>
+                        <TableHead className="min-w-[140px] px-4 py-3 text-muted-foreground font-medium">Threshold</TableHead>
+                        <TableHead className="w-14 px-4 py-3" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {specialtyOverrides.map((row, idx) => (
+                        <TableRow key={`spec-${idx}`} className="hover:bg-muted/30 transition-colors border-border/30">
+                          <TableCell className="px-4 py-3">
+                            <DropdownMenu
+                              open={openSpecialtyOverrideRow === idx}
+                              onOpenChange={(open) => {
+                                if (open) {
+                                  setOpenSpecialtyOverrideRow(idx)
+                                  setSpecialtyOverrideSearch('')
+                                  setTimeout(() => specialtyOverrideSearchRef.current?.focus(), 0)
+                                } else {
+                                  setOpenSpecialtyOverrideRow(null)
+                                  setSpecialtyOverrideSearch('')
+                                }
+                              }}
                             >
-                              <span className="truncate">
-                                {row.specialties.length === 0
-                                  ? 'Select specialties…'
-                                  : row.specialties.length === 1
-                                    ? row.specialties[0]
-                                    : `${row.specialties.length} specialty(ies)`}
-                              </span>
-                              <ChevronDown className="size-4 shrink-0 opacity-50" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[280px] overflow-hidden flex flex-col p-0"
-                            align="start"
-                            onCloseAutoFocus={(e) => e.preventDefault()}
-                          >
-                            <div className="flex items-center gap-2 border-b px-2 py-1.5">
-                              <Search className="size-4 shrink-0 text-muted-foreground" />
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="h-9 w-full justify-between font-normal border-border/60"
+                                  disabled={isRunning}
+                                >
+                                  <span className="truncate">
+                                    {row.specialties.length === 0
+                                      ? 'Select specialties…'
+                                      : row.specialties.length === 1
+                                        ? row.specialties[0]
+                                        : `${row.specialties.length} selected`}
+                                  </span>
+                                  <ChevronDown className="size-4 shrink-0 opacity-50" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[280px] overflow-hidden flex flex-col p-0"
+                                align="start"
+                                onCloseAutoFocus={(e) => e.preventDefault()}
+                              >
+                                <div className="flex items-center gap-2 border-b px-2 py-1.5">
+                                  <Search className="size-4 shrink-0 text-muted-foreground" />
+                                  <Input
+                                    ref={openSpecialtyOverrideRow === idx ? specialtyOverrideSearchRef : undefined}
+                                    placeholder="Search…"
+                                    value={openSpecialtyOverrideRow === idx ? specialtyOverrideSearch : ''}
+                                    onChange={(e) => setSpecialtyOverrideSearch(e.target.value)}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                    className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                  />
+                                </div>
+                                <div className="max-h-[220px] overflow-y-auto p-1">
+                                  <DropdownMenuLabel>Specialty</DropdownMenuLabel>
+                                  {filteredSpecialtyOverrideOptions.length === 0 ? (
+                                    <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching specialties</p>
+                                  ) : (
+                                    filteredSpecialtyOverrideOptions.map((s) => (
+                                      <DropdownMenuCheckboxItem
+                                        key={s}
+                                        checked={row.specialties.includes(s)}
+                                        onCheckedChange={(checked) => {
+                                          setSpecialtyOverrides((prev) =>
+                                            prev.map((r, i) =>
+                                              i === idx
+                                                ? {
+                                                    ...r,
+                                                    specialties: checked ? [...r.specialties, s] : r.specialties.filter((x) => x !== s),
+                                                  }
+                                                : r
+                                            )
+                                          )
+                                        }}
+                                        onSelect={(e) => e.preventDefault()}
+                                      >
+                                        {s}
+                                      </DropdownMenuCheckboxItem>
+                                    ))
+                                  )}
+                                </div>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+<TableCell className="px-4 py-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] text-muted-foreground font-normal">Type</Label>
+                              <Select
+                                value={row.cfMode}
+                                onValueChange={(v: CFOverrideMode) =>
+                                  setSpecialtyOverrides((prev) =>
+                                    prev.map((r, i) => (i === idx ? { ...r, cfMode: v } : r))
+                                  )
+                                }
+                                disabled={isRunning}
+                              >
+                                <SelectTrigger className="h-8 w-full min-w-0 border-border/60 text-xs">
+                                  <SelectValue placeholder="Select…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="percentile">CF %ile</SelectItem>
+                                  <SelectItem value="dollar">CF ($)</SelectItem>
+                                </SelectContent>
+                              </Select>
                               <Input
-                                ref={openSpecialtyOverrideRow === idx ? specialtyOverrideSearchRef : undefined}
-                                placeholder="Search specialties…"
-                                value={openSpecialtyOverrideRow === idx ? specialtyOverrideSearch : ''}
-                                onChange={(e) => setSpecialtyOverrideSearch(e.target.value)}
-                                onKeyDown={(e) => e.stopPropagation()}
-                                className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                type="number"
+                                min={0}
+                                max={row.cfMode === 'percentile' ? 100 : undefined}
+                                step={row.cfMode === 'dollar' ? 0.01 : 1}
+                                placeholder={row.cfMode === 'percentile' ? '%ile' : '$'}
+                                value={row.cfMode === 'dollar' ? row.overrideCF : row.proposedCFPercentile}
+                                onChange={(e) =>
+                                  setSpecialtyOverrides((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx
+                                        ? {
+                                            ...r,
+                                            ...(row.cfMode === 'dollar'
+                                              ? { overrideCF: e.target.value }
+                                              : { proposedCFPercentile: e.target.value }),
+                                          }
+                                        : r
+                                    )
+                                  )
+                                }
+                                disabled={isRunning}
+                                className="h-9 w-full border-border/60"
                               />
                             </div>
-                            <div className="max-h-[220px] overflow-y-auto p-1">
-                              <DropdownMenuLabel>Specialty</DropdownMenuLabel>
-                              {filteredSpecialtyOverrideOptions.length === 0 ? (
-                                <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching specialties</p>
-                              ) : (
-                                filteredSpecialtyOverrideOptions.map((s) => (
-                                  <DropdownMenuCheckboxItem
-                                    key={s}
-                                    checked={row.specialties.includes(s)}
-                                    onCheckedChange={(checked) => {
-                                      setSpecialtyOverrides((prev) =>
-                                        prev.map((r, i) =>
-                                          i === idx
-                                            ? {
-                                                ...r,
-                                                specialties: checked ? [...r.specialties, s] : r.specialties.filter((x) => x !== s),
-                                              }
-                                            : r
-                                        )
-                                      )
-                                    }}
-                                    onSelect={(e) => e.preventDefault()}
-                                  >
-                                    {s}
-                                  </DropdownMenuCheckboxItem>
-                                ))
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            <Select
+                              value={row.psqBasis || '_base'}
+                              onValueChange={(v) =>
+                                setSpecialtyOverrides((prev) =>
+                                  prev.map((r, i) => (i === idx ? { ...r, psqBasis: v === '_base' ? '' : v } : r))
+                                )
+                              }
+                              disabled={isRunning}
+                            >
+                              <SelectTrigger className="h-9 w-full min-w-0 border-border/60">
+                                <SelectValue placeholder="From base" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_base">From base</SelectItem>
+                                <SelectItem value="base_salary">% of base salary</SelectItem>
+                                <SelectItem value="total_guaranteed">% of total guaranteed</SelectItem>
+                                <SelectItem value="total_pay">% of total pay (TCC)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            {(row.psqBasis === '_base' || !row.psqBasis) ? (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            ) : (
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] text-muted-foreground font-normal">Type</Label>
+                              <Select
+                                value={row.psqMode}
+                                onValueChange={(v: PSQOverrideMode) =>
+                                  setSpecialtyOverrides((prev) =>
+                                    prev.map((r, i) => (i === idx ? { ...r, psqMode: v } : r))
+                                  )
+                                }
+                                disabled={isRunning}
+                              >
+                                <SelectTrigger className="h-8 w-full min-w-0 border-border/60 text-xs">
+                                  <SelectValue placeholder="Select…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="percent">%</SelectItem>
+                                  <SelectItem value="dollar">$</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={row.psqMode === 'percent' ? 100 : undefined}
+                                step={row.psqMode === 'dollar' ? 0.01 : 0.5}
+                                placeholder={row.psqMode === 'percent' ? '%' : '$'}
+                                value={row.psqMode === 'dollar' ? row.psqDollars : row.psqPercent}
+                                onChange={(e) =>
+                                  setSpecialtyOverrides((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx
+                                        ? {
+                                            ...r,
+                                            ...(row.psqMode === 'dollar'
+                                              ? { psqDollars: e.target.value }
+                                              : { psqPercent: e.target.value }),
+                                          }
+                                        : r
+                                    )
+                                  )
+                                }
+                                disabled={isRunning}
+                                className="h-9 w-full border-border/60"
+                              />
+                            </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            <div className="space-y-1.5">
+                              <Select
+                                value={row.thresholdMethod || '_base'}
+                                onValueChange={(v) =>
+                                  setSpecialtyOverrides((prev) =>
+                                    prev.map((r, i) => (i === idx ? { ...r, thresholdMethod: v === '_base' ? '' : v } : r))
+                                  )
+                                }
+                                disabled={isRunning}
+                              >
+                                <SelectTrigger className="h-9 w-full min-w-0 border-border/60">
+                                  <SelectValue placeholder="From base scenario" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="_base">From base scenario</SelectItem>
+                                  <SelectItem value="derived">Clinical $ ÷ CF</SelectItem>
+                                  <SelectItem value="annual">Annual threshold (enter wRVUs)</SelectItem>
+                                  <SelectItem value="wrvu_percentile">wRVU percentile (from market)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {row.thresholdMethod === 'annual' && (
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  placeholder="wRVUs"
+                                  value={row.annualThreshold ?? ''}
+                                  onChange={(e) =>
+                                    setSpecialtyOverrides((prev) =>
+                                      prev.map((r, i) => (i === idx ? { ...r, annualThreshold: e.target.value } : r))
+                                    )
+                                  }
+                                  disabled={isRunning}
+                                  className="h-9 w-full border-border/60"
+                                />
+                              )}
+                              {row.thresholdMethod === 'wrvu_percentile' && (
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  placeholder="%ile"
+                                  value={row.wrvuPercentile ?? ''}
+                                  onChange={(e) =>
+                                    setSpecialtyOverrides((prev) =>
+                                      prev.map((r, i) => (i === idx ? { ...r, wrvuPercentile: e.target.value } : r))
+                                    )
+                                  }
+                                  disabled={isRunning}
+                                  className="h-9 w-full border-border/60"
+                                />
                               )}
                             </div>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                      {baseUsesOverrideCF ? (
-                        <TableCell className="px-3 py-2.5">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            placeholder="—"
-                            value={row.overrideCF}
-                            onChange={(e) =>
-                              setSpecialtyOverrides((prev) =>
-                                prev.map((r, i) => (i === idx ? { ...r, overrideCF: e.target.value } : r))
-                              )
-                            }
-                            disabled={isRunning}
-                            className="h-9 w-full"
-                          />
-                        </TableCell>
-                      ) : (
-                        <TableCell className="px-3 py-2.5">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={100}
-                            placeholder="—"
-                            value={row.proposedCFPercentile}
-                            onChange={(e) =>
-                              setSpecialtyOverrides((prev) =>
-                                prev.map((r, i) => (i === idx ? { ...r, proposedCFPercentile: e.target.value } : r))
-                              )
-                            }
-                            disabled={isRunning}
-                            className="h-9 w-full"
-                          />
-                        </TableCell>
-                      )}
-                      <TableCell className="px-3 py-2.5">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={0.5}
-                          placeholder="—"
-                          value={row.psqPercent}
-                          onChange={(e) =>
-                            setSpecialtyOverrides((prev) =>
-                              prev.map((r, i) => (i === idx ? { ...r, psqPercent: e.target.value } : r))
-                            )
-                          }
-                          disabled={isRunning}
-                          className="h-9 w-full"
-                        />
-                      </TableCell>
-                      <TableCell className="px-3 py-2.5">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => setSpecialtyOverrides((prev) => prev.filter((_, i) => i !== idx))}
-                          disabled={isRunning}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              </div>
-            )}
-          </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setSpecialtyOverrides((prev) => prev.filter((_, i) => i !== idx))}
+                              disabled={isRunning}
+                              aria-label="Remove row"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </section>
 
           {/* By provider */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium text-foreground">By provider</h4>
+          <section className="rounded-xl border border-border/40 bg-background overflow-hidden shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-b border-border/40 bg-muted/40">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-foreground">By provider</h3>
+                {providerOverrides.length > 0 && (
+                  <Badge variant="secondary" className="font-mono text-xs tabular-nums rounded-md">
+                    {providerOverrides.length}
+                  </Badge>
+                )}
+              </div>
               <Button
                 variant="outline"
                 size="sm"
                 disabled={isRunning || providersToRun.length === 0}
                 onClick={() =>
-                  setProviderOverrides((prev) => [
-                    ...prev,
-                    { providerIds: [], proposedCFPercentile: '', overrideCF: '', psqPercent: '' },
-                  ])
+                  setProviderOverrides((prev) => [...prev, { ...DEFAULT_PROVIDER_OVERRIDE_ROW }])
                 }
+                className="gap-1.5 rounded-lg border-border/50"
               >
-                <Plus className="size-4 mr-2" />
-                Add by provider
+                <Plus className="size-4" />
+                Add row
               </Button>
             </div>
-            {providerOverrides.length === 0 ? (
-              <p className="text-muted-foreground text-sm py-2">No provider overrides.</p>
-            ) : (
-              <div className="w-full overflow-auto rounded-md border border-border">
-              <Table className="w-full caption-bottom text-sm">
-                <TableHeader className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
-                  <TableRow>
-                    <TableHead className="min-w-[160px] px-3 py-2.5">Providers</TableHead>
-                    {baseUsesOverrideCF ? (
-                      <TableHead className="w-[100px] px-3 py-2.5">Target CF ($)</TableHead>
-                    ) : (
-                      <TableHead className="w-[90px] px-3 py-2.5">CF %ile</TableHead>
-                    )}
-                    <TableHead className="w-[80px] px-3 py-2.5">PSQ %</TableHead>
-                    <TableHead className="w-[60px] px-3 py-2.5" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {providerOverrides.map((row, idx) => (
-                    <TableRow key={`prov-${idx}`} className={cn(idx % 2 === 1 && 'bg-muted/30')}>
-                      <TableCell className="px-3 py-2.5">
-                        <DropdownMenu
-                          open={openProviderOverrideRow === idx}
-                          onOpenChange={(open) => {
-                            if (open) {
-                              setOpenProviderOverrideRow(idx)
-                              setProviderOverrideSearch('')
-                              setTimeout(() => providerOverrideSearchRef.current?.focus(), 0)
-                            } else {
-                              setOpenProviderOverrideRow(null)
-                              setProviderOverrideSearch('')
-                            }
-                          }}
-                        >
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="h-9 w-full justify-between font-normal"
-                              disabled={isRunning}
+            <div className="p-5">
+              {providerOverrides.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/50 bg-muted/20 py-12 text-center">
+                  <p className="text-sm text-muted-foreground">No provider overrides yet.</p>
+                  <p className="text-sm text-muted-foreground/80 mt-1">Add a row to apply different inputs to individual providers.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-5 gap-1.5 rounded-lg"
+                    disabled={isRunning || providersToRun.length === 0}
+                    onClick={() =>
+                      setProviderOverrides((prev) => [...prev, { ...DEFAULT_PROVIDER_OVERRIDE_ROW }])
+                    }
+                  >
+                    <Plus className="size-4" />
+                    Add by provider
+                  </Button>
+                </div>
+              ) : (
+                <div className="w-full overflow-auto rounded-xl border border-border/40 bg-background">
+                  <Table className="w-full caption-bottom text-sm">
+                    <TableHeader>
+                      <TableRow className="border-border/40 hover:bg-transparent bg-muted/30">
+                        <TableHead className="min-w-[180px] px-4 py-3 text-muted-foreground font-medium">Apply to</TableHead>
+                        <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">CF</TableHead>
+                        <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">Quality pay · basis</TableHead>
+                        <TableHead className="min-w-[130px] px-4 py-3 text-muted-foreground font-medium">Quality pay · amount</TableHead>
+                        <TableHead className="min-w-[140px] px-4 py-3 text-muted-foreground font-medium">Threshold</TableHead>
+                        <TableHead className="w-14 px-4 py-3" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {providerOverrides.map((row, idx) => (
+                        <TableRow key={`prov-${idx}`} className="hover:bg-muted/30 transition-colors border-border/30">
+                          <TableCell className="px-4 py-3">
+                            <DropdownMenu
+                              open={openProviderOverrideRow === idx}
+                              onOpenChange={(open) => {
+                                if (open) {
+                                  setOpenProviderOverrideRow(idx)
+                                  setProviderOverrideSearch('')
+                                  setTimeout(() => providerOverrideSearchRef.current?.focus(), 0)
+                                } else {
+                                  setOpenProviderOverrideRow(null)
+                                  setProviderOverrideSearch('')
+                                }
+                              }}
                             >
-                              <span className="truncate">
-                                {row.providerIds.length === 0
-                                  ? 'Select providers…'
-                                  : row.providerIds.length === 1
-                                    ? (providersToRun.find((p) => (p.providerId ?? p.providerName ?? '').toString() === row.providerIds[0])?.providerName ?? row.providerIds[0])
-                                    : `${row.providerIds.length} provider(s)`}
-                              </span>
-                              <ChevronDown className="size-4 shrink-0 opacity-50" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden flex flex-col p-0"
-                            align="start"
-                            onCloseAutoFocus={(e) => e.preventDefault()}
-                          >
-                            <div className="flex items-center gap-2 border-b px-2 py-1.5">
-                              <Search className="size-4 shrink-0 text-muted-foreground" />
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="h-9 w-full justify-between font-normal border-border/60"
+                                  disabled={isRunning}
+                                >
+                                  <span className="truncate">
+                                    {row.providerIds.length === 0
+                                      ? 'Select providers…'
+                                      : row.providerIds.length === 1
+                                        ? (providersToRun.find((p) => (p.providerId ?? p.providerName ?? '').toString() === row.providerIds[0])?.providerName ?? row.providerIds[0])
+                                        : `${row.providerIds.length} selected`}
+                                  </span>
+                                  <ChevronDown className="size-4 shrink-0 opacity-50" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                className="min-w-[var(--radix-dropdown-menu-trigger-width)] max-h-[320px] overflow-hidden flex flex-col p-0"
+                                align="start"
+                                onCloseAutoFocus={(e) => e.preventDefault()}
+                              >
+                                <div className="flex items-center gap-2 border-b px-2 py-1.5">
+                                  <Search className="size-4 shrink-0 text-muted-foreground" />
+                                  <Input
+                                    ref={openProviderOverrideRow === idx ? providerOverrideSearchRef : undefined}
+                                    placeholder="Search by name or specialty…"
+                                    value={openProviderOverrideRow === idx ? providerOverrideSearch : ''}
+                                    onChange={(e) => setProviderOverrideSearch(e.target.value)}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                    className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                  />
+                                </div>
+                                <div className="max-h-[260px] overflow-y-auto p-1">
+                                  <DropdownMenuLabel>Providers</DropdownMenuLabel>
+                                  {filteredProviderOverrideOptions.length === 0 ? (
+                                    <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching providers</p>
+                                  ) : (
+                                    filteredProviderOverrideOptions.map((p) => {
+                                      const id = (p.providerId ?? p.providerName ?? '').toString()
+                                      const name = (p.providerName ?? id).toString()
+                                      const spec = (p.specialty ?? '').trim()
+                                      return (
+                                        <DropdownMenuCheckboxItem
+                                          key={id}
+                                          checked={row.providerIds.includes(id)}
+                                          onCheckedChange={(checked) => {
+                                            setProviderOverrides((prev) =>
+                                              prev.map((r, i) =>
+                                                i === idx
+                                                  ? {
+                                                      ...r,
+                                                      providerIds: checked ? [...r.providerIds, id] : r.providerIds.filter((x) => x !== id),
+                                                    }
+                                                  : r
+                                              )
+                                            )
+                                          }}
+                                          onSelect={(e) => e.preventDefault()}
+                                        >
+                                          {name}
+                                          {spec ? ` · ${spec}` : ''}
+                                        </DropdownMenuCheckboxItem>
+                                      )
+                                    })
+                                  )}
+                                </div>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] text-muted-foreground font-normal">Type</Label>
+                              <Select
+                                value={row.cfMode}
+                                onValueChange={(v: CFOverrideMode) =>
+                                  setProviderOverrides((prev) =>
+                                    prev.map((r, i) => (i === idx ? { ...r, cfMode: v } : r))
+                                  )
+                                }
+                                disabled={isRunning}
+                              >
+                                <SelectTrigger className="h-8 w-full min-w-0 border-border/60 text-xs">
+                                  <SelectValue placeholder="Select…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="percentile">CF %ile</SelectItem>
+                                  <SelectItem value="dollar">CF ($)</SelectItem>
+                                </SelectContent>
+                              </Select>
                               <Input
-                                ref={openProviderOverrideRow === idx ? providerOverrideSearchRef : undefined}
-                                placeholder="Search by name or specialty…"
-                                value={openProviderOverrideRow === idx ? providerOverrideSearch : ''}
-                                onChange={(e) => setProviderOverrideSearch(e.target.value)}
-                                onKeyDown={(e) => e.stopPropagation()}
-                                className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0"
+                                type="number"
+                                min={0}
+                                max={row.cfMode === 'percentile' ? 100 : undefined}
+                                step={row.cfMode === 'dollar' ? 0.01 : 1}
+                                placeholder={row.cfMode === 'percentile' ? '%ile' : '$'}
+                                value={row.cfMode === 'dollar' ? row.overrideCF : row.proposedCFPercentile}
+                                onChange={(e) =>
+                                  setProviderOverrides((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx
+                                        ? {
+                                            ...r,
+                                            ...(row.cfMode === 'dollar'
+                                              ? { overrideCF: e.target.value }
+                                              : { proposedCFPercentile: e.target.value }),
+                                          }
+                                        : r
+                                    )
+                                  )
+                                }
+                                disabled={isRunning}
+                                className="h-9 w-full border-border/60"
                               />
                             </div>
-                            <div className="max-h-[260px] overflow-y-auto p-1">
-                              <DropdownMenuLabel>Providers</DropdownMenuLabel>
-                              {filteredProviderOverrideOptions.length === 0 ? (
-                                <p className="px-2 py-4 text-center text-sm text-muted-foreground">No matching providers</p>
-                              ) : (
-                                filteredProviderOverrideOptions.map((p) => {
-                                  const id = (p.providerId ?? p.providerName ?? '').toString()
-                                  const name = (p.providerName ?? id).toString()
-                                  const spec = (p.specialty ?? '').trim()
-                                  return (
-                                    <DropdownMenuCheckboxItem
-                                      key={id}
-                                      checked={row.providerIds.includes(id)}
-                                      onCheckedChange={(checked) => {
-                                        setProviderOverrides((prev) =>
-                                          prev.map((r, i) =>
-                                            i === idx
-                                              ? {
-                                                  ...r,
-                                                  providerIds: checked ? [...r.providerIds, id] : r.providerIds.filter((x) => x !== id),
-                                                }
-                                              : r
-                                          )
-                                        )
-                                      }}
-                                      onSelect={(e) => e.preventDefault()}
-                                    >
-                                      {name}
-                                      {spec ? ` · ${spec}` : ''}
-                                    </DropdownMenuCheckboxItem>
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            <Select
+                              value={row.psqBasis || '_base'}
+                              onValueChange={(v) =>
+                                setProviderOverrides((prev) =>
+                                  prev.map((r, i) => (i === idx ? { ...r, psqBasis: v === '_base' ? '' : v } : r))
+                                )
+                              }
+                              disabled={isRunning}
+                            >
+                              <SelectTrigger className="h-9 w-full min-w-0 border-border/60">
+                                <SelectValue placeholder="From base" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="_base">From base</SelectItem>
+                                <SelectItem value="base_salary">% of base salary</SelectItem>
+                                <SelectItem value="total_guaranteed">% of total guaranteed</SelectItem>
+                                <SelectItem value="total_pay">% of total pay (TCC)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            {(row.psqBasis === '_base' || !row.psqBasis) ? (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            ) : (
+                            <div className="space-y-1.5">
+                              <Label className="text-[11px] text-muted-foreground font-normal">Type</Label>
+                              <Select
+                                value={row.psqMode}
+                                onValueChange={(v: PSQOverrideMode) =>
+                                  setProviderOverrides((prev) =>
+                                    prev.map((r, i) => (i === idx ? { ...r, psqMode: v } : r))
                                   )
-                                })
+                                }
+                                disabled={isRunning}
+                              >
+                                <SelectTrigger className="h-8 w-full min-w-0 border-border/60 text-xs">
+                                  <SelectValue placeholder="Select…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="percent">%</SelectItem>
+                                  <SelectItem value="dollar">$</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={row.psqMode === 'percent' ? 100 : undefined}
+                                step={row.psqMode === 'dollar' ? 0.01 : 0.5}
+                                placeholder={row.psqMode === 'percent' ? '%' : '$'}
+                                value={row.psqMode === 'dollar' ? row.psqDollars : row.psqPercent}
+                                onChange={(e) =>
+                                  setProviderOverrides((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx
+                                        ? {
+                                            ...r,
+                                            ...(row.psqMode === 'dollar'
+                                              ? { psqDollars: e.target.value }
+                                              : { psqPercent: e.target.value }),
+                                          }
+                                        : r
+                                    )
+                                  )
+                                }
+                                disabled={isRunning}
+                                className="h-9 w-full border-border/60"
+                              />
+                            </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            <div className="space-y-1.5">
+                              <Select
+                                value={row.thresholdMethod || '_base'}
+                                onValueChange={(v) =>
+                                  setProviderOverrides((prev) =>
+                                    prev.map((r, i) => (i === idx ? { ...r, thresholdMethod: v === '_base' ? '' : v } : r))
+                                  )
+                                }
+                                disabled={isRunning}
+                              >
+                                <SelectTrigger className="h-9 w-full min-w-0 border-border/60">
+                                  <SelectValue placeholder="From base scenario" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="_base">From base scenario</SelectItem>
+                                  <SelectItem value="derived">Clinical $ ÷ CF</SelectItem>
+                                  <SelectItem value="annual">Annual threshold (enter wRVUs)</SelectItem>
+                                  <SelectItem value="wrvu_percentile">wRVU percentile (from market)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {row.thresholdMethod === 'annual' && (
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  placeholder="wRVUs"
+                                  value={row.annualThreshold ?? ''}
+                                  onChange={(e) =>
+                                    setProviderOverrides((prev) =>
+                                      prev.map((r, i) => (i === idx ? { ...r, annualThreshold: e.target.value } : r))
+                                    )
+                                  }
+                                  disabled={isRunning}
+                                  className="h-9 w-full border-border/60"
+                                />
+                              )}
+                              {row.thresholdMethod === 'wrvu_percentile' && (
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  placeholder="%ile"
+                                  value={row.wrvuPercentile ?? ''}
+                                  onChange={(e) =>
+                                    setProviderOverrides((prev) =>
+                                      prev.map((r, i) => (i === idx ? { ...r, wrvuPercentile: e.target.value } : r))
+                                    )
+                                  }
+                                  disabled={isRunning}
+                                  className="h-9 w-full border-border/60"
+                                />
                               )}
                             </div>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                      {baseUsesOverrideCF ? (
-                        <TableCell className="px-3 py-2.5">
-                          <Input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            placeholder="—"
-                            value={row.overrideCF}
-                            onChange={(e) =>
-                              setProviderOverrides((prev) =>
-                                prev.map((r, i) => (i === idx ? { ...r, overrideCF: e.target.value } : r))
-                              )
-                            }
-                            disabled={isRunning}
-                            className="h-9 w-full"
-                          />
-                        </TableCell>
-                      ) : (
-                        <TableCell className="px-3 py-2.5">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={100}
-                            placeholder="—"
-                            value={row.proposedCFPercentile}
-                            onChange={(e) =>
-                              setProviderOverrides((prev) =>
-                                prev.map((r, i) => (i === idx ? { ...r, proposedCFPercentile: e.target.value } : r))
-                              )
-                            }
-                            disabled={isRunning}
-                            className="h-9 w-full"
-                          />
-                        </TableCell>
-                      )}
-                      <TableCell className="px-3 py-2.5">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step={0.5}
-                          placeholder="—"
-                          value={row.psqPercent}
-                          onChange={(e) =>
-                            setProviderOverrides((prev) =>
-                              prev.map((r, i) => (i === idx ? { ...r, psqPercent: e.target.value } : r))
-                            )
-                          }
-                          disabled={isRunning}
-                          className="h-9 w-full"
-                        />
-                      </TableCell>
-                      <TableCell className="px-3 py-2.5">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => setProviderOverrides((prev) => prev.filter((_, i) => i !== idx))}
-                          disabled={isRunning}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              </div>
-            )}
-          </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-3">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setProviderOverrides((prev) => prev.filter((_, i) => i !== idx))}
+                              disabled={isRunning}
+                              aria-label="Remove row"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </section>
+                <div className="rounded-md border border-border/50 bg-muted/40 px-3 py-2.5 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">{providersToRun.length}</span> provider(s) will be run.
+                  {providersToRun.length === providerRows.length && overrideCount === 0
+                    ? ' No overrides — everyone in upload.'
+                    : ' Overrides applied — only selected specialties/providers.'}
+                </div>
         </CardContent>
       </Card>
       )}
 
-      {(!isBulk || bulkStep === 3) && (
+      {isDetailed && (
       <Card id="batch-run" className="scroll-mt-6">
         <CardHeader>
-          <CardTitle>Run</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2">
+              <Play className="size-5 text-muted-foreground" />
+              Run
+            </CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {isBulk && bulkStep === 3 && (
@@ -1211,87 +2439,86 @@ export function BatchScenarioStep({
               )}
             </Button>
           </div>
-          {onSaveScenario && (
-            <Dialog open={saveScenarioDialogOpen} onOpenChange={setSaveScenarioDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Save scenario</DialogTitle>
-                  <DialogDescription>
-                    Save this batch scenario (base inputs and overrides) in this browser. Load it later from the Saved batch scenarios menu.
-                    {appliedBatchScenarioConfig && (
-                      <span className="mt-1 block text-foreground/80">
-                        You have a scenario loaded — update it or save as a new one.
-                      </span>
-                    )}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-2 py-2">
-                  <Label htmlFor="batch-scenario-name">Scenario name</Label>
-                  <Input
-                    id="batch-scenario-name"
-                    value={saveScenarioName}
-                    onChange={(e) => setSaveScenarioName(e.target.value)}
-                    placeholder={appliedBatchScenarioConfig?.name ?? 'e.g. Pediatrics CF 50th'}
-                    onKeyDown={(e) => e.key === 'Enter' && (document.getElementById('batch-scenario-save-btn') as HTMLButtonElement)?.click()}
-                  />
-                </div>
-                <DialogFooter className="flex-wrap gap-2 sm:justify-between">
-                  <Button variant="outline" onClick={() => setSaveScenarioDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <div className="flex gap-2">
-                    {appliedBatchScenarioConfig && (
-                      <Button
-                        variant="secondary"
-                        disabled={!saveScenarioName.trim()}
-                        onClick={() => {
-                          const name = saveScenarioName.trim()
-                          if (!name) return
-                          onSaveScenario(
-                            {
-                              name,
-                              scenarioInputs: { ...scenarioInputs },
-                              overrides: batchOverrides,
-                              selectedSpecialties: [],
-                              selectedProviderIds: [],
-                              runBaseScenarioOnly,
-                            },
-                            appliedBatchScenarioConfig.id
-                          )
-                          setSaveScenarioName('')
-                          setSaveScenarioDialogOpen(false)
-                        }}
-                      >
-                        Update current
-                      </Button>
-                    )}
-                    <Button
-                      id="batch-scenario-save-btn"
-                      onClick={() => {
-                        const name = saveScenarioName.trim()
-                        if (!name) return
-                        onSaveScenario({
+        </CardContent>
+      </Card>
+      )}
+
+      {onSaveScenario && (
+        <Dialog open={saveScenarioDialogOpen} onOpenChange={setSaveScenarioDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Save scenario</DialogTitle>
+              <DialogDescription>
+                Save the current base inputs and overrides so you can recall them later.
+                {appliedBatchScenarioConfig && (
+                  <span className="mt-1 block text-foreground/80">
+                    You have a scenario loaded — update it or save as a new one.
+                  </span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="batch-scenario-name">Scenario name</Label>
+              <Input
+                id="batch-scenario-name"
+                value={saveScenarioName}
+                onChange={(e) => setSaveScenarioName(e.target.value)}
+                placeholder={appliedBatchScenarioConfig?.name ?? 'e.g. Pediatrics CF 50th'}
+                onKeyDown={(e) => e.key === 'Enter' && (document.getElementById('batch-scenario-save-btn') as HTMLButtonElement)?.click()}
+              />
+            </div>
+            <DialogFooter className="flex-wrap gap-2 sm:justify-between">
+              <Button variant="outline" onClick={() => setSaveScenarioDialogOpen(false)}>
+                Cancel
+              </Button>
+              <div className="flex flex-wrap gap-2">
+                {appliedBatchScenarioConfig && (
+                  <Button
+                    variant="secondary"
+                    disabled={!saveScenarioName.trim()}
+                    onClick={() => {
+                      const name = saveScenarioName.trim()
+                      if (!name) return
+                      onSaveScenario(
+                        {
                           name,
                           scenarioInputs: { ...scenarioInputs },
                           overrides: batchOverrides,
                           selectedSpecialties: [],
                           selectedProviderIds: [],
-                          runBaseScenarioOnly,
-                        })
-                        setSaveScenarioName('')
-                        setSaveScenarioDialogOpen(false)
-                      }}
-                      disabled={!saveScenarioName.trim()}
-                    >
-                      {appliedBatchScenarioConfig ? 'Save as new' : 'Save'}
-                    </Button>
-                  </div>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-        </CardContent>
-      </Card>
+                        },
+                        appliedBatchScenarioConfig.id
+                      )
+                      setSaveScenarioName('')
+                      setSaveScenarioDialogOpen(false)
+                    }}
+                  >
+                    Update current
+                  </Button>
+                )}
+                <Button
+                  id="batch-scenario-save-btn"
+                  onClick={() => {
+                    const name = saveScenarioName.trim()
+                    if (!name) return
+                    onSaveScenario({
+                      name,
+                      scenarioInputs: { ...scenarioInputs },
+                      overrides: batchOverrides,
+                      selectedSpecialties: [],
+                      selectedProviderIds: [],
+                    })
+                    setSaveScenarioName('')
+                    setSaveScenarioDialogOpen(false)
+                  }}
+                  disabled={!saveScenarioName.trim()}
+                >
+                  {appliedBatchScenarioConfig ? 'Save as new' : 'Save'}
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
 
     </div>

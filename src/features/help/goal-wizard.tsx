@@ -9,7 +9,6 @@ import {
   BarChart2,
   Target,
   LayoutGrid,
-  Sliders,
   Layers,
   GitCompare,
   FileText,
@@ -38,8 +37,7 @@ type GoalId =
   | 'cf-optimizer'
   | 'target-optimizer'
   | 'market-positioning'
-  | 'bulk-scenario'
-  | 'detailed-scenario'
+  | 'run-scenario'
   | 'batch-results'
   | 'compare-scenarios'
   | 'reports'
@@ -66,8 +64,7 @@ const GOAL_SECTIONS = [
       'cf-optimizer',
       'target-optimizer',
       'market-positioning',
-      'bulk-scenario',
-      'detailed-scenario',
+      'run-scenario',
       'batch-results',
     ] as GoalId[],
   },
@@ -116,7 +113,7 @@ function makeGoals(): GoalConfig[] {
     {
       id: 'single-scenario',
       label: 'Model one physician',
-      shortDescription: 'Single provider: set CF, wRVU, PSQ, see impact',
+      shortDescription: 'Single provider: set CF, wRVU, quality pay, see impact',
       icon: <User className="size-5" />,
       step: 'modeller',
       body: (
@@ -125,7 +122,7 @@ function makeGoals(): GoalConfig[] {
             <strong className="text-foreground">What it does:</strong> Model total cash compensation for one provider. Choose from your uploaded data or enter custom compensation and productivity data (hypothetical provider). Flow: Provider → Scenario → Market data → Results.
           </p>
           <p className="text-muted-foreground text-sm">
-            <strong className="text-foreground">What to do:</strong> Select a provider (or enter custom data), set conversion factor, wRVU target, and PSQ, then view market data and the impact report with governance flags.
+            <strong className="text-foreground">What to do:</strong> Select a provider (or enter custom data), set conversion factor, wRVU target, and quality pay, then view market data and the impact report with governance flags.
           </p>
         </>
       ),
@@ -185,37 +182,19 @@ function makeGoals(): GoalConfig[] {
       ),
     },
     {
-      id: 'bulk-scenario',
-      label: 'Run one scenario for everyone',
-      shortDescription: 'One set of CF, wRVU, PSQ for all providers',
+      id: 'run-scenario',
+      label: 'Scenario Studio',
+      shortDescription: 'One set for all, or overrides by specialty/provider',
       icon: <LayoutGrid className="size-5" />,
       step: 'batch-scenario',
-      batchCard: 'bulk-scenario',
+      batchCard: 'run-scenario',
       body: (
         <>
           <p className="text-muted-foreground text-sm mb-2">
-            <strong className="text-foreground">What it does:</strong> Apply one set of inputs (CF, wRVU target, PSQ) to all providers and run. Use scope and guardrails to filter who’s included.
+            <strong className="text-foreground">What it does:</strong> Apply one set of inputs to all providers, or add overrides by specialty and provider. Choose the mode (One set for all / Overrides by specialty/provider) and run.
           </p>
           <p className="text-muted-foreground text-sm">
-            <strong className="text-foreground">What to do:</strong> Configure the single scenario (CF, wRVU target, PSQ), set scope and guardrails, then run. You’ll land on Scenario results to view and export.
-          </p>
-        </>
-      ),
-    },
-    {
-      id: 'detailed-scenario',
-      label: 'Different assumptions by specialty or provider',
-      shortDescription: 'Override CF or targets by specialty and provider',
-      icon: <Sliders className="size-5" />,
-      step: 'batch-scenario',
-      batchCard: 'detailed-scenario',
-      body: (
-        <>
-          <p className="text-muted-foreground text-sm mb-2">
-            <strong className="text-foreground">What it does:</strong> Overrides by specialty and by provider, then run. More control than the bulk scenario when you need different assumptions for different groups or individuals.
-          </p>
-          <p className="text-muted-foreground text-sm">
-            <strong className="text-foreground">What to do:</strong> Set overrides by specialty and optionally by provider, then run. Use for targeted what-ifs with different CF or targets by group or person.
+            <strong className="text-foreground">What to do:</strong> Open Scenario Studio, configure base inputs and any overrides, then run. You’ll land on Scenario results to view and export.
           </p>
         </>
       ),
@@ -263,7 +242,7 @@ function makeGoals(): GoalConfig[] {
       body: (
         <>
           <p className="text-muted-foreground text-sm mb-2">
-            <strong className="text-foreground">What it does:</strong> Report library with Quick Run CF (recommended $/wRVU by specialty), TCC & wRVU percentiles, single-provider Impact report, Saved Batch Run, Custom CF by specialty, and Manage scenarios. Filter and export to CSV or Excel.
+            <strong className="text-foreground">What it does:</strong> Report library with Quick Run CF (recommended $/wRVU by specialty), TCC & wRVU percentiles, Compensation Impact report, Custom CF by specialty, and Saved Batch Run. Manage scenarios & runs is in the header. Filter and export to CSV or Excel.
           </p>
           <p className="text-muted-foreground text-sm">
             <strong className="text-foreground">What to do:</strong> Open Reports, pick the report you need from the library, apply filters (e.g. specialty, provider), then export. Some cards navigate to Batch or Compare instead of opening a report.

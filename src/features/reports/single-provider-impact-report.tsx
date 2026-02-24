@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeft, ChevronDown, FileDown, FileSpreadsheet, FileText, Lock } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileDown, FileSpreadsheet, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -31,8 +31,23 @@ import { computeScenario } from '@/lib/compute'
 import { downloadSingleScenarioCSV, exportSingleScenarioXLSX } from '@/lib/single-scenario-export'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
+import { formatCurrency } from '@/utils/format'
 import type { ScenarioInputs, SavedScenario } from '@/types/scenario'
 import type { SynonymMap } from '@/types/batch'
+
+/** One-line summary of scenario inputs (CF target, quality pay, etc.) so the selected scenario is clear. */
+function scenarioInputsSummary(inp: ScenarioInputs): string {
+  const parts: string[] = []
+  if (inp.cfSource === 'override' && inp.overrideCF != null && Number.isFinite(inp.overrideCF)) {
+    parts.push(`CF ${formatCurrency(inp.overrideCF)}`)
+  } else if (inp.cfSource === 'target_haircut') {
+    parts.push(`CF target − ${inp.haircutPct ?? 0}%`)
+  } else {
+    parts.push(`CF ${Math.round(inp.proposedCFPercentile ?? 50)}th %ile`)
+  }
+  if ((inp.psqPercent ?? 0) > 0) parts.push(`Quality pay ${inp.psqPercent}%`)
+  return parts.length > 0 ? parts.join(' · ') : 'Default'
+}
 
 export interface SingleProviderImpactReportProps {
   providerRows: ProviderRow[]
@@ -55,6 +70,12 @@ export function SingleProviderImpactReport({
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('current')
   const [providerSearch, setProviderSearch] = useState('')
 
+  const effectiveScenarioInputs = useMemo((): ScenarioInputs => {
+    if (selectedScenarioId === 'current') return scenarioInputs
+    const saved = savedScenarios.find((s) => s.id === selectedScenarioId)
+    return saved?.scenarioInputs ?? scenarioInputs
+  }, [selectedScenarioId, scenarioInputs, savedScenarios])
+
   const filteredProviderRows = useMemo(() => {
     if (!providerSearch.trim()) return providerRows
     const q = providerSearch.trim().toLowerCase()
@@ -73,12 +94,6 @@ export function SingleProviderImpactReport({
         : providerRows[0] ?? null,
     [providerRows, selectedProviderId]
   )
-
-  const effectiveScenarioInputs = useMemo((): ScenarioInputs => {
-    if (selectedScenarioId === 'current') return scenarioInputs
-    const saved = savedScenarios.find((s) => s.id === selectedScenarioId)
-    return saved?.scenarioInputs ?? scenarioInputs
-  }, [selectedScenarioId, scenarioInputs, savedScenarios])
 
   const { results, marketMatch } = useMemo(() => {
     if (!selectedProvider || marketRows.length === 0) {
@@ -140,57 +155,50 @@ export function SingleProviderImpactReport({
 
   return (
     <div className="space-y-6 report-print">
-      {/* Row 1: Title + confidential (left), actions (right) — matches TCC percentiles & Batch results */}
+      {/* Row 1: Title (left), then provider + scenario dropdowns (right). */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
             Compensation impact report
           </SectionTitleWithIcon>
-          {results && selectedProvider && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-              <Lock className="size-3.5 shrink-0" aria-hidden />
-              Confidential — compensation planning
-            </p>
-          )}
         </div>
-        {results && exportInput && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 no-print" aria-label="Export data">
-                <FileDown className="size-4" />
-                Export
-                <ChevronDown className="size-4 opacity-50" />
+        <div className="flex flex-wrap items-center gap-2 shrink-0 no-print">
+          {!(results && selectedProvider) && (
+            <>
+              <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
+                <ArrowLeft className="size-4" />
+                Back
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Export</DropdownMenuLabel>
-              <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
-                <FileDown className="size-4" />
-                Export CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportXLSX} className="gap-2">
-                <FileSpreadsheet className="size-4" />
-                Export XLSX
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-      {/* Row 2: Back button — standard location used in Report library, TCC percentiles, and Batch results */}
-      <div className="flex flex-wrap items-center gap-2 no-print">
-        <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 no-print">
+              {results && exportInput && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2" aria-label="Export data">
+                      <FileDown className="size-4" />
+                      Export
+                      <ChevronDown className="size-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">Export</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                      <FileDown className="size-4" />
+                      Export CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportXLSX} className="gap-2">
+                      <FileSpreadsheet className="size-4" />
+                      Export XLSX
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </>
+          )}
           <DropdownMenu onOpenChange={(open) => !open && setProviderSearch('')}>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
                 role="combobox"
-                className="w-[280px] min-w-0 justify-between bg-white dark:bg-background h-9 font-normal"
+                className="w-[260px] min-w-0 justify-between bg-white dark:bg-background h-9 font-normal"
               >
                 <span className="truncate">
                   {selectedProvider
@@ -201,7 +209,7 @@ export function SingleProviderImpactReport({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              align="start"
+              align="end"
               className="max-h-[280px] overflow-hidden p-0 w-[var(--radix-dropdown-menu-trigger-width)]"
               onCloseAutoFocus={(e: Event) => e.preventDefault()}
             >
@@ -240,7 +248,7 @@ export function SingleProviderImpactReport({
             </DropdownMenuContent>
           </DropdownMenu>
           <Select value={selectedScenarioId} onValueChange={setSelectedScenarioId}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-[200px] h-9 bg-white dark:bg-background" aria-label="Scenario to apply">
               <SelectValue placeholder="Scenario" />
             </SelectTrigger>
             <SelectContent>
@@ -252,7 +260,12 @@ export function SingleProviderImpactReport({
               ))}
             </SelectContent>
           </Select>
+        </div>
       </div>
+      {/* Show what the selected scenario actually is (CF target, quality pay, etc.) — scenarios are input sets, not provider-specific. */}
+      <p className="text-xs text-muted-foreground no-print">
+        <strong>Scenario settings:</strong> {scenarioInputsSummary(effectiveScenarioInputs)}
+      </p>
 
       {!marketMatch && selectedProvider && marketRows.length > 0 && (
         <Card>
@@ -272,6 +285,36 @@ export function SingleProviderImpactReport({
             scenarioInputs={effectiveScenarioInputs}
             providerLabel={providerLabel}
             onBackToModeller={onBack}
+            headerActions={
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={onBack} className="gap-2" aria-label="Back">
+                  <ArrowLeft className="size-4" />
+                  Back
+                </Button>
+                {exportInput && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2" aria-label="Export data">
+                        <FileDown className="size-4" />
+                        Export
+                        <ChevronDown className="size-4 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">Export</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={handleExportCSV} className="gap-2">
+                        <FileDown className="size-4" />
+                        Export CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleExportXLSX} className="gap-2">
+                        <FileSpreadsheet className="size-4" />
+                        Export XLSX
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            }
           />
         </>
       )}

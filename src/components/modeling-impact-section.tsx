@@ -67,7 +67,7 @@ export function buildWaterfallSegments(
     { name: 'Total base comp', value: baseSalary, type: 'start' },
     { name: '+ PSQ', value: currentPsqDollars, type: 'delta' },
     { name: '+ wRVU incentives', value: currentIncentiveForTCC, type: 'delta' },
-    ...(qualityPayments > 0 ? [{ name: '+ Quality payments', value: qualityPayments, type: 'delta' as const }] : []),
+    ...(qualityPayments > 0 ? [{ name: '+ Quality pay', value: qualityPayments, type: 'delta' as const }] : []),
     ...(otherIncentives > 0 ? [{ name: '+ Other incentives', value: otherIncentives, type: 'delta' as const }] : []),
     { name: 'Δ Base pay', value: deltaBase, type: 'delta' },
     { name: 'Δ Incentive', value: deltaIncentive, type: 'delta' },

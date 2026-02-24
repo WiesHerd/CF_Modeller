@@ -148,7 +148,7 @@ export function exportSingleScenarioXLSX(input: ExportSingleScenarioInput): void
       rows: [
         ['Base Salary', formatCurrency(provider?.baseSalary)],
         ['Non-Clinical Pay', formatCurrency(provider?.nonClinicalPay)],
-        ['Quality payment (value-based)', formatCurrency(provider?.qualityPayments)],
+        ['Quality pay', formatCurrency(provider?.qualityPayments)],
         ['Other Incentives', formatCurrency(provider?.otherIncentives)],
         ['Other Incentive 1', formatCurrency(provider?.otherIncentive1)],
         ['Other Incentive 2', formatCurrency(provider?.otherIncentive2)],
@@ -180,8 +180,8 @@ export function exportSingleScenarioXLSX(input: ExportSingleScenarioInput): void
     {
       title: 'PSQ / Value-Based Payment',
       rows: [
-        ['PSQ %', formatPercent(scenarioInputs.psqPercent)],
-        ['Current PSQ %', formatPercent(scenarioInputs.currentPsqPercent)],
+        ['Quality pay %', formatPercent(scenarioInputs.psqPercent)],
+        ['Current Quality pay %', formatPercent(scenarioInputs.currentPsqPercent)],
         ['PSQ Basis', scenarioInputs.psqBasis ?? EMPTY],
       ],
     },

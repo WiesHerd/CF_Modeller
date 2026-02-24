@@ -138,6 +138,7 @@ const DEFAULT_COLUMN_ORDER: ColumnOrderState = [
   'currentCF',
   'modeledCF',
   'workRVUs',
+  'target',
   'annualIncentive',
   'psqDollars',
   'tccPercentile',
@@ -221,6 +222,11 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
         header: 'wRVUs',
         cell: (c) => numOrEmpty(c.getValue()),
       }),
+      columnHelper.accessor((r) => r.results?.annualThreshold, {
+        id: 'target',
+        header: 'Target',
+        cell: (c) => numOrEmpty(c.getValue()),
+      }),
       columnHelper.accessor((r) => r.results?.annualIncentive, {
         id: 'annualIncentive',
         header: 'Incentive',
@@ -247,7 +253,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
       }),
       columnHelper.accessor((r) => r.results?.psqDollars, {
         id: 'psqDollars',
-        header: 'PSQ',
+        header: 'Quality pay',
         cell: (c) => {
           const val = c.getValue() as number | undefined
           const text = curOrEmpty(val)

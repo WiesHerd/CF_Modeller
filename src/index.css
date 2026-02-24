@@ -85,27 +85,27 @@ body {
 }
 
 :root {
-  --radius: 0.5rem;
-  /* CompLens-style: white/off-white, dark headings, gray body, purple accent */
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.2 0 0);
+  --radius: 0.625rem;
+  /* Clean, minimal: white/off-white, soft borders, purple accent (Google/Silicon Valley style) */
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.18 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0 0);
+  --card-foreground: oklch(0.18 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0 0);
-  --primary: oklch(0.45 0.2 280);
+  --popover-foreground: oklch(0.18 0 0);
+  --primary: oklch(0.48 0.18 280);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: oklch(0.25 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.45 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.28 0 0);
+  --muted: oklch(0.975 0 0);
+  --muted-foreground: oklch(0.48 0 0);
   --accent: oklch(0.96 0.01 140);
-  --accent-foreground: oklch(0.25 0 0);
-  --accent-icon: oklch(0.65 0.15 145);
+  --accent-foreground: oklch(0.28 0 0);
+  --accent-icon: oklch(0.6 0.12 265);
   --destructive: oklch(0.55 0.22 25);
-  --border: oklch(0.92 0 0);
-  --input: oklch(0.92 0 0);
-  --ring: oklch(0.45 0.2 280);
+  --border: oklch(0.93 0 0);
+  --input: oklch(0.93 0 0);
+  --ring: oklch(0.48 0.18 280);
   --chart-1: oklch(0.65 0.15 145);
   --chart-2: oklch(0.45 0.2 280);
   --chart-3: oklch(0.55 0.12 230);
@@ -164,28 +164,28 @@ body {
   }
 }
 
-/* CompLens-style card: white, subtle shadow, rounded */
+/* Elevated surface: white, soft shadow, rounded (Google/Material style) */
 .card-elevated {
   background: var(--card);
   border-radius: var(--radius);
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.06);
-  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 2px 8px oklch(0 0 0 / 0.04);
+  border: 1px solid oklch(0 0 0 / 0.06);
 }
 
-/* Section header: bold, dark, large */
+/* Section header: clear hierarchy, slightly softer weight */
 .section-title {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.375rem;
+  font-weight: 600;
   color: var(--foreground);
   letter-spacing: -0.02em;
   margin-bottom: 0.5rem;
 }
 
-/* Percentile Modeler main title: Apple-style clarity */
+/* Page title: clear, readable */
 .modeler-page-title {
   font-size: 1.25rem;
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   color: var(--foreground);
 }
 

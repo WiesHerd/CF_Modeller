@@ -19,7 +19,7 @@ export interface TCCComponentDefinition {
 export const TCC_BUILTIN_COMPONENTS: TCCComponentDefinition[] = [
   {
     id: 'quality',
-    label: 'Quality payment',
+    label: 'Quality pay',
     description: 'From provider file (value-based payment).',
     type: 'from_file',
     supportsNormalizeForFTE: true,
@@ -87,7 +87,7 @@ export const TCC_DEFINITION_PRESETS: TCCDefinitionPreset[] = [
   {
     id: 'base_quality_productivity',
     label: 'Base + quality + productivity',
-    description: 'Clinical base, quality payments, and work RVU incentive (typical survey TCC).',
+    description: 'Clinical base, quality pay, and work RVU incentive (typical survey TCC).',
     inclusion: { quality: { included: true }, workRVUIncentive: { included: true }, otherIncentives: { included: false }, stipend: { included: false } },
   },
   {

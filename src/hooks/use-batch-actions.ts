@@ -37,9 +37,10 @@ export function useBatchActions(setState: SetState) {
       const snapshot =
         mode === 'bulk' ? s.lastBatchScenarioSnapshotBulk : s.lastBatchScenarioSnapshotDetailed
       if (!results) return s
+      const modeLabel = mode === 'detailed' ? 'Detailed' : 'Bulk'
       const displayName =
         name?.trim() ||
-        `${results.providerCount} providers × ${results.scenarioCount} scenario(s) – ${formatDateTime(results.runAt)}`
+        `${modeLabel} – ${results.providerCount} providers – ${formatDateTime(results.runAt)}`
       const saved: SavedBatchRun = {
         id: crypto.randomUUID(),
         name: displayName,
@@ -144,7 +145,6 @@ export function useBatchActions(setState: SetState) {
         overrides,
         selectedSpecialties: [],
         selectedProviderIds: [],
-        runBaseScenarioOnly: true,
       }
       return { ...s, appliedBatchScenarioConfig: config }
     })

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, Eraser, FileDown, FileSpreadsheet, Info, Lock, Percent, Search } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Eraser, FileDown, FileSpreadsheet, Info, Percent, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import {
@@ -295,10 +295,6 @@ export function TccWrvuPercentilesReport({
           <SectionTitleWithIcon icon={<Percent className="size-5 text-muted-foreground" />}>
             TCC & wRVU percentiles
           </SectionTitleWithIcon>
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-            <Lock className="size-3.5 shrink-0" aria-hidden />
-            Confidential — compensation planning
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {results && (

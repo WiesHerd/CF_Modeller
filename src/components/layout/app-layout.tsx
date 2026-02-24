@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Menu, Plus, PanelLeftClose, PanelLeft, FileUp, User, Users, Gauge, BarChart2, Sliders, Table2, GitCompare, HelpCircle, FileText, Target } from 'lucide-react'
+import { Menu, Plus, PanelLeftClose, PanelLeft, FileUp, User, Table2, GitCompare, HelpCircle, FileText, Gauge, Target, LayoutGrid, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -14,12 +14,10 @@ export type AppMode = 'single' | 'batch'
 const RAIL_WIDTH = 68
 const SIDEBAR_EXPANDED_WIDTH = 260
 
-const BATCH_NAV: { id: BatchCardId; label: string; icon: React.ReactNode; tooltip: string; subtitle?: string }[] = [
+const BATCH_NAV: { id: BatchCardId; label: string; subtitle?: string; icon: React.ReactNode; tooltip: string }[] = [
   { id: 'cf-optimizer', label: 'CF Optimizer', icon: <Gauge className="size-5 shrink-0" />, tooltip: 'Conversion Factor Optimizer' },
-  { id: 'productivity-target', label: 'Target Optimizer', icon: <Target className="size-5 shrink-0" />, tooltip: 'Target Optimizer', subtitle: 'Recommended target' },
-  { id: 'imputed-vs-market', label: 'Market positioning', icon: <BarChart2 className="size-5 shrink-0" />, tooltip: 'Market positioning (imputed)' },
-  { id: 'bulk-scenario', label: 'Create and Run Scenario', icon: <Users className="size-5 shrink-0" />, tooltip: 'Create a scenario and run it for all providers' },
-  { id: 'detailed-scenario', label: 'Detailed scenarios', icon: <Sliders className="size-5 shrink-0" />, tooltip: 'Scenario overrides by specialty and provider' },
+  { id: 'productivity-target', label: 'Target Optimizer', icon: <Target className="size-5 shrink-0" />, tooltip: 'Target Optimizer' },
+  { id: 'run-scenario', label: 'Scenario Studio', icon: <LayoutGrid className="size-5 shrink-0" />, tooltip: 'Design and run scenarios — base inputs plus optional overrides by specialty or provider' },
 ]
 
 interface AppLayoutProps {
@@ -29,6 +27,10 @@ interface AppLayoutProps {
   onBatchCardSelect?: (id: BatchCardId) => void
   /** Called when the Reports nav item is clicked (e.g. to return to report library list from a sub-view). */
   onReportsNavClick?: () => void
+  /** When true, Manage scenarios & runs nav item is active (e.g. step === 'reports' && reportView === 'manage-scenarios'). */
+  isManageScenariosActive?: boolean
+  /** Called when Manage scenarios & runs nav item is clicked (navigate to reports with manage-scenarios view). */
+  onNavigateToManageScenarios?: () => void
   children: React.ReactNode
 }
 
@@ -116,6 +118,8 @@ export function AppLayout({
   currentBatchCard = null,
   onBatchCardSelect,
   onReportsNavClick,
+  isManageScenariosActive = false,
+  onNavigateToManageScenarios,
   children,
 }: AppLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -134,15 +138,20 @@ export function AppLayout({
     setMobileOpen(false)
   }
 
+  const handleBatchCard = (id: BatchCardId) => {
+    onBatchCardSelect?.(id)
+    onStepChange('batch-scenario')
+    setMobileOpen(false)
+  }
+
   const handleReportsClick = () => {
     onStepChange('reports')
     setMobileOpen(false)
     onReportsNavClick?.()
   }
 
-  const handleBatchCard = (id: BatchCardId) => {
-    onBatchCardSelect?.(id)
-    onStepChange('batch-scenario')
+  const handleManageScenariosClick = () => {
+    onNavigateToManageScenarios?.()
     setMobileOpen(false)
   }
 
@@ -215,7 +224,6 @@ export function AppLayout({
               icon={item.icon}
               label={item.label}
               tooltip={item.tooltip}
-              subtitle={item.subtitle}
               active={isBatchScenarioActive && currentBatchCard === item.id}
               disabled={false}
               onClick={() => handleBatchCard(item.id)}
@@ -240,6 +248,17 @@ export function AppLayout({
             onClick={handleReportsClick}
             collapsed={true}
           />
+          {onNavigateToManageScenarios && (
+            <NavButton
+              icon={<Settings2 className="size-5 shrink-0" />}
+              label="Manage scenarios & runs"
+              tooltip="Saved scenarios, batch runs, configs"
+              active={isManageScenariosActive}
+              disabled={false}
+              onClick={handleManageScenariosClick}
+              collapsed={true}
+            />
+          )}
           <NavButton
             icon={<HelpCircle className="size-5 shrink-0" />}
             label="How to use"
@@ -339,8 +358,8 @@ export function AppLayout({
                 key={item.id}
                 icon={item.icon}
                 label={item.label}
-                tooltip={item.tooltip}
                 subtitle={item.subtitle}
+                tooltip={item.tooltip}
                 active={isBatchScenarioActive && currentBatchCard === item.id}
                 disabled={false}
                 onClick={() => handleBatchCard(item.id)}
@@ -368,6 +387,17 @@ export function AppLayout({
             onClick={handleReportsClick}
             collapsed={false}
           />
+          {onNavigateToManageScenarios && (
+            <NavButton
+              icon={<Settings2 className="size-5 shrink-0" />}
+              label="Manage scenarios & runs"
+              tooltip="Saved scenarios, batch runs, configs"
+              active={isManageScenariosActive}
+              disabled={false}
+              onClick={handleManageScenariosClick}
+              collapsed={false}
+            />
+          )}
         </SidebarSection>
         <SidebarSection label="Help" collapsed={false}>
           <NavButton
@@ -486,8 +516,8 @@ export function AppLayout({
                         key={item.id}
                         icon={item.icon}
                         label={item.label}
-                        tooltip={item.tooltip}
                         subtitle={item.subtitle}
+                        tooltip={item.tooltip}
                         active={isBatchScenarioActive && currentBatchCard === item.id}
                         disabled={false}
                         onClick={() => handleBatchCard(item.id)}
@@ -515,6 +545,17 @@ export function AppLayout({
                     onClick={handleReportsClick}
                     collapsed={false}
                   />
+                  {onNavigateToManageScenarios && (
+                    <NavButton
+                      icon={<Settings2 className="size-5 shrink-0" />}
+                      label="Manage scenarios & runs"
+                      tooltip="Saved scenarios, batch runs, configs"
+                      active={isManageScenariosActive}
+                      disabled={false}
+                      onClick={handleManageScenariosClick}
+                      collapsed={false}
+                    />
+                  )}
                 </SidebarSection>
                 <SidebarSection label="Help" collapsed={false}>
                   <NavButton
@@ -554,7 +595,7 @@ export function AppLayout({
       >
         <main className="safe-area-bottom flex-1 overflow-auto pb-8 pt-6" data-scroll-root>
           <div id="top" className="h-px w-full shrink-0" aria-hidden="true" />
-          <div className="mx-auto max-w-[1200px] px-4">
+          <div className="mx-auto w-full max-w-[1200px] px-5 sm:px-6">
             {children}
           </div>
         </main>

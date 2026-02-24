@@ -573,7 +573,7 @@ export function UploadAndMapping({
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-qualityPayments">Quality payments</Label>
+                  <Label htmlFor="edit-qualityPayments">Quality pay</Label>
                   <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                     <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
                     <Input
@@ -1021,7 +1021,7 @@ export function UploadAndMapping({
               Match your file columns to the required fields below, then click <strong>Apply mapping & load provider data</strong> to finish.
             </p>
             <div className="mt-3 pl-[52px] rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-[12px] text-muted-foreground">
-              <strong className="text-foreground">Total Cash Compensation (TCC)</strong> is built from: <strong className="text-foreground">Base salary</strong>, <strong className="text-foreground">Quality payments</strong>, <strong className="text-foreground">Other incentives</strong>, and <strong className="text-foreground">Other incentive 1, 2, 3</strong> (map these if your file has them). If you map Admin pay, Teaching pay, or Research pay, their sum is used as non-clinical pay; otherwise non-clinical is calculated from FTE (base salary × (total FTE − clinical FTE) / total FTE). In the Modeller, TCC also includes wRVU incentive and PSQ from the Scenario step. If your file has a pre-calculated total column, you can map it under &quot;Current TCC from file (optional)&quot; below; otherwise we compute TCC from the components.
+              <strong className="text-foreground">Total Cash Compensation (TCC)</strong> is built from: <strong className="text-foreground">Base salary</strong>, <strong className="text-foreground">Quality pay</strong>, <strong className="text-foreground">Other incentives</strong>, and <strong className="text-foreground">Other incentive 1, 2, 3</strong> (map these if your file has them). If you map Admin pay, Teaching pay, or Research pay, their sum is used as non-clinical pay; otherwise non-clinical is calculated from FTE (base salary × (total FTE − clinical FTE) / total FTE). In the Modeller, TCC also includes wRVU incentive and quality pay from the Scenario step. If your file has a pre-calculated total column, you can map it under &quot;Current TCC from file (optional)&quot; below; otherwise we compute TCC from the components.
             </div>
           </CardHeader>
           <CardContent className="space-y-8">
@@ -1051,7 +1051,7 @@ export function UploadAndMapping({
                   {group.keys.map((key) => (
                     <div key={key} className="flex flex-col gap-1.5">
                       <Label className="text-[13px] font-medium text-foreground">
-                        {key === 'workRVUs' ? 'Work RVUs (or wRVUs)' : key === 'productivityModel' ? 'Productivity model' : key === 'researchFTE' ? 'Research FTE' : key === 'teachingFTE' ? 'Teaching FTE' : key === 'qualityPayments' ? 'Quality payments' : key === 'otherIncentives' ? 'Other incentives' : key === 'otherIncentive1' ? 'Other incentive 1' : key === 'otherIncentive2' ? 'Other incentive 2' : key === 'otherIncentive3' ? 'Other incentive 3' : key === 'currentTCC' ? 'Current TCC from file (optional)' : key === 'adminPay' ? 'Admin pay' : key === 'teachingPay' ? 'Teaching pay' : key === 'researchPay' ? 'Research pay' : key}
+                        {key === 'workRVUs' ? 'Work RVUs (or wRVUs)' : key === 'productivityModel' ? 'Productivity model' : key === 'researchFTE' ? 'Research FTE' : key === 'teachingFTE' ? 'Teaching FTE' : key === 'qualityPayments' ? 'Quality pay' : key === 'otherIncentives' ? 'Other incentives' : key === 'otherIncentive1' ? 'Other incentive 1' : key === 'otherIncentive2' ? 'Other incentive 2' : key === 'otherIncentive3' ? 'Other incentive 3' : key === 'currentTCC' ? 'Current TCC from file (optional)' : key === 'adminPay' ? 'Admin pay' : key === 'teachingPay' ? 'Teaching pay' : key === 'researchPay' ? 'Research pay' : key}
                       </Label>
                       <Select
                         value={providerMapping[key] || SKIP_VALUE}

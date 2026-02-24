@@ -474,7 +474,7 @@ export function BaselineVsModeledSection({
             isChanged={deltaBase !== 0}
             delta={deltaBase}
             deltaFormat="currency"
-            title="Total guaranteed base (clinical + non-clinical). Override to model a base pay change; TCC = base + incentive + quality payments."
+            title="Total guaranteed base (clinical + non-clinical). Override to model a base pay change; TCC = base + incentive + quality pay."
           />
           <ComparisonRow
             labelLeft="Non-clinical"
@@ -567,9 +567,9 @@ export function BaselineVsModeledSection({
             deltaFormat="currency"
           />
           <ComparisonRow
-            labelLeft="Quality payments $"
+            labelLeft="Quality pay $"
             valueLeft={currentQualityPaymentsDisplay > 0 ? fmtMoney(currentQualityPaymentsDisplay) : '—'}
-            labelRight="Quality payments $ (VBP %)"
+            labelRight="Quality pay $ (%)"
             valueRight={{
               controls: (
                 <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -581,7 +581,7 @@ export function BaselineVsModeledSection({
                     onValueChange={handleVBPPercentChange}
                     disabled={disabled}
                     className="min-w-0 flex-1 py-1"
-                    aria-label="Value-based payment percentage (VBP / Quality payment), 0–50%. Quality payments $ = this % of base or total pay depending on scenario quality payments basis."
+                    aria-label="Quality pay percentage, 0–50%. Quality pay $ = this % of base or total pay depending on scenario quality pay basis."
                   />
                   <span className="shrink-0 text-muted-foreground tabular-nums text-xs" aria-hidden="true">
                     {vbpPercent}%
@@ -593,7 +593,7 @@ export function BaselineVsModeledSection({
             isChanged={deltaPsq !== 0}
             delta={deltaPsq}
             deltaFormat="currency"
-            title={qualityPaymentsFromProvider > 0 ? 'Current value from provider file (Upload/edit). Modeled value is from VBP % slider.' : undefined}
+            title={qualityPaymentsFromProvider > 0 ? 'Current value from provider file (Upload/edit). Modeled value is from Quality pay % slider.' : undefined}
           />
           <ComparisonRow
             labelLeft={
@@ -785,6 +785,15 @@ export function BaselineVsModeledSection({
                   >
                     <RotateCcw className="size-3.5" />
                   </Button>
+                  {results?.wrvuPercentileModeled != null && Number.isFinite(results.wrvuPercentileModeled) && (
+                    <span
+                      className="shrink-0 text-muted-foreground tabular-nums text-xs"
+                      aria-label={`Modeled work wRVUs at ${Math.round(results.wrvuPercentileModeled)}th percentile vs market (normalized to 1.0 cFTE)`}
+                      title="wRVU percentile vs market (work wRVUs ÷ cFTE)"
+                    >
+                      P{Math.round(results.wrvuPercentileModeled)}
+                    </span>
+                  )}
                 </div>
               ),
               value: (

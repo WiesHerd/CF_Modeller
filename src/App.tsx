@@ -14,9 +14,11 @@ const SESSION_BATCH_CARD_KEY = 'cf-modeler-batch-card'
 const SESSION_MODELLER_STEP_KEY = 'cf-modeler-modeller-step'
 const SESSION_REPORTS_VIEW_KEY = 'cf-modeler-reports-view'
 const SESSION_COMPARE_TOOL_KEY = 'cf-modeler-compare-tool'
+const SESSION_BATCH_SCENARIO_MODE_KEY = 'cf-modeler-batch-scenario-mode'
+const SESSION_LAST_BATCH_RUN_MODE_KEY = 'cf-modeler-last-batch-run-mode'
 
 const VALID_APP_STEPS: AppStep[] = ['upload', 'data', 'modeller', 'batch-scenario', 'batch-results', 'compare-scenarios', 'reports', 'help']
-const VALID_BATCH_CARDS: BatchCardId[] = ['cf-optimizer', 'imputed-vs-market', 'productivity-target', 'bulk-scenario', 'detailed-scenario']
+const VALID_BATCH_CARDS: BatchCardId[] = ['cf-optimizer', 'imputed-vs-market', 'productivity-target', 'run-scenario']
 const VALID_MODELLER_STEPS: ModellerStep[] = ['provider', 'scenario', 'market', 'results']
 
 const MODELLER_STEP_PILLS: { id: ModellerStep; num: number; label: string }[] = [
@@ -25,7 +27,7 @@ const MODELLER_STEP_PILLS: { id: ModellerStep; num: number; label: string }[] = 
   { id: 'market', num: 3, label: 'Market' },
   { id: 'results', num: 4, label: 'Results' },
 ]
-const VALID_REPORT_VIEW_IDS = ['list', 'tcc-wrvu', 'saved-run', 'impact', 'quick-run-cf', 'custom-cf-by-specialty', 'compare-scenarios', 'manage-scenarios'] as const
+const VALID_REPORT_VIEW_IDS = ['list', 'tcc-wrvu', 'saved-run', 'impact', 'quick-run-cf', 'custom-cf-by-specialty', 'market-positioning', 'manage-scenarios'] as const
 const VALID_COMPARE_TOOLS: CompareTool[] = ['cf-optimizer', 'productivity-target']
 
 function getInitialStepAndBatchCard(): { step: AppStep; batchCard: BatchCardId | null } {
@@ -38,12 +40,38 @@ function getInitialStepAndBatchCard(): { step: AppStep; batchCard: BatchCardId |
     const batchCard = step === 'batch-scenario'
       ? (() => {
           const saved = window.sessionStorage.getItem(SESSION_BATCH_CARD_KEY)
+          if (saved === 'bulk-scenario' || saved === 'detailed-scenario') return 'run-scenario' as BatchCardId
           return (VALID_BATCH_CARDS as string[]).includes(saved ?? '') ? (saved as BatchCardId) : null
         })()
       : null
     return { step, batchCard }
   } catch {
     return { step: 'upload', batchCard: null }
+  }
+}
+
+type BatchScenarioMode = 'bulk' | 'detailed'
+
+function getInitialScenarioSubMode(): BatchScenarioMode {
+  if (typeof window === 'undefined' || !window.sessionStorage) return 'bulk'
+  try {
+    const saved = window.sessionStorage.getItem(SESSION_BATCH_SCENARIO_MODE_KEY)
+    if (saved === 'bulk' || saved === 'detailed') return saved
+    const savedCard = window.sessionStorage.getItem(SESSION_BATCH_CARD_KEY)
+    if (savedCard === 'detailed-scenario') return 'detailed'
+    return 'bulk'
+  } catch {
+    return 'bulk'
+  }
+}
+
+function getInitialLastBatchRunMode(): BatchScenarioMode {
+  if (typeof window === 'undefined' || !window.sessionStorage) return 'bulk'
+  try {
+    const saved = window.sessionStorage.getItem(SESSION_LAST_BATCH_RUN_MODE_KEY)
+    return saved === 'bulk' || saved === 'detailed' ? saved : 'bulk'
+  } catch {
+    return 'bulk'
   }
 }
 
@@ -104,7 +132,6 @@ import {
   CompareScenariosScreen,
   type CompareTool,
 } from '@/features/optimizer/compare-scenarios-screen'
-import { ImputedVsMarketScreen } from '@/features/optimizer/imputed-vs-market-screen'
 import { ProductivityTargetScreen } from '@/features/productivity-target/productivity-target-screen'
 import { DataTablesScreen } from '@/features/data/data-tables-screen'
 import { HelpScreen } from '@/features/help/help-screen'
@@ -113,7 +140,7 @@ import { LegalPage } from '@/components/legal-page'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
-import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, Eraser, FileSpreadsheet, FileUp, FolderOpen, LayoutGrid, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
+import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, Eraser, FileSpreadsheet, FileUp, FolderOpen, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { BatchResults, BatchRowResult, BatchScenarioSnapshot } from '@/types/batch'
 import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
@@ -180,6 +207,8 @@ export default function App() {
     deleteScenario,
     clearAllScenarios,
     duplicateScenario,
+    addSavedScenario,
+    updateSavedScenario,
     updateCurrentScenarioProviderSnapshot,
     setBatchResults,
     saveCurrentBatchRun,
@@ -209,6 +238,8 @@ export default function App() {
   const { step: initialStep, batchCard: initialBatchCard } = getInitialStepAndBatchCard()
   const [step, setStep] = useState<AppStep>(initialStep)
   const [batchCard, setBatchCard] = useState<BatchCardId | null>(initialBatchCard)
+  const [scenarioSubMode, setScenarioSubMode] = useState<BatchScenarioMode>(getInitialScenarioSubMode)
+  const [lastBatchRunMode, setLastBatchRunMode] = useState<BatchScenarioMode>(getInitialLastBatchRunMode)
   const [modelMode, setModelMode] = useState<ModelMode>('existing')
   const [modellerStep, setModellerStep] = useState<ModellerStep>(getInitialModellerStep)
   const [newProviderForm, setNewProviderForm] = useState<NewProviderFormValues>(DEFAULT_NEW_PROVIDER)
@@ -230,6 +261,15 @@ export default function App() {
     setSelectedSavedRunId(null)
   }, [reportLibraryFocusKey])
 
+  // Market positioning lives only in Report library; redirect any batch-scenario + imputed-vs-market to reports.
+  useEffect(() => {
+    if (step === 'batch-scenario' && batchCard === 'imputed-vs-market') {
+      setStep('reports')
+      setReportView('market-positioning')
+      setBatchCard(null)
+    }
+  }, [step, batchCard])
+
   // When navigating to Compare with a source (e.g. from Productivity Target), preselect that tool tab.
   useEffect(() => {
     if (step === 'compare-scenarios' && compareSourceForCompare != null) {
@@ -244,8 +284,14 @@ export default function App() {
         window.sessionStorage.setItem(SESSION_STEP_KEY, step)
         if (step === 'batch-scenario' && batchCard) {
           window.sessionStorage.setItem(SESSION_BATCH_CARD_KEY, batchCard)
+          if (batchCard === 'run-scenario') {
+            window.sessionStorage.setItem(SESSION_BATCH_SCENARIO_MODE_KEY, scenarioSubMode)
+          }
         } else {
           window.sessionStorage.removeItem(SESSION_BATCH_CARD_KEY)
+        }
+        if (step === 'batch-results') {
+          window.sessionStorage.setItem(SESSION_LAST_BATCH_RUN_MODE_KEY, lastBatchRunMode)
         }
         if (step === 'modeller') {
           window.sessionStorage.setItem(SESSION_MODELLER_STEP_KEY, modellerStep)
@@ -260,7 +306,7 @@ export default function App() {
     } catch {
       // ignore
     }
-  }, [step, batchCard, modellerStep, reportView, compareTool])
+  }, [step, batchCard, scenarioSubMode, lastBatchRunMode, modellerStep, reportView, compareTool])
 
   const handleStepChange = (newStep: AppStep, dataTabOption?: 'providers' | 'market') => {
     setStep(newStep)
@@ -275,7 +321,8 @@ export default function App() {
   ) => {
     const snapshotWithMode = scenarioSnapshot ? { ...scenarioSnapshot, mode } : undefined
     setBatchResults(mode, results, snapshotWithMode ?? null)
-    setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
+    setLastBatchRunMode(mode)
+    setBatchCard('run-scenario')
     setStep('batch-results')
   }
 
@@ -452,6 +499,11 @@ export default function App() {
       currentBatchCard={batchCard}
       onBatchCardSelect={(id) => setBatchCard(id)}
       onReportsNavClick={() => setReportLibraryFocusKey((k) => k + 1)}
+      isManageScenariosActive={step === 'reports' && reportView === 'manage-scenarios'}
+      onNavigateToManageScenarios={() => {
+        handleStepChange('reports')
+        setReportView('manage-scenarios')
+      }}
     >
       {step === 'upload' && (
         <div className="space-y-6">
@@ -872,11 +924,14 @@ export default function App() {
             </section>
           )}
 
-          {/* Screen 2: Scenario — current vs modeled table (main levers: CF, wRVUs, PSQ) */}
+          {/* Screen 2: Scenario — current vs modeled table (main levers: CF, wRVUs, quality pay) */}
           {modellerStep === 'scenario' && (
             <section className="space-y-6">
               {canShowScenario && state.lastResults ? (
                 <>
+                  <p className="text-xs text-muted-foreground">
+                    These settings define a reusable scenario. You can also create scenario templates in Reports → Manage scenarios &amp; runs → Create scenario.
+                  </p>
                   <BaselineVsModeledSection
                     provider={effectiveProvider}
                     results={state.lastResults}
@@ -1000,12 +1055,6 @@ export default function App() {
         </div>
       )}
 
-      {step === 'batch-scenario' && batchCard === null && (
-        <div className="space-y-6">
-          <SectionTitleWithIcon icon={<LayoutGrid />}>Batch</SectionTitleWithIcon>
-          <BatchCardPicker onSelect={setBatchCard} />
-        </div>
-      )}
       {step === 'compare-scenarios' && (
         <CompareScenariosScreen
           savedOptimizerConfigs={state.savedOptimizerConfigs}
@@ -1035,19 +1084,26 @@ export default function App() {
           savedBatchScenarioConfigs={state.savedBatchScenarioConfigs}
           batchSynonymMap={state.batchSynonymMap}
           onBack={() => handleStepChange('upload')}
-          onNavigateToCompareScenarios={() => handleStepChange('compare-scenarios')}
           onNavigateToBatchCard={(id) => {
             handleStepChange('batch-scenario')
             setBatchCard(id)
           }}
           onLoadScenario={loadScenario}
+          onLoadScenarioAndGoToSingle={(id) => {
+            loadScenario(id)
+            handleStepChange('modeller')
+            setModellerStep('scenario')
+          }}
           onDeleteScenario={deleteScenario}
           onClearAllScenarios={clearAllScenarios}
           onDuplicateScenario={duplicateScenario}
+          onAddSavedScenario={addSavedScenario}
+          onUpdateSavedScenario={updateSavedScenario}
           onLoadBatchRun={(id) => {
             loadSavedBatchRun(id, (mode) => {
+              setLastBatchRunMode(mode)
+              setBatchCard('run-scenario')
               setStep('batch-results')
-              setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
             })
           }}
           onDeleteBatchRun={deleteSavedBatchRun}
@@ -1066,19 +1122,47 @@ export default function App() {
       {step === 'help' && (
         <HelpScreen
           onNavigate={(s, batchCard) => {
+            if (s === 'batch-scenario' && batchCard === 'imputed-vs-market') {
+              handleStepChange('reports')
+              setReportView('market-positioning')
+              return
+            }
             handleStepChange(s)
             if (batchCard != null) setBatchCard(batchCard)
           }}
         />
       )}
 
+      {step === 'batch-scenario' && batchCard === null && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-4">
+            <SectionTitleWithIcon icon={<BarChart2 className="size-5 text-muted-foreground" />}>
+              Batch
+            </SectionTitleWithIcon>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => handleStepChange('reports')}
+              className="gap-2 shrink-0"
+              aria-label="Back"
+            >
+              <ArrowLeft className="size-4" />
+              Back
+            </Button>
+          </div>
+          <BatchCardPicker
+            onSelect={(id) => setBatchCard(id)}
+          />
+        </div>
+      )}
       {step === 'batch-scenario' && batchCard === 'cf-optimizer' && (
         <ConversionFactorOptimizerScreen
           providerRows={state.providerRows}
           marketRows={state.marketRows}
           scenarioInputs={state.scenarioInputs}
           synonymMap={state.batchSynonymMap}
-          onBack={() => setBatchCard(null)}
+          onBack={() => { handleStepChange('reports'); setBatchCard(null); }}
           optimizerConfig={state.optimizerConfig}
           onOptimizerConfigChange={setOptimizerConfig}
           onClearOptimizerConfig={clearOptimizerConfig}
@@ -1090,20 +1174,12 @@ export default function App() {
           onNavigateToCompareScenarios={() => handleStepChange('compare-scenarios')}
         />
       )}
-      {step === 'batch-scenario' && batchCard === 'imputed-vs-market' && (
-        <ImputedVsMarketScreen
-          providerRows={state.providerRows}
-          marketRows={state.marketRows}
-          synonymMap={state.batchSynonymMap}
-          onBack={() => setBatchCard(null)}
-        />
-      )}
       {step === 'batch-scenario' && batchCard === 'productivity-target' && (
         <ProductivityTargetScreen
           providerRows={state.providerRows}
           marketRows={state.marketRows}
           synonymMap={state.batchSynonymMap}
-          onBack={() => setBatchCard(null)}
+          onBack={() => { handleStepChange('reports'); setBatchCard(null); }}
           productivityTargetConfig={state.productivityTargetConfig}
           onProductivityTargetConfigChange={setProductivityTargetConfig}
           onClearProductivityTargetConfig={clearProductivityTargetConfig}
@@ -1118,7 +1194,7 @@ export default function App() {
           }}
         />
       )}
-      {step === 'batch-scenario' && batchCard === 'bulk-scenario' && (
+      {step === 'batch-scenario' && batchCard === 'run-scenario' && (
         <BatchScenarioStep
           providerRows={state.providerRows}
           marketRows={state.marketRows}
@@ -1135,57 +1211,29 @@ export default function App() {
           onNavigateToUpload={() => setStep('upload')}
           onSaveScenario={saveBatchScenarioConfig}
           onClearSavedScenarios={clearAllScenarios}
-          mode="bulk"
-          onBack={() => setBatchCard(null)}
+          mode="full"
+          onBack={() => { handleStepChange('reports'); setBatchCard(null); }}
           lastResults={state.batchResultsBulk}
           lastScenarioSnapshot={state.lastBatchScenarioSnapshotBulk}
           savedBatchRuns={state.savedBatchRuns}
           onSaveRun={(name) => saveCurrentBatchRun('bulk', name)}
           onLoadRun={(id) => loadSavedBatchRun(id, (mode) => {
+            setLastBatchRunMode(mode)
+            setBatchCard('run-scenario')
             setStep('batch-results')
-            setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
-          })}
-          onDeleteRun={deleteSavedBatchRun}
-        />
-      )}
-      {step === 'batch-scenario' && batchCard === 'detailed-scenario' && (
-        <BatchScenarioStep
-          providerRows={state.providerRows}
-          marketRows={state.marketRows}
-          scenarioInputs={state.scenarioInputs}
-          setScenarioInputs={setScenarioInputs}
-          savedScenarios={state.savedScenarios}
-          savedBatchScenarioConfigs={state.savedBatchScenarioConfigs}
-          appliedBatchScenarioConfig={state.appliedBatchScenarioConfig}
-          onLoadBatchScenarioConfig={loadBatchScenarioConfig}
-          onBatchScenarioConfigApplied={clearAppliedBatchScenarioConfig}
-          onDeleteBatchScenarioConfig={deleteSavedBatchScenarioConfig}
-          batchSynonymMap={state.batchSynonymMap}
-          onRunComplete={(results, snapshot) => handleBatchRunComplete('detailed', results, snapshot)}
-          onNavigateToUpload={() => setStep('upload')}
-          onSaveScenario={saveBatchScenarioConfig}
-          onClearSavedScenarios={clearAllScenarios}
-          mode="detailed"
-          onBack={() => setBatchCard(null)}
-          lastResults={state.batchResultsDetailed}
-          lastScenarioSnapshot={state.lastBatchScenarioSnapshotDetailed}
-          savedBatchRuns={state.savedBatchRuns}
-          onSaveRun={(name) => saveCurrentBatchRun('detailed', name)}
-          onLoadRun={(id) => loadSavedBatchRun(id, (mode) => {
-            setStep('batch-results')
-            setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
           })}
           onDeleteRun={deleteSavedBatchRun}
         />
       )}
 
       {step === 'batch-results' && (() => {
-        const isDetailed = batchCard === 'detailed-scenario'
+        const isDetailed = lastBatchRunMode === 'detailed'
         const results = isDetailed ? state.batchResultsDetailed : state.batchResultsBulk
         const scenarioSnapshot = isDetailed ? state.lastBatchScenarioSnapshotDetailed : state.lastBatchScenarioSnapshotBulk
         const handleBack = () => {
           setStep('batch-scenario')
-          setBatchCard(isDetailed ? 'detailed-scenario' : 'bulk-scenario')
+          setBatchCard('run-scenario')
+          setScenarioSubMode(lastBatchRunMode)
         }
         if (!results) {
           return (
@@ -1222,10 +1270,12 @@ export default function App() {
               marketRows={state.marketRows}
               savedBatchRuns={state.savedBatchRuns}
               scenarioSnapshot={scenarioSnapshot ?? null}
+              runMode={isDetailed ? 'detailed' : 'bulk'}
               onSaveRun={(name) => saveCurrentBatchRun(isDetailed ? 'detailed' : 'bulk', name)}
               onLoadRun={(id) => loadSavedBatchRun(id, (mode) => {
+                setLastBatchRunMode(mode)
+                setBatchCard('run-scenario')
                 setStep('batch-results')
-                setBatchCard(mode === 'bulk' ? 'bulk-scenario' : 'detailed-scenario')
               })}
               onDeleteRun={deleteSavedBatchRun}
               headerTitle={headerTitle}

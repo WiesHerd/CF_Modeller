@@ -387,7 +387,7 @@ export function ProviderEditModal({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="prov-edit-qualityPayments">Quality payments</Label>
+                <Label htmlFor="prov-edit-qualityPayments">Quality pay</Label>
                 <div className="flex rounded-lg border border-input bg-background shadow-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
                   <span className="flex items-center border-r border-input bg-muted/50 px-3 text-muted-foreground tabular-nums text-sm">$</span>
                   <Input

@@ -280,7 +280,7 @@ export function ProviderDataTable({
       providerHelper.accessor('totalWRVUs', { header: 'Total wRVUs', cell: (c) => fmtNum(c.getValue() as number | undefined, 0), meta: { align: 'right' }, size: 115, minSize: 95 }),
       providerHelper.accessor('currentCF', { header: 'Current CF', cell: (c) => fmtCur(c.getValue() as number | undefined, 2), meta: { align: 'right' }, size: 108, minSize: 90 }),
       providerHelper.accessor('currentThreshold', { header: 'Threshold', cell: (c) => fmtNum(c.getValue() as number | undefined, 0), meta: { align: 'right' }, size: 95, minSize: 80 }),
-      providerHelper.accessor('qualityPayments', { header: 'Quality payment', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 120, minSize: 95 }),
+      providerHelper.accessor('qualityPayments', { header: 'Quality pay', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 120, minSize: 95 }),
       providerHelper.accessor('otherIncentives', { header: 'Other incentives', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 130, minSize: 100 }),
       providerHelper.accessor('otherIncentive1', { header: 'Other incentive 1', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 120, minSize: 95 }),
       providerHelper.accessor('otherIncentive2', { header: 'Other incentive 2', cell: (c) => fmtCur(c.getValue() as number | undefined), meta: { align: 'right' }, size: 120, minSize: 95 }),

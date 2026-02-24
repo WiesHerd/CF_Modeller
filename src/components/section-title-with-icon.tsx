@@ -6,9 +6,9 @@ interface SectionTitleWithIconProps {
   className?: string
 }
 
-/** Rounded-square (squircle) icon container — use for section/page icons. */
+/** Rounded icon container — clean, minimal (Google/Silicon Valley style) */
 const iconBoxClass =
-  'flex shrink-0 items-center justify-center rounded-2xl bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400'
+  'flex shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary'
 
 /** Capitalize first letter of each word; leave rest of word unchanged (e.g. "CF" stays "CF", "specialty" → "Specialty"). */
 function toTitleCase(text: string): string {
