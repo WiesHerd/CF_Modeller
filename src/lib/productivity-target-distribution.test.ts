@@ -7,7 +7,6 @@ import { applyIncentiveDistribution } from './productivity-target-distribution'
 import type {
   ProductivityTargetRunResult,
   ProductivityTargetSpecialtyResult,
-  IncentiveDistributionMethod,
 } from '@/types/productivity-target'
 
 function makeResult(

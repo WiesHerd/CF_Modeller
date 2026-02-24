@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useMemo, useEffect, Fragment } from 'react'
+import { useRef, useState, useCallback, useMemo, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Play, Loader2, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Shield, Info, RotateCcw } from 'lucide-react'
+import { Play, Loader2, Plus, Trash2, Sliders, ChevronDown, ChevronRight, ChevronLeft, LayoutGrid, Check, Search, Save, ArrowLeft, FolderOpen, Info, RotateCcw } from 'lucide-react'
 import { formatDate } from '@/utils/format'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
@@ -263,9 +263,9 @@ export function BatchScenarioStep({
   /** Override rows: each row can apply to multiple providers. */
   const [providerOverrides, setProviderOverrides] = useState<ProviderOverrideRow[]>([])
   /** Which specialty override row has Advanced expanded (null = none). */
-  const [expandedSpecialtyRow, setExpandedSpecialtyRow] = useState<number | null>(null)
+  const [, setExpandedSpecialtyRow] = useState<number | null>(null)
   /** Which provider override row has Advanced expanded (null = none). */
-  const [expandedProviderRow, setExpandedProviderRow] = useState<number | null>(null)
+  const [, setExpandedProviderRow] = useState<number | null>(null)
 
   useEffect(() => {
     if (!appliedBatchScenarioConfig || !onBatchScenarioConfigApplied) return
@@ -1651,7 +1651,7 @@ export function BatchScenarioStep({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setWizardStep(wizardStep - 1)}
+                      onClick={() => setWizardStep((wizardStep - 1) as 1 | 2 | 3)}
                       className="gap-1.5"
                     >
                       <ChevronLeft className="size-4" />
@@ -1663,10 +1663,10 @@ export function BatchScenarioStep({
                   {wizardStep < 3 ? (
                     <Button
                       type="button"
-                      onClick={() => setWizardStep(wizardStep + 1)}
+                      onClick={() => setWizardStep((wizardStep + 1) as 1 | 2 | 3)}
                       className="gap-1.5"
                     >
-                      Next: {wizardSteps[wizardStep]?.label ?? ''}
+                      Next: {wizardSteps[wizardStep === 1 ? 1 : 2]?.label ?? ''}
                       <ChevronRight className="size-4" />
                     </Button>
                   ) : (

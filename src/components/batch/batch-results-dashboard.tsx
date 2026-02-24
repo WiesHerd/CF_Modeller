@@ -309,11 +309,6 @@ export function BatchResultsDashboard({
       .sort((a, b) => b.avgGap - a.avgGap)
   }, [rows])
 
-  const uniqueProviderCount = useMemo(() => {
-    const set = new Set(rows.map((r) => r.providerId).filter(Boolean))
-    return set.size
-  }, [rows])
-
   const hasAnyChart =
     gapBySpecialty.length > 0 ||
     incentiveByDivision.length > 0 ||
