@@ -104,8 +104,7 @@ export function MarketCFRuler({
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">Market CF position</span>
+      <div className="flex items-center justify-end text-xs">
         <span className="font-semibold tabular-nums">{Math.round(cfPercentile)}th percentile</span>
       </div>
       <div className="relative h-5">
