@@ -41,6 +41,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /** Sentinel for "Skip" option; Radix Select forbids value="". */
 const SKIP_VALUE = '__skip__'
@@ -65,6 +66,53 @@ const MARKET_COLUMN_GROUPS: { label: string; keys: readonly string[] }[] = [
   { label: 'Work RVUs', keys: ['WRVU_25', 'WRVU_50', 'WRVU_75', 'WRVU_90'] },
   { label: 'Conversion factors', keys: ['CF_25', 'CF_50', 'CF_75', 'CF_90'] },
 ]
+
+/** Field guide: short description for each provider column. */
+const PROVIDER_FIELD_GUIDE: Record<string, string> = {
+  providerName: 'Provider name (e.g. Jane Smith). Used for display and as provider ID if no ID column.',
+  specialty: 'Clinical specialty (e.g. Cardiology, Internal Medicine). Must match or map to market specialty for modeling.',
+  division: 'Division or department (e.g. Heart, Primary Care). Used for filtering and reporting.',
+  providerType: 'Role or job type, e.g. Staff Physician, Division Chief, Advanced Practice Provider, Medical Director. Used for filtering and exclusions in batch and Target Optimizer.',
+  totalFTE: 'Total FTE (full-time equivalent). Typically 1.0 for full-time.',
+  clinicalFTE: 'Clinical FTE — portion of time in direct clinical care.',
+  adminFTE: 'Admin FTE — portion in administration.',
+  researchFTE: 'Research FTE — portion in research.',
+  teachingFTE: 'Teaching FTE — portion in teaching.',
+  adminPay: 'Admin pay (dollars). If present with teaching/research pay, sum is used as non-clinical pay.',
+  teachingPay: 'Teaching pay (dollars). Part of non-clinical when present.',
+  researchPay: 'Research pay (dollars). Part of non-clinical when present.',
+  baseSalary: 'Base salary (dollars). Core compensation before incentives.',
+  workRVUs: 'Work RVUs (main productivity metric). Often labeled wRVUs.',
+  outsideWRVUs: 'Outside or other work RVUs. Total wRVUs = workRVUs + outsideWRVUs when both are provided.',
+  currentCF: 'Current conversion factor ($/wRVU) from the provider’s plan.',
+  nonClinicalPay: 'Non-clinical pay / stipend (dollars). Admin, teaching, or other carve-outs.',
+  qualityPayments: 'Quality or value-based payments (dollars).',
+  otherIncentives: 'Other incentives (dollars), e.g. retention, sign-on.',
+  otherIncentive1: 'Extra incentive column 1 — map if your file has additional incentive columns.',
+  otherIncentive2: 'Extra incentive column 2.',
+  otherIncentive3: 'Extra incentive column 3.',
+  currentTCC: 'Current total cash compensation from file (optional). If skipped, we compute from base + quality + incentives.',
+  productivityModel: 'Compensation model: "base" or "productivity". Affects how incentive is calculated.',
+}
+
+/** Field guide: short description for each market column. */
+const MARKET_FIELD_GUIDE: Record<string, string> = {
+  specialty: 'Survey specialty name (e.g. Cardiology). Provider specialty is matched or synonym-mapped to this for benchmarks.',
+  providerType: 'Provider type in survey (e.g. Physician, APP). Optional; use to segment benchmarks.',
+  region: 'Region (e.g. Midwest, Northeast). Optional; use to segment benchmarks.',
+  TCC_25: '25th percentile total cash compensation (dollars) from survey.',
+  TCC_50: '50th percentile (median) TCC.',
+  TCC_75: '75th percentile TCC.',
+  TCC_90: '90th percentile TCC.',
+  WRVU_25: '25th percentile work RVUs from survey.',
+  WRVU_50: '50th percentile (median) wRVUs.',
+  WRVU_75: '75th percentile wRVUs.',
+  WRVU_90: '90th percentile wRVUs.',
+  CF_25: '25th percentile conversion factor ($/wRVU).',
+  CF_50: '50th percentile CF.',
+  CF_75: '75th percentile CF.',
+  CF_90: '90th percentile CF.',
+}
 
 interface UploadAndMappingProps {
   onProviderData: (rows: ProviderRow[], mapping: ColumnMapping | null, fileName?: string) => void
@@ -104,6 +152,8 @@ export function UploadAndMapping({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState<FileType | null>(null)
   const [expandedCard, setExpandedCard] = useState<ExpandedCard>(null)
+  const [importTab, setImportTab] = useState<'upload' | 'fieldGuide'>('upload')
+  const [fieldGuideFile, setFieldGuideFile] = useState<'provider' | 'market'>('provider')
   const [editingProvider, setEditingProvider] = useState<ProviderRow | null>(null)
   type EditFormState = {
     providerName: string
@@ -737,6 +787,12 @@ export function UploadAndMapping({
 
       {/* CompLens-style tool cards: icon, title (tooltip), file input. Click card to open mapping / view table. */}
       <TooltipProvider>
+      <Tabs value={importTab} onValueChange={(v) => setImportTab(v as 'upload' | 'fieldGuide')} className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="upload">Upload</TabsTrigger>
+          <TabsTrigger value="fieldGuide">Field guide</TabsTrigger>
+        </TabsList>
+        <TabsContent value="upload" className="mt-0">
       {usedSampleDataOnLoad && (
         <Alert className="mb-6 border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <AlertCircle className="h-4 w-4" />
@@ -995,7 +1051,6 @@ export function UploadAndMapping({
           marketSpecialties={marketSpecialties}
         />
       )}
-      </TooltipProvider>
 
       {loading && (
         <p className="text-muted-foreground text-sm">Parsing file…</p>
@@ -1151,6 +1206,66 @@ export function UploadAndMapping({
           </CardContent>
         </Card>
       )}
+
+        </TabsContent>
+        <TabsContent value="fieldGuide" className="mt-0">
+          <Card className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
+            <CardContent className="p-0">
+              <Tabs value={fieldGuideFile} onValueChange={(v) => setFieldGuideFile(v as 'provider' | 'market')}>
+                <TabsList className="w-full justify-start rounded-none border-b border-border/60 bg-muted/30 px-4 pt-2">
+                  <TabsTrigger value="provider">Provider file</TabsTrigger>
+                  <TabsTrigger value="market">Market file</TabsTrigger>
+                </TabsList>
+                <TabsContent value="provider" className="mt-0">
+                  <div className="max-h-[60vh] overflow-y-auto p-6 space-y-6">
+                    {PROVIDER_COLUMN_GROUPS.map((group) => (
+                      <div key={group.label} className="space-y-3">
+                        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {group.label}
+                        </h4>
+                        <ul className="space-y-2">
+                          {group.keys.map((key) => (
+                            <li key={key} className="flex flex-col gap-0.5 rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
+                              <span className="text-[13px] font-medium text-foreground">
+                                {key === 'workRVUs' ? 'Work RVUs (wRVUs)' : key === 'productivityModel' ? 'Productivity model' : key === 'researchFTE' ? 'Research FTE' : key === 'teachingFTE' ? 'Teaching FTE' : key === 'qualityPayments' ? 'Quality pay' : key === 'otherIncentives' ? 'Other incentives' : key === 'otherIncentive1' ? 'Other incentive 1' : key === 'otherIncentive2' ? 'Other incentive 2' : key === 'otherIncentive3' ? 'Other incentive 3' : key === 'currentTCC' ? 'Current TCC from file (optional)' : key === 'adminPay' ? 'Admin pay' : key === 'teachingPay' ? 'Teaching pay' : key === 'researchPay' ? 'Research pay' : key}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {PROVIDER_FIELD_GUIDE[key] ?? `Column: ${key}. Map from your file or skip if not used.`}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+                <TabsContent value="market" className="mt-0">
+                  <div className="max-h-[60vh] overflow-y-auto p-6 space-y-6">
+                    {MARKET_COLUMN_GROUPS.map((group) => (
+                      <div key={group.label} className="space-y-3">
+                        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {group.label}
+                        </h4>
+                        <ul className="space-y-2">
+                          {group.keys.map((key) => (
+                            <li key={key} className="flex flex-col gap-0.5 rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
+                              <span className="text-[13px] font-medium text-foreground">{key}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {MARKET_FIELD_GUIDE[key] ?? `Column: ${key}. Map from your market file or skip if not used.`}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+      </TooltipProvider>
 
     </div>
   )

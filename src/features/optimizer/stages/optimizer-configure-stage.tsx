@@ -758,6 +758,8 @@ export function OptimizerConfigureStage({
                     onSetOptimizationObjective({ kind: 'align_percentile' })
                   } else if (value === 'target_fixed_percentile') {
                     onSetOptimizationObjective({ kind: 'target_fixed_percentile', targetPercentile: 40 })
+                  } else if (value === 'productivity_lead') {
+                    onSetOptimizationObjective({ kind: 'productivity_lead', leadPctile: 7.5 })
                   } else {
                     onSetOptimizationObjective({
                       kind: 'hybrid',
@@ -774,6 +776,7 @@ export function OptimizerConfigureStage({
                 <SelectContent>
                   <SelectItem value="align_percentile">Align TCC percentile to wRVU percentile</SelectItem>
                   <SelectItem value="target_fixed_percentile">Target fixed TCC percentile</SelectItem>
+                  <SelectItem value="productivity_lead">Productivity above pay (wRVU %ile 5–10 pts above TCC)</SelectItem>
                   <SelectItem value="hybrid">Hybrid (alignment + fixed target)</SelectItem>
                 </SelectContent>
               </Select>
@@ -782,7 +785,9 @@ export function OptimizerConfigureStage({
                   ? 'Match pay rank to productivity rank: higher wRVU percentile → higher TCC percentile.'
                   : settings.optimizationObjective.kind === 'target_fixed_percentile'
                     ? 'Move everyone toward one target percentile (e.g. median); good for standardizing to a market level.'
-                    : 'Combine alignment with a target: partly match productivity rank, partly pull toward a chosen percentile.'}
+                    : settings.optimizationObjective.kind === 'productivity_lead'
+                      ? 'Target work RVU percentile above TCC percentile (higher productivity culture, pay slightly less).'
+                      : 'Combine alignment with a target: partly match productivity rank, partly pull toward a chosen percentile.'}
               </p>
               {settings.optimizationObjective.kind === 'target_fixed_percentile' ? (
                 <div className="flex items-center gap-2">
@@ -800,6 +805,49 @@ export function OptimizerConfigureStage({
                     }
                     className="w-20"
                   />
+                </div>
+              ) : null}
+              {settings.optimizationObjective.kind === 'productivity_lead' ? (
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Label className="text-muted-foreground">wRVU percentile lead (pts above TCC)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={20}
+                      step={0.5}
+                      value={settings.optimizationObjective.leadPctile}
+                      onChange={(e) =>
+                        onSetOptimizationObjective({
+                          kind: 'productivity_lead',
+                          leadPctile: Number(e.target.value) || 7.5,
+                        })
+                      }
+                      className="w-20"
+                    />
+                    <div className="flex gap-2">
+                      {[5, 7.5, 10].map((pct) => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() =>
+                            onSetOptimizationObjective({ kind: 'productivity_lead', leadPctile: pct })
+                          }
+                          className={`rounded-md border px-3 py-1.5 text-sm font-medium min-w-[2.5rem] ${
+                            settings.optimizationObjective.leadPctile === pct
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
+                          }`}
+                        >
+                          {pct}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    Target: work RVU percentile {settings.optimizationObjective.leadPctile} points above TCC
+                    percentile (higher productivity culture, pay slightly less).
+                  </p>
                 </div>
               ) : null}
               {settings.optimizationObjective.kind === 'hybrid' ? (
@@ -892,7 +940,7 @@ export function OptimizerConfigureStage({
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       {matchesRecommendation ? (
                         <span className="text-muted-foreground">
-                          ✓ Recommended for your setup ({filteredProviderRowsCount} provider{filteredProviderRowsCount !== 1 ? 's' : ''}, {settings.optimizationObjective.kind === 'target_fixed_percentile' ? 'fixed target' : settings.optimizationObjective.kind === 'hybrid' ? 'hybrid' : 'alignment'}).
+                          ✓ Recommended for your setup ({filteredProviderRowsCount} provider{filteredProviderRowsCount !== 1 ? 's' : ''}, {settings.optimizationObjective.kind === 'target_fixed_percentile' ? 'fixed target' : settings.optimizationObjective.kind === 'hybrid' ? 'hybrid' : settings.optimizationObjective.kind === 'productivity_lead' ? 'productivity above pay' : 'alignment'}).
                         </span>
                       ) : (
                         <>

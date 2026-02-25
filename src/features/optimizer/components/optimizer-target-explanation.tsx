@@ -25,6 +25,8 @@ export function formatObjective(obj: OptimizationObjective): string {
       return 'Align TCC percentile to wRVU percentile (pay rank follows productivity rank).'
     case 'target_fixed_percentile':
       return `Target a fixed TCC percentile: move pay toward the ${obj.targetPercentile}th percentile vs market.`
+    case 'productivity_lead':
+      return `Target wRVU percentile ${obj.leadPctile} points above TCC percentile (productivity above pay).`
     case 'hybrid':
       return `Hybrid: ${Math.round((obj.alignWeight ?? 0.7) * 100)}% align pay to productivity rank, ${Math.round((obj.targetWeight ?? 0.3) * 100)}% pull toward ${obj.targetPercentile}th percentile.`
     default:

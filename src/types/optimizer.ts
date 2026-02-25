@@ -15,6 +15,7 @@ export type {
   OptimizationObjectiveAlign,
   OptimizationObjectiveTargetFixed,
   OptimizationObjectiveHybrid,
+  OptimizationObjectiveProductivityLead,
   OptimizationObjective,
   OptimizerErrorMetric,
   TargetRuleKind,

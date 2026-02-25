@@ -887,6 +887,10 @@ export function optimizeCFForSpecialty(
     if (objective.kind === 'align_percentile') return modeledTCCPctile - wrvuPctile
     if (objective.kind === 'target_fixed_percentile')
       return modeledTCCPctile - (objective.targetPercentile ?? 40)
+    if (objective.kind === 'productivity_lead') {
+      const lead = objective.leadPctile ?? 7.5
+      return (modeledTCCPctile - wrvuPctile) + lead
+    }
     const alignW = objective.alignWeight ?? 0.7
     const targetW = objective.targetWeight ?? 0.3
     const targetP = objective.targetPercentile ?? 40

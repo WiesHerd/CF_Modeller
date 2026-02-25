@@ -105,6 +105,8 @@ function formatObjective(obj: OptimizationObjective): string {
       return 'Align TCC to wRVU percentile'
     case 'target_fixed_percentile':
       return `Target fixed ${obj.targetPercentile}th percentile`
+    case 'productivity_lead':
+      return `Productivity above pay (wRVU ${obj.leadPctile} pts above TCC)`
     case 'hybrid':
       return `Hybrid (align ${(obj.alignWeight * 100).toFixed(0)}% / target ${(obj.targetWeight * 100).toFixed(0)}% @ ${obj.targetPercentile}th)`
     default:

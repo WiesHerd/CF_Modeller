@@ -17,7 +17,11 @@ export type BenchmarkBasis = 'per_cfte' | 'per_tfte' | 'raw'
 // Optimization objective
 // ---------------------------------------------------------------------------
 
-export type OptimizationObjectiveKind = 'align_percentile' | 'target_fixed_percentile' | 'hybrid'
+export type OptimizationObjectiveKind =
+  | 'align_percentile'
+  | 'target_fixed_percentile'
+  | 'hybrid'
+  | 'productivity_lead'
 
 export interface OptimizationObjectiveAlign {
   kind: 'align_percentile'
@@ -35,10 +39,17 @@ export interface OptimizationObjectiveHybrid {
   targetPercentile: number
 }
 
+export interface OptimizationObjectiveProductivityLead {
+  kind: 'productivity_lead'
+  /** How many percentile points wRVU should be above TCC on average (e.g. 5, 7.5, 10). */
+  leadPctile: number
+}
+
 export type OptimizationObjective =
   | OptimizationObjectiveAlign
   | OptimizationObjectiveTargetFixed
   | OptimizationObjectiveHybrid
+  | OptimizationObjectiveProductivityLead
 
 export type OptimizerErrorMetric = 'squared' | 'absolute'
 
