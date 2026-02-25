@@ -30,6 +30,7 @@ import {
 import type {
   BudgetConstraintKind,
   OptimizationObjective,
+  OptimizationObjectiveProductivityLead,
   OptimizerErrorMetric,
   OptimizerSettings,
 } from '@/types/optimizer'
@@ -807,7 +808,9 @@ export function OptimizerConfigureStage({
                   />
                 </div>
               ) : null}
-              {settings.optimizationObjective.kind === 'productivity_lead' ? (
+              {settings.optimizationObjective.kind === 'productivity_lead' ? (() => {
+                const leadObj = settings.optimizationObjective as OptimizationObjectiveProductivityLead
+                return (
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <Label className="text-muted-foreground">wRVU percentile lead (pts above TCC)</Label>
@@ -816,7 +819,7 @@ export function OptimizerConfigureStage({
                       min={1}
                       max={20}
                       step={0.5}
-                      value={settings.optimizationObjective.leadPctile}
+                      value={leadObj.leadPctile}
                       onChange={(e) =>
                         onSetOptimizationObjective({
                           kind: 'productivity_lead',
@@ -834,7 +837,7 @@ export function OptimizerConfigureStage({
                             onSetOptimizationObjective({ kind: 'productivity_lead', leadPctile: pct })
                           }
                           className={`rounded-md border px-3 py-1.5 text-sm font-medium min-w-[2.5rem] ${
-                            settings.optimizationObjective.leadPctile === pct
+                            leadObj.leadPctile === pct
                               ? 'border-primary bg-primary/10 text-primary'
                               : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
                           }`}
@@ -845,11 +848,12 @@ export function OptimizerConfigureStage({
                     </div>
                   </div>
                   <p className="text-muted-foreground text-xs">
-                    Target: work RVU percentile {settings.optimizationObjective.leadPctile} points above TCC
+                    Target: work RVU percentile {leadObj.leadPctile} points above TCC
                     percentile (higher productivity culture, pay slightly less).
                   </p>
                 </div>
-              ) : null}
+                )
+              })() : null}
               {settings.optimizationObjective.kind === 'hybrid' ? (
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
