@@ -340,8 +340,6 @@ export function UploadAndMapping({
     )
   }, [providerSpecialties, existingMarketRows, batchSynonymMap])
 
-  const unmatchedSpecialtyCount = unmatchedSpecialties.length
-
   const parseNum = (s: string): number | undefined => {
     const n = parseFloat(s)
     return Number.isFinite(n) ? n : undefined
