@@ -2,87 +2,95 @@
 
 ## Project purpose
 
-This app is a **TCC/CF Modeler** for physician compensation. It lets compensation administrators:
+This app is a TCC/CF Modeler for physician compensation. It is used by compensation administrators to:
 
 - Upload provider and market survey data (CSV or XLSX) with optional column mapping.
 - Run single-provider scenarios (provider → scenario → market → results) and batch scenarios across all providers.
 - Use the CF Optimizer and Productivity Target tools for specialty-level modeling.
 - View reports (saved runs, TCC/wRVU percentiles, impact, quick-run CF, custom CF by specialty, market positioning).
-- Export results to XLSX/CSV.
+- Export results to XLSX and CSV (no DOCX/PDF or contract generation in this app).
 
-Data and scenarios live in browser memory and `localStorage`; there is no backend.
+Data and scenarios live in browser memory and localStorage; there is no backend.
 
 ---
 
 ## Tech stack and tools
 
-- **React 18+** with **TypeScript** and **Vite**
-- **Tailwind CSS** and **shadcn/ui** (Radix primitives)
-- **Recharts** for charts
-- **PapaParse** (CSV) and **SheetJS (xlsx)** for file parsing and export
-- **Vitest** for unit tests
-- State: React state + custom hooks (`use-app-state`, `use-provider-actions`, etc.); no Redux
-- Persistence: `localStorage` via `lib/storage.ts`, `lib/batch-storage.ts`, `lib/optimizer-storage.ts`, `lib/productivity-target-storage.ts`
-- Web Workers for batch and optimizer runs (`workers/batch-worker.ts`, `workers/optimizer-worker.ts`)
+- React 18+ with TypeScript and Vite
+- Tailwind CSS + shadcn/ui (Radix primitives)
+- Recharts for charts
+- PapaParse (CSV) and SheetJS (xlsx) for file parsing and export
+- Vitest for unit tests
+- State: React state + custom hooks (use-app-state, use-provider-actions, etc.) — no Redux
+- Persistence: localStorage via lib/storage.ts, lib/batch-storage.ts, lib/optimizer-storage.ts, lib/productivity-target-storage.ts
+- Web Workers for batch and optimizer runs (workers/batch-worker.ts, workers/optimizer-worker.ts)
 
 ---
 
 ## Folder structure
 
-- `src/components/` — Shared UI (layout, upload/mapping, batch flows, charts, `ui/` for shadcn)
-- `src/features/` — Feature modules: `data/`, `optimizer/`, `productivity-target/`, `reports/`, `help/`
-- `src/hooks/` — App state and actions (`use-app-state`, `use-provider-actions`, `use-batch-actions`, etc.)
-- `src/lib/` — Core logic: compute, parse, storage, engines, export (XLSX/CSV)
-- `src/types/` — TypeScript types (provider, market, scenario, batch, optimizer, upload)
-- `src/utils/` — Helpers (format, math, aggregate-fte, sample-upload)
-- `src/workers/` — Web Workers for batch and optimizer
+Keep feature code under src/features/; do not put feature-specific code in src/ root.
 
-Do not put feature-specific code in `src/` root; keep it under `src/features/<feature>/`.
+```
+src/
+├── components/     # Shared UI (layout, upload/mapping, batch flows, charts, ui/)
+├── features/
+│   ├── data/           # Provider/market tables, edit modals
+│   ├── optimizer/      # CF optimizer, compare scenarios, imputed-vs-market
+│   ├── productivity-target/
+│   ├── reports/        # Report library, saved runs, TCC/wRVU reports
+│   └── help/           # Help screen, wizards
+├── hooks/         # use-app-state, use-provider-actions, use-batch-actions, etc.
+├── lib/           # Compute, parse-file, storage, engines, *-export.ts
+├── types/         # provider, market, scenario, batch, optimizer, upload
+├── utils/         # format, math, aggregate-fte, sample-upload
+└── workers/       # batch-worker, optimizer-worker
+```
 
 ---
 
 ## Data and column mapping
 
-- **Provider file:** one row per provider; expected columns (e.g. `providerId`, `providerName`, `specialty`, `baseSalary`, `totalWRVUs`, `workRVUs`, FTE fields, etc.) are defined in `types/provider.ts`. Headers can be mapped on upload via `ColumnMapping` in `types/upload.ts`.
-- **Market file:** one row per specialty (or specialty + type/region) with percentile columns (`TCC_25`–`TCC_90`, `WRVU_25`–`WRVU_90`, `CF_25`–`CF_90`). See `types/market.ts` and `lib/parse-file.ts`.
-- Mapping and parsing: `lib/parse-file.ts` — `buildDefaultProviderMapping` / `buildDefaultMarketMapping`, `applyProviderMapping` / `applyMarketMapping`. Validation errors are returned as `errors: string[]` and shown in the upload UI.
+- Provider file: one row per provider; expected columns in types/provider.ts. Headers are mapped on upload via ColumnMapping in types/upload.ts.
+- Market file: one row per specialty with percentile columns (e.g. TCC_25–TCC_90, WRVU_25–WRVU_90). See types/market.ts and lib/parse-file.ts.
+- Mapping/parsing: lib/parse-file.ts — buildDefaultProviderMapping / buildDefaultMarketMapping, applyProviderMapping / applyMarketMapping. Validation errors are returned as errors: string[] and shown in the upload UI.
 
 ---
 
 ## Export and outputs
 
-- Exports are **XLSX and CSV** only (no DOCX/PDF). See `lib/single-scenario-export.ts`, `lib/batch-export.ts`, and other `*-export.ts` in `lib/`.
-- Batch results and scenario results are exported as wide rows (provider × scenario) with match status, risk, percentiles, governance flags (e.g. `fmvCheckSuggested`).
+- Exports are XLSX and CSV only (no DOCX/PDF). See lib/single-scenario-export.ts, lib/batch-export.ts, and other *-export.ts in lib/.
+- Batch/scenario results are exported as wide rows with match status, risk, percentiles, and governance flags (e.g. fmvCheckSuggested).
 
 ---
 
 ## Governance and FMV
 
-- FMV risk is computed from TCC percentiles (e.g. `lib/optimizer-constants.ts`: `FMV_RED_FLAG_PERCENTILE`, `getFmvRiskLevel`).
-- UI surfaces “FMV check suggested” and risk levels via `components/governance-flags.tsx` and optimizer/report tables.
-- Optional: an audit log for FMV-related overrides or high-percentile approvals can be added in `lib/audit.ts` (non-PII only).
+- FMV risk is computed from TCC percentiles (e.g. lib/optimizer-constants.ts: FMV_RED_FLAG_PERCENTILE, getFmvRiskLevel).
+- UI shows "FMV check suggested" and risk levels via components/governance-flags.tsx and optimizer/report tables.
+- An audit log for FMV-related overrides can be added in lib/audit.ts (non-PII only) if needed.
 
 ---
 
 ## Code practices
 
-- Use the existing hooks for state and persistence; do not introduce Redux unless the product roadmap requires it.
-- Keep compute and engine logic in `lib/` (e.g. `compute.ts`, `optimizer-engine.ts`, `productivity-target-engine.ts`); keep UI in `components/` and `features/`.
-- Use TypeScript types from `src/types/` for provider, market, scenario, batch, optimizer, and upload shapes.
-- For new forms or validation, consider zod (or similar) for persisted state and DTOs; validate on load from `localStorage` to avoid crashes on corrupted data.
-- Use the shared `LoadingState` component and existing progress patterns for async operations; use Error Boundaries for render-time errors.
+- Use existing hooks for state and persistence; do not add Redux unless the roadmap requires it.
+- Keep compute/engine logic in lib/; keep UI in components/ and features/.
+- Use types from src/types/ for provider, market, scenario, batch, optimizer, and upload.
+- For new validation or persisted data, consider zod for DTOs and localStorage load validation.
+- Use the shared LoadingState component and Error Boundaries for async and render errors.
 
 ---
 
 ## File naming
 
-- **camelCase** for variables and functions
-- **PascalCase** for components
-- **kebab-case** for filenames (e.g. `upload-and-mapping.tsx`, `optimizer-configure-stage.tsx`)
-- Use `.tsx` only for files that contain JSX; use `.ts` for pure logic
+- camelCase for variables and functions
+- PascalCase for components
+- kebab-case for filenames (e.g. upload-and-mapping.tsx, optimizer-configure-stage.tsx)
+- Use .tsx only for files with JSX; use .ts for pure logic
 
 ---
 
 ## Testing
 
-- Unit tests (Vitest) live next to the code (e.g. `lib/compute.test.ts`, `lib/optimizer-engine.test.ts`, `lib/productivity-target-engine.test.ts`). Add tests for new engines and for `parse-file` / mapping when changing validation or column handling.
+- Unit tests (Vitest) live next to the code (e.g. lib/compute.test.ts, lib/optimizer-engine.test.ts). Add tests for new engines and for parse-file / mapping when changing validation or column handling.
