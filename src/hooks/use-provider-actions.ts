@@ -182,14 +182,22 @@ export function useProviderActions(setState: SetState) {
       let selectedSpecialty = scenario.selectedSpecialty
       if (!providerExists) {
         warning = 'Provider from scenario not found; specialty and inputs restored.'
-        selectedProviderId =
-          scenario.selectedSpecialty != null
-            ? s.providerRows.find(
-                (r) =>
-                  (r.specialty ?? '').toLowerCase() ===
-                  (scenario.selectedSpecialty ?? '').toLowerCase()
-              )?.providerId ?? null
-            : null
+        if (scenario.selectedSpecialty != null) {
+          const marketNorm = (scenario.selectedSpecialty ?? '').toLowerCase().trim()
+          const fallback = s.providerRows.find((r) => {
+            const prov = (r.specialty ?? '').trim()
+            if (!prov) return false
+            if (prov.toLowerCase() === marketNorm) return true
+            const mapped =
+              s.batchSynonymMap[prov] ??
+              s.batchSynonymMap[prov.toLowerCase()] ??
+              s.batchSynonymMap[prov.toLowerCase().trim()]
+            return mapped != null && mapped.toLowerCase().trim() === marketNorm
+          })
+          selectedProviderId = fallback?.providerId ?? null
+        } else {
+          selectedProviderId = null
+        }
       }
       if (!specialtyExists) {
         warning =

@@ -19,12 +19,15 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import type { ProviderRow } from '@/types/provider'
+import type { SynonymMap } from '@/types/batch'
 
 interface ProviderDivisionSelectProps {
   providerRows: ProviderRow[]
   selectedSpecialty: string | null
   selectedProviderId: string | null
   onSelectProvider: (id: string | null) => void
+  /** When provided, providers whose specialty maps to the selected market are included (if selectedSpecialty is a market specialty). */
+  synonymMap?: SynonymMap
 }
 
 export function ProviderDivisionSelect({
@@ -32,16 +35,25 @@ export function ProviderDivisionSelect({
   selectedSpecialty,
   selectedProviderId,
   onSelectProvider,
+  synonymMap = {},
 }: ProviderDivisionSelectProps) {
   const [providerOpen, setProviderOpen] = useState(false)
   const [search, setSearch] = useState('')
 
   const filteredBySpecialty = useMemo(() => {
     if (!selectedSpecialty) return providerRows
-    return providerRows.filter(
-      (p) => (p.specialty ?? '').toLowerCase() === selectedSpecialty.toLowerCase()
-    )
-  }, [providerRows, selectedSpecialty])
+    const marketNorm = selectedSpecialty.toLowerCase().trim()
+    return providerRows.filter((p) => {
+      const provSpec = (p.specialty ?? '').trim()
+      if (!provSpec) return false
+      if (provSpec.toLowerCase() === marketNorm) return true
+      const mapped =
+        synonymMap[provSpec] ??
+        synonymMap[provSpec.toLowerCase()] ??
+        synonymMap[provSpec.toLowerCase().trim()]
+      return mapped != null && mapped.toLowerCase().trim() === marketNorm
+    })
+  }, [providerRows, selectedSpecialty, synonymMap])
 
   const filteredBySearch = useMemo(() => {
     if (!search.trim()) return filteredBySpecialty

@@ -333,7 +333,7 @@ export function BatchResultsTable({ rows, maxHeight = '60vh', onCalculationClick
           const variant =
             status === 'Missing'
               ? 'destructive'
-              : status === 'Synonym'
+              : status === 'Synonym' || status === 'Fuzzy'
                 ? 'secondary'
                 : 'outline'
           return <Badge variant={variant}>{status}</Badge>

@@ -64,7 +64,7 @@ interface BatchResultsDashboardProps {
 }
 
 const RISK_LEVELS: BatchRiskLevel[] = ['high', 'medium', 'low']
-const MATCH_STATUSES: MarketMatchStatus[] = ['Exact', 'Normalized', 'Synonym', 'Missing']
+const MATCH_STATUSES: MarketMatchStatus[] = ['Exact', 'Normalized', 'Synonym', 'Fuzzy', 'Missing']
 
 function columnToSection(column: CalculationColumnId): CalculationSection {
   if (column === 'incentive') return 'incentive'

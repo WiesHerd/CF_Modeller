@@ -177,6 +177,10 @@ export function useBatchActions(setState: SetState) {
     })
   }, [setState])
 
+  const setAllowFuzzyMatchSpecialty = useCallback((value: boolean) => {
+    setState((s) => ({ ...s, allowFuzzyMatchSpecialty: value }))
+  }, [setState])
+
   return {
     setBatchResults,
     saveCurrentBatchRun,
@@ -192,5 +196,6 @@ export function useBatchActions(setState: SetState) {
     setBatchSynonymMap,
     updateBatchSynonymMap,
     removeBatchSynonym,
+    setAllowFuzzyMatchSpecialty,
   }
 }

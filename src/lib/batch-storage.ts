@@ -6,6 +6,7 @@ const KEY_BATCH_RESULTS_DETAILED = 'cf-modeler-batch-results-detailed'
 const KEY_SAVED_BATCH_RUNS = 'cf-modeler-saved-batch-runs'
 const KEY_SAVED_BATCH_SCENARIO_CONFIGS = 'cf-modeler-saved-batch-scenario-configs'
 const KEY_SYNONYM_MAP = 'cf-modeler-synonym-map'
+const KEY_ALLOW_FUZZY_MATCH = 'cf-modeler-allow-fuzzy-match'
 const KEY_BATCH_UPLOAD_META = 'cf-modeler-batch-upload-meta'
 const MAX_SAVED_BATCH_SCENARIO_CONFIGS = 20
 export const MAX_BATCH_RESULTS_BYTES = 4 * 1024 * 1024 // 4 MB; skip save if larger
@@ -111,6 +112,20 @@ export const MAX_SAVED_BATCH_RUNS_LIMIT = MAX_SAVED_BATCH_RUNS
 
 export function saveSynonymMap(map: SynonymMap): void {
   localStorage.setItem(KEY_SYNONYM_MAP, JSON.stringify(map))
+}
+
+export function loadAllowFuzzyMatch(): boolean {
+  try {
+    const s = localStorage.getItem(KEY_ALLOW_FUZZY_MATCH)
+    if (s === null) return false
+    return s === 'true'
+  } catch {
+    return false
+  }
+}
+
+export function saveAllowFuzzyMatch(value: boolean): void {
+  localStorage.setItem(KEY_ALLOW_FUZZY_MATCH, value ? 'true' : 'false')
 }
 
 export function loadSavedBatchScenarioConfigs(): SavedBatchScenarioConfig[] {

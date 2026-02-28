@@ -43,6 +43,8 @@ export interface AppState {
   savedBatchScenarioConfigs: SavedBatchScenarioConfig[]
   appliedBatchScenarioConfig: SavedBatchScenarioConfig | null
   batchSynonymMap: SynonymMap
+  /** When true, batch run uses fuzzy specialty match when no exact/synonym match (status 'Fuzzy'). Default off. */
+  allowFuzzyMatchSpecialty: boolean
   batchFileName: string | null
   batchUploadedAt: string | null
   usedSampleDataOnLoad: boolean
@@ -89,6 +91,7 @@ const initialState: AppState = {
   savedBatchScenarioConfigs: [],
   appliedBatchScenarioConfig: null,
   batchSynonymMap: {},
+  allowFuzzyMatchSpecialty: false,
   batchFileName: null,
   batchUploadedAt: null,
   usedSampleDataOnLoad: false,
@@ -114,6 +117,7 @@ export function useAppState() {
     const savedProductivityTargetConfigs = productivityTargetStorage.loadSavedProductivityTargetConfigs()
     const batchSynonymMap = batchStorage.loadSynonymMap()
     const batchUploadMeta = batchStorage.loadBatchUploadMeta()
+    const allowFuzzyMatchSpecialty = batchStorage.loadAllowFuzzyMatch()
     return {
       ...initialState,
       providerRows: providers,
@@ -130,6 +134,7 @@ export function useAppState() {
       savedOptimizerConfigs,
       savedProductivityTargetConfigs,
       batchSynonymMap,
+      allowFuzzyMatchSpecialty,
       batchFileName: batchUploadMeta.fileName ?? null,
       batchUploadedAt: batchUploadMeta.uploadedAt ?? null,
       usedSampleDataOnLoad: false,
@@ -173,6 +178,9 @@ export function useAppState() {
     productivityTargetStorage.saveSavedProductivityTargetConfigs(state.savedProductivityTargetConfigs)
   }, [state.savedProductivityTargetConfigs])
   useEffect(() => { batchStorage.saveSynonymMap(state.batchSynonymMap) }, [state.batchSynonymMap])
+  useEffect(() => {
+    batchStorage.saveAllowFuzzyMatch(state.allowFuzzyMatchSpecialty)
+  }, [state.allowFuzzyMatchSpecialty])
   useEffect(() => {
     if (state.batchFileName != null || state.batchUploadedAt != null) {
       batchStorage.saveBatchUploadMeta({ fileName: state.batchFileName, uploadedAt: state.batchUploadedAt })

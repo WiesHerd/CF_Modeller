@@ -168,6 +168,9 @@ interface BatchScenarioStepProps {
   setScenarioInputs: (inputs: Partial<ScenarioInputs>) => void
   savedScenarios: SavedScenario[]
   batchSynonymMap: SynonymMap
+  /** When true, use fuzzy specialty match when no exact/synonym match (batch result status 'Fuzzy'). */
+  allowFuzzyMatchSpecialty?: boolean
+  setAllowFuzzyMatchSpecialty?: (value: boolean) => void
   onRunComplete: (results: BatchResults, scenarioSnapshot?: BatchScenarioSnapshot) => void
   /** When provided, show a link to edit synonyms on the Upload screen. */
   onNavigateToUpload?: () => void
@@ -205,6 +208,8 @@ export function BatchScenarioStep({
   setScenarioInputs,
   savedScenarios,
   batchSynonymMap,
+  allowFuzzyMatchSpecialty = false,
+  setAllowFuzzyMatchSpecialty,
   onRunComplete,
   onNavigateToUpload,
   onSaveScenario,
@@ -462,6 +467,7 @@ export function BatchScenarioStep({
       synonymMap: batchSynonymMap,
       chunkSize: 200,
       overrides: batchOverrides,
+      allowFuzzyMatch: allowFuzzyMatchSpecialty,
     }
 
     const worker = new Worker(
@@ -504,6 +510,7 @@ export function BatchScenarioStep({
     scenarioInputs,
     batchSynonymMap,
     batchOverrides,
+    allowFuzzyMatchSpecialty,
     onRunComplete,
     providerRows.length,
   ])
@@ -1659,26 +1666,39 @@ export function BatchScenarioStep({
                     </Button>
                   ) : null}
                 </div>
-                <div className="flex gap-2">
-                  {wizardStep < 3 ? (
-                    <Button
-                      type="button"
-                      onClick={() => setWizardStep((wizardStep + 1) as 1 | 2 | 3)}
-                      className="gap-1.5"
-                    >
-                      Next: {wizardSteps[wizardStep === 1 ? 1 : 2]?.label ?? ''}
-                      <ChevronRight className="size-4" />
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={runBatch}
-                      disabled={isRunning || providersToRun.length === 0 || marketRows.length === 0}
-                      className="gap-2"
-                    >
-                      <Play className="size-4" />
-                      Run
-                    </Button>
+                <div className="flex flex-col gap-3">
+                  {wizardStep === 3 && setAllowFuzzyMatchSpecialty && (
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={allowFuzzyMatchSpecialty}
+                        onChange={(e) => setAllowFuzzyMatchSpecialty(e.target.checked)}
+                        className="rounded border-border"
+                      />
+                      Auto-match similar specialty names (use when provider and market names differ slightly)
+                    </label>
                   )}
+                  <div className="flex gap-2">
+                    {wizardStep < 3 ? (
+                      <Button
+                        type="button"
+                        onClick={() => setWizardStep((wizardStep + 1) as 1 | 2 | 3)}
+                        className="gap-1.5"
+                      >
+                        Next: {wizardSteps[wizardStep === 1 ? 1 : 2]?.label ?? ''}
+                        <ChevronRight className="size-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={runBatch}
+                        disabled={isRunning || providersToRun.length === 0 || marketRows.length === 0}
+                        className="gap-2"
+                      >
+                        <Play className="size-4" />
+                        Run
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2420,7 +2440,18 @@ export function BatchScenarioStep({
               <p className="text-muted-foreground text-xs">Results open when done.</p>
             </div>
           )}
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-4">
+            {setAllowFuzzyMatchSpecialty && (
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={allowFuzzyMatchSpecialty}
+                  onChange={(e) => setAllowFuzzyMatchSpecialty(e.target.checked)}
+                  className="rounded border-border"
+                />
+                Auto-match similar specialty names
+              </label>
+            )}
             <Button
               onClick={runBatch}
               disabled={isRunning || providersToRun.length === 0 || marketRows.length === 0}

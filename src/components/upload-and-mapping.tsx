@@ -28,6 +28,7 @@ import type { SynonymMap } from '@/types/batch'
 import { PROVIDER_EXPECTED_COLUMNS } from '@/types/provider'
 import { MARKET_EXPECTED_COLUMNS } from '@/types/market'
 import { SynonymEditor } from '@/components/batch/synonym-editor'
+import { matchMarketRow } from '@/lib/batch'
 import {
   downloadSampleCsv,
   PROVIDER_SAMPLE_CSV,
@@ -35,6 +36,7 @@ import {
   PROVIDER_SAMPLE_FILENAME,
   MARKET_SAMPLE_FILENAME,
 } from '@/utils/sample-upload'
+import { downloadProviderDataCSV, downloadMarketDataCSV } from '@/lib/data-export'
 import {
   Tooltip,
   TooltipContent,
@@ -330,6 +332,15 @@ export function UploadAndMapping({
     const set = new Set(existingMarketRows.map((r) => r.specialty).filter(Boolean))
     return Array.from(set).sort() as string[]
   }, [existingMarketRows])
+
+  const unmatchedSpecialties = useMemo(() => {
+    if (providerSpecialties.length === 0 || existingMarketRows.length === 0) return [] as string[]
+    return providerSpecialties.filter(
+      (s) => matchMarketRow({ specialty: s }, existingMarketRows, batchSynonymMap).status === 'Missing'
+    )
+  }, [providerSpecialties, existingMarketRows, batchSynonymMap])
+
+  const unmatchedSpecialtyCount = unmatchedSpecialties.length
 
   const parseNum = (s: string): number | undefined => {
     const n = parseFloat(s)
@@ -848,17 +859,43 @@ export function UploadAndMapping({
                     : ''}
               </span>
               <div className="flex items-center gap-2 shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-9 shrink-0 cursor-pointer"
-                  onClick={() => downloadSampleCsv(PROVIDER_SAMPLE_FILENAME, PROVIDER_SAMPLE_CSV)}
-                  title="Download sample"
-                  aria-label="Download sample"
-                >
-                  <Download className="size-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-9 shrink-0 cursor-pointer"
+                      onClick={() => downloadSampleCsv(PROVIDER_SAMPLE_FILENAME, PROVIDER_SAMPLE_CSV)}
+                      title="Download sample"
+                      aria-label="Download sample"
+                    >
+                      <Download className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={6}>Download sample template</TooltipContent>
+                </Tooltip>
+                {providerHasData && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-9 shrink-0 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          downloadProviderDataCSV(existingProviderRows)
+                        }}
+                        title="Download loaded data"
+                        aria-label="Download loaded provider data"
+                      >
+                        <FileSpreadsheet className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={6}>Download loaded provider data (CSV)</TooltipContent>
+                  </Tooltip>
+                )}
                 {providerHasData && existingMarketRows.length > 0 && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -978,17 +1015,43 @@ export function UploadAndMapping({
                     : ''}
               </span>
               <div className="flex items-center gap-2 shrink-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-9 shrink-0 cursor-pointer"
-                  onClick={() => downloadSampleCsv(MARKET_SAMPLE_FILENAME, MARKET_SAMPLE_CSV)}
-                  title="Download sample"
-                  aria-label="Download sample"
-                >
-                  <Download className="size-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-9 shrink-0 cursor-pointer"
+                      onClick={() => downloadSampleCsv(MARKET_SAMPLE_FILENAME, MARKET_SAMPLE_CSV)}
+                      title="Download sample"
+                      aria-label="Download sample"
+                    >
+                      <Download className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={6}>Download sample template</TooltipContent>
+                </Tooltip>
+                {marketHasData && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="size-9 shrink-0 cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          downloadMarketDataCSV(existingMarketRows)
+                        }}
+                        title="Download loaded data"
+                        aria-label="Download loaded market data"
+                      >
+                        <FileSpreadsheet className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={6}>Download loaded market data (CSV)</TooltipContent>
+                  </Tooltip>
+                )}
                 {marketHasData && (
                   <Button
                     type="button"
@@ -1042,14 +1105,17 @@ export function UploadAndMapping({
       </div>
 
       {existingProviderRows.length > 0 && existingMarketRows.length > 0 && showMappings && (
-        <SynonymEditor
-          synonymMap={batchSynonymMap}
-          onAdd={onAddSynonym}
-          onRemove={onRemoveSynonym}
-          onHide={() => setShowMappings(false)}
-          providerSpecialties={providerSpecialties}
-          marketSpecialties={marketSpecialties}
-        />
+        <div className="mt-10 pt-8 border-t border-border/60">
+          <SynonymEditor
+            synonymMap={batchSynonymMap}
+            onAdd={onAddSynonym}
+            onRemove={onRemoveSynonym}
+            onHide={() => setShowMappings(false)}
+            providerSpecialties={providerSpecialties}
+            marketSpecialties={marketSpecialties}
+            unmappedSpecialties={unmatchedSpecialties}
+          />
+        </div>
       )}
 
       {loading && (

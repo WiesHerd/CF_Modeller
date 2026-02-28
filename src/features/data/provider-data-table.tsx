@@ -465,9 +465,9 @@ export function ProviderDataTable({
   return (
     <div className="space-y-3">
       {/* Toolbar: search + filters distributed across width like Ranges */}
-      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Filters</span>
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-foreground">Filters</span>
           {hasActiveFilters && (
             <Button
               variant="ghost"
@@ -496,7 +496,7 @@ export function ProviderDataTable({
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Search table</Label>
+            <Label className="text-xs font-medium text-foreground/80">Search table</Label>
             <Input
               placeholder="Search table..."
               value={globalFilter ?? ''}
@@ -505,7 +505,7 @@ export function ProviderDataTable({
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Specialty</Label>
+            <Label className="text-xs font-medium text-foreground/80">Specialty</Label>
             <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
@@ -558,7 +558,7 @@ export function ProviderDataTable({
             </DropdownMenu>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Division</Label>
+            <Label className="text-xs font-medium text-foreground/80">Division</Label>
             <DropdownMenu onOpenChange={(open) => !open && setDivisionSearch('')}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
@@ -611,7 +611,7 @@ export function ProviderDataTable({
             </DropdownMenu>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Model</Label>
+            <Label className="text-xs font-medium text-foreground/80">Model</Label>
             <DropdownMenu onOpenChange={(open) => !open && setModelSearch('')}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
@@ -651,7 +651,7 @@ export function ProviderDataTable({
             </DropdownMenu>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Provider type</Label>
+            <Label className="text-xs font-medium text-foreground/80">Provider type</Label>
             <DropdownMenu onOpenChange={(open) => !open && setProviderTypeSearch('')}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
@@ -706,29 +706,29 @@ export function ProviderDataTable({
         </div>
       </div>
       {/* Ranges: 2x2 grid so they don't stretch in one long line */}
-      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-        <span className="mb-2 block text-xs font-medium text-muted-foreground">Ranges</span>
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <span className="mb-3 block text-sm font-semibold text-foreground">Ranges</span>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex items-center gap-1.5">
-            <Label className="w-20 shrink-0 text-xs text-muted-foreground">Total FTE</Label>
+            <Label className="w-20 shrink-0 text-xs font-medium text-foreground/80">Total FTE</Label>
             <Input type="number" placeholder="Min" value={totalFTEMin} onChange={(e) => setTotalFTEMin(e.target.value)} className="h-8 w-20 text-xs" step="0.01" min={0} max={2} />
             <span className="text-muted-foreground">–</span>
             <Input type="number" placeholder="Max" value={totalFTEMax} onChange={(e) => setTotalFTEMax(e.target.value)} className="h-8 w-20 text-xs" step="0.01" min={0} max={2} />
           </div>
           <div className="flex items-center gap-1.5">
-            <Label className="w-20 shrink-0 text-xs text-muted-foreground">Clinical FTE</Label>
+            <Label className="w-20 shrink-0 text-xs font-medium text-foreground/80">Clinical FTE</Label>
             <Input type="number" placeholder="Min" value={clinicalFTEMin} onChange={(e) => setClinicalFTEMin(e.target.value)} className="h-8 w-20 text-xs" step="0.01" min={0} max={2} />
             <span className="text-muted-foreground">–</span>
             <Input type="number" placeholder="Max" value={clinicalFTEMax} onChange={(e) => setClinicalFTEMax(e.target.value)} className="h-8 w-20 text-xs" step="0.01" min={0} max={2} />
           </div>
           <div className="flex items-center gap-1.5">
-            <Label className="w-20 shrink-0 text-xs text-muted-foreground">Work wRVUs</Label>
+            <Label className="w-20 shrink-0 text-xs font-medium text-foreground/80">Work wRVUs</Label>
             <Input type="number" placeholder="Min" value={workRVUsMin} onChange={(e) => setWorkRVUsMin(e.target.value)} className="h-8 w-20 text-xs" min={0} />
             <span className="text-muted-foreground">–</span>
             <Input type="number" placeholder="Max" value={workRVUsMax} onChange={(e) => setWorkRVUsMax(e.target.value)} className="h-8 w-20 text-xs" min={0} />
           </div>
           <div className="flex items-center gap-1.5">
-            <Label className="w-20 shrink-0 text-xs text-muted-foreground">Total wRVUs</Label>
+            <Label className="w-20 shrink-0 text-xs font-medium text-foreground/80">Total wRVUs</Label>
             <Input type="number" placeholder="Min" value={totalWRVUsMin} onChange={(e) => setTotalWRVUsMin(e.target.value)} className="h-8 w-20 text-xs" min={0} />
             <span className="text-muted-foreground">–</span>
             <Input type="number" placeholder="Max" value={totalWRVUsMax} onChange={(e) => setTotalWRVUsMax(e.target.value)} className="h-8 w-20 text-xs" min={0} />

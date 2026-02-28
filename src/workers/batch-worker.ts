@@ -16,6 +16,7 @@ export interface BatchWorkerRunPayload {
   synonymMap?: SynonymMap
   chunkSize?: number
   overrides?: BatchOverrides
+  allowFuzzyMatch?: boolean
 }
 
 export interface BatchWorkerProgressMessage {
@@ -33,13 +34,14 @@ export interface BatchWorkerDoneMessage {
 export type BatchWorkerOutMessage = BatchWorkerProgressMessage | BatchWorkerDoneMessage
 
 self.onmessage = (e: MessageEvent<BatchWorkerRunPayload>) => {
-  const { type, providers, marketRows, scenarios, synonymMap, chunkSize, overrides } = e.data
+  const { type, providers, marketRows, scenarios, synonymMap, chunkSize, overrides, allowFuzzyMatch } = e.data
   if (type !== 'run') return
 
   const results = runBatch(providers, marketRows, scenarios, {
     synonymMap: synonymMap ?? {},
     chunkSize: chunkSize ?? 200,
     overrides,
+    allowFuzzyMatch: allowFuzzyMatch ?? false,
     onProgress(processed, total, elapsedMs) {
       const msg: BatchWorkerProgressMessage = {
         type: 'progress',

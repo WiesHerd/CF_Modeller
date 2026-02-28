@@ -25,6 +25,7 @@ import { useState, useMemo } from 'react'
 import { X } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
+import type { SynonymMap } from '@/types/batch'
 
 interface PercentileModelerHeaderProps {
   providerRows: ProviderRow[]
@@ -33,6 +34,8 @@ interface PercentileModelerHeaderProps {
   selectedProviderId: string | null
   onSelectSpecialty: (specialty: string | null) => void
   onSelectProvider: (providerId: string | null) => void
+  /** When provided, providers whose specialty maps to the selected market are included in the provider list. */
+  synonymMap?: SynonymMap
   /** When true, only specialty/market selectors are shown (e.g. new provider mode). */
   providerSelectionOnly?: boolean
 }
@@ -44,6 +47,7 @@ export function PercentileModelerHeader({
   selectedProviderId,
   onSelectSpecialty,
   onSelectProvider,
+  synonymMap = {},
   providerSelectionOnly = false,
 }: PercentileModelerHeaderProps) {
   const [providerOpen, setProviderOpen] = useState(false)
@@ -51,11 +55,18 @@ export function PercentileModelerHeader({
 
   const filteredBySpecialty = useMemo(() => {
     if (!selectedSpecialty) return providerRows
-    return providerRows.filter(
-      (p) =>
-        (p.specialty ?? '').toLowerCase() === selectedSpecialty.toLowerCase()
-    )
-  }, [providerRows, selectedSpecialty])
+    const marketNorm = selectedSpecialty.toLowerCase().trim()
+    return providerRows.filter((p) => {
+      const provSpec = (p.specialty ?? '').trim()
+      if (!provSpec) return false
+      if (provSpec.toLowerCase() === marketNorm) return true
+      const mapped =
+        synonymMap[provSpec] ??
+        synonymMap[provSpec.toLowerCase()] ??
+        synonymMap[provSpec.toLowerCase().trim()]
+      return mapped != null && mapped.toLowerCase().trim() === marketNorm
+    })
+  }, [providerRows, selectedSpecialty, synonymMap])
 
   const filteredBySearch = useMemo(() => {
     if (!search.trim()) return filteredBySpecialty

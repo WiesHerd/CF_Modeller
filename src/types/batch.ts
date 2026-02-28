@@ -2,7 +2,7 @@ import type { MarketRow } from '@/types/market'
 import type { ScenarioInputs, ScenarioResults } from '@/types/scenario'
 
 /** How the provider's specialty was matched to a market row. */
-export type MarketMatchStatus = 'Exact' | 'Normalized' | 'Synonym' | 'Missing'
+export type MarketMatchStatus = 'Exact' | 'Normalized' | 'Synonym' | 'Fuzzy' | 'Missing'
 
 /** Derived risk level for filtering and display. */
 export type BatchRiskLevel = 'high' | 'medium' | 'low'
@@ -98,6 +98,8 @@ export interface RunBatchOptions {
   onProgress?: (processed: number, total: number, elapsedMs: number) => void
   chunkSize?: number
   overrides?: BatchOverrides
+  /** When true, use fuzzy specialty match when no exact/synonym match (status 'Fuzzy'). Default off. */
+  allowFuzzyMatch?: boolean
 }
 
 /** Result of matchMarketRow. */

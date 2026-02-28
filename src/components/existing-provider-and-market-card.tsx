@@ -27,6 +27,7 @@ import {
 import { Button } from '@/components/ui/button'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
+import type { SynonymMap } from '@/types/batch'
 
 interface ExistingProviderAndMarketCardProps {
   providerRows: ProviderRow[]
@@ -35,6 +36,8 @@ interface ExistingProviderAndMarketCardProps {
   marketRows: MarketRow[]
   onSelectProvider: (id: string | null) => void
   onSelectSpecialty: (specialty: string | null) => void
+  /** When provided, providers whose specialty maps to the selected market (via this map) are included in the provider list. */
+  synonymMap?: SynonymMap
   /** For productivity model in same row as provider/market. */
   selectedProvider?: ProviderRow | null
   onUpdateProvider?: (updates: Partial<ProviderRow>) => void
@@ -50,6 +53,7 @@ export function ExistingProviderAndMarketCard({
   marketRows,
   onSelectProvider,
   onSelectSpecialty,
+  synonymMap = {},
   selectedProvider: selectedProviderProp,
   onUpdateProvider,
   readOnlyProductivityModel = false,
@@ -60,11 +64,19 @@ export function ExistingProviderAndMarketCard({
 
   const filteredBySpecialty = useMemo(() => {
     if (!selectedSpecialty) return providerRows
-    return providerRows.filter(
-      (p) =>
-        (p.specialty ?? '').toLowerCase() === selectedSpecialty.toLowerCase()
-    )
-  }, [providerRows, selectedSpecialty])
+    const marketNorm = selectedSpecialty.toLowerCase().trim()
+    return providerRows.filter((p) => {
+      const provSpec = (p.specialty ?? '').trim()
+      if (!provSpec) return false
+      if (provSpec.toLowerCase() === marketNorm) return true
+      const mapped =
+        synonymMap[provSpec] ??
+        synonymMap[provSpec.toLowerCase()] ??
+        synonymMap[provSpec.toLowerCase().trim()]
+      if (mapped && mapped.toLowerCase().trim() === marketNorm) return true
+      return false
+    })
+  }, [providerRows, selectedSpecialty, synonymMap])
 
   const filteredBySearch = useMemo(() => {
     if (!search.trim()) return filteredBySpecialty

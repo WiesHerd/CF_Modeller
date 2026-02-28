@@ -4,10 +4,23 @@ import { useState, useEffect } from 'react'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Table2 } from 'lucide-react'
+import { Table2, Download, ChevronDown } from 'lucide-react'
 import { loadDataBrowserFilters, saveDataBrowserFilters, type DataBrowserFilters } from '@/lib/storage'
+import {
+  downloadProviderDataCSV,
+  exportProviderDataXLSX,
+  downloadMarketDataCSV,
+  exportMarketDataXLSX,
+} from '@/lib/data-export'
 import type { ProviderRow } from '@/types/provider'
 import type { MarketRow } from '@/types/market'
 import { ProviderDataTable } from '@/features/data/provider-data-table'
@@ -77,7 +90,41 @@ export function DataTablesScreen({
   }
   return (
     <div className="space-y-6">
-      <SectionTitleWithIcon icon={<Table2 />}>Data browser</SectionTitleWithIcon>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SectionTitleWithIcon icon={<Table2 />}>Data browser</SectionTitleWithIcon>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="gap-2">
+              <Download className="size-4" />
+              Export
+              <ChevronDown className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Download format</DropdownMenuLabel>
+            {providerRows.length > 0 && (
+              <>
+                <DropdownMenuItem onClick={() => downloadProviderDataCSV(providerRows)} className="gap-2">
+                  Providers (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportProviderDataXLSX(providerRows)} className="gap-2">
+                  Providers (XLSX)
+                </DropdownMenuItem>
+              </>
+            )}
+            {marketRows.length > 0 && (
+              <>
+                <DropdownMenuItem onClick={() => downloadMarketDataCSV(marketRows)} className="gap-2">
+                  Market (CSV)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportMarketDataXLSX(marketRows)} className="gap-2">
+                  Market (XLSX)
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <Tabs value={tabValue} onValueChange={handleTabChange} className="w-full">
         <TabsList>
           <TabsTrigger value="providers">Providers ({providerRows.length})</TabsTrigger>

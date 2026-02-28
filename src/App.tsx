@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAppState } from '@/hooks/use-app-state'
+import { matchMarketRow } from '@/lib/batch'
 import { computeScenario } from '@/lib/compute'
 import { AppLayout, type AppStep } from '@/components/layout/app-layout'
 
@@ -222,6 +223,7 @@ export default function App() {
     clearAllSavedBatchScenarioConfigs,
     updateBatchSynonymMap,
     removeBatchSynonym,
+    setAllowFuzzyMatchSpecialty,
     setOptimizerConfig,
     clearOptimizerConfig,
     saveOptimizerConfig,
@@ -414,19 +416,18 @@ export default function App() {
     setSelectedProvider,
   ])
 
-  // When user selects a provider, set market (specialty) from that provider (existing mode only)
+  // When user selects a provider, set market (specialty) to the matching market row so dropdown and provider list stay in sync (including synonym mapping)
   useEffect(() => {
     if (modelMode !== 'existing') return
-    if (!selectedProvider?.specialty || state.marketRows.length === 0) return
-    const hasMarketForSpecialty = state.marketRows.some(
-      (r) => (r.specialty ?? '').toLowerCase() === (selectedProvider.specialty ?? '').toLowerCase()
-    )
-    if (hasMarketForSpecialty) setSelectedSpecialty(selectedProvider.specialty ?? null)
+    if (!selectedProvider || state.marketRows.length === 0) return
+    const match = matchMarketRow(selectedProvider, state.marketRows, state.batchSynonymMap)
+    if (match.marketRow?.specialty) setSelectedSpecialty(match.marketRow.specialty)
   }, [
     modelMode,
     selectedProvider?.providerId,
-    selectedProvider?.specialty,
+    selectedProvider,
     state.marketRows,
+    state.batchSynonymMap,
     setSelectedSpecialty,
   ])
 
@@ -857,6 +858,7 @@ export default function App() {
                       selectedSpecialty={state.selectedSpecialty}
                       selectedProviderId={state.selectedProviderId}
                       marketRows={state.marketRows}
+                      synonymMap={state.batchSynonymMap}
                       onSelectProvider={setSelectedProvider}
                       onSelectSpecialty={setSelectedSpecialty}
                       selectedProvider={effectiveProvider}
@@ -1207,6 +1209,8 @@ export default function App() {
           onBatchScenarioConfigApplied={clearAppliedBatchScenarioConfig}
           onDeleteBatchScenarioConfig={deleteSavedBatchScenarioConfig}
           batchSynonymMap={state.batchSynonymMap}
+          allowFuzzyMatchSpecialty={state.allowFuzzyMatchSpecialty}
+          setAllowFuzzyMatchSpecialty={setAllowFuzzyMatchSpecialty}
           onRunComplete={(results, snapshot) => handleBatchRunComplete('bulk', results, snapshot)}
           onNavigateToUpload={() => setStep('upload')}
           onSaveScenario={saveBatchScenarioConfig}

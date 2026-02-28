@@ -12,12 +12,16 @@ import type {
   SynonymMap,
 } from '@/types/batch'
 import { computeScenario } from '@/lib/compute'
+import { specialtySimilarity } from '@/lib/specialty-match'
 
 const PERCENTILE_KEYS = [
   'TCC_25', 'TCC_50', 'TCC_75', 'TCC_90',
   'WRVU_25', 'WRVU_50', 'WRVU_75', 'WRVU_90',
   'CF_25', 'CF_50', 'CF_75', 'CF_90',
 ] as const
+
+/** Minimum similarity score to return a fuzzy match (0–1). */
+const FUZZY_MATCH_THRESHOLD = 0.72
 
 /**
  * Normalize specialty for matching: trim, lowerCase, collapse whitespace, remove punctuation.
@@ -43,17 +47,25 @@ function isMarketRowValid(m: MarketRow): boolean {
   return true
 }
 
+/** Options for matchMarketRow (e.g. allow fuzzy fallback). */
+export interface MatchMarketOptions {
+  /** When true, if no exact/synonym match, try best fuzzy match above threshold; status 'Fuzzy'. */
+  allowFuzzyMatch?: boolean
+}
+
 /**
  * Match a provider to a market row by specialty.
  * 1. Exact (normalized key match)
  * 2. Normalized (same normalization on market specialties)
  * 3. Synonym map lookup
- * 4. Missing
+ * 4. Fuzzy (optional): best similarity above threshold
+ * 5. Missing
  */
 export function matchMarketRow(
   provider: ProviderRow,
   marketRows: MarketRow[],
-  synonymMap: SynonymMap = {}
+  synonymMap: SynonymMap = {},
+  options: MatchMarketOptions = {}
 ): MatchMarketResult {
   const rawSpecialty = (provider.specialty ?? '').trim()
   if (!rawSpecialty) {
@@ -85,6 +97,20 @@ export function matchMarketRow(
       if (key === targetNorm) {
         return { marketRow: m, status: 'Synonym', matchedKey: m.specialty }
       }
+    }
+  }
+
+  // 4. Fuzzy fallback (opt-in)
+  if (options.allowFuzzyMatch && validMarkets.length > 0) {
+    let best: { row: MarketRow; score: number } | null = null
+    for (const m of validMarkets) {
+      const score = specialtySimilarity(rawSpecialty, m.specialty ?? '')
+      if (score >= FUZZY_MATCH_THRESHOLD && (!best || score > best.score)) {
+        best = { row: m, score }
+      }
+    }
+    if (best) {
+      return { marketRow: best.row, status: 'Fuzzy', matchedKey: best.row.specialty }
     }
   }
 
@@ -179,6 +205,7 @@ export function runBatch(
     onProgress,
     chunkSize = DEFAULT_CHUNK_SIZE,
     overrides,
+    allowFuzzyMatch = false,
   } = options
 
   const scenarioList =
@@ -199,7 +226,7 @@ export function runBatch(
     const providerType = (provider.providerType ?? '').toString()
     const productivityModel = (provider.productivityModel ?? '').toString().trim() || undefined
 
-    const match = matchMarketRow(provider, marketRows, synonymMap)
+    const match = matchMarketRow(provider, marketRows, synonymMap, { allowFuzzyMatch })
     const warnings: string[] = []
     if (!specialty.trim()) {
       warnings.push('Missing specialty')

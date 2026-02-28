@@ -303,11 +303,11 @@ export function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-        <span className="mb-2 block text-xs font-medium text-muted-foreground">Filters</span>
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <span className="mb-3 block text-sm font-semibold text-foreground">Filters</span>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Search table</Label>
+            <Label className="text-xs font-medium text-foreground/80">Search table</Label>
             <Input
               placeholder="Search table..."
               value={globalFilter ?? ''}
@@ -316,7 +316,7 @@ export function MarketDataTable({ rows, specialtyFilter, onSpecialtyFilterChange
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs text-muted-foreground">Specialty</Label>
+            <Label className="text-xs font-medium text-foreground/80">Specialty</Label>
             <DropdownMenu onOpenChange={(open) => !open && setSpecialtySearch('')}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 w-full min-w-0 justify-between gap-2">
