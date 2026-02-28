@@ -812,7 +812,7 @@ export function UploadAndMapping({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <h3 className="text-lg font-semibold leading-tight text-foreground cursor-default">
-                      Provider file
+                      Provider Upload
                     </h3>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -942,7 +942,7 @@ export function UploadAndMapping({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <h3 className="text-lg font-semibold leading-tight text-foreground cursor-default">
-                      Market file
+                      Survey upload
                     </h3>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -1213,8 +1213,8 @@ export function UploadAndMapping({
             <CardContent className="p-0">
               <Tabs value={fieldGuideFile} onValueChange={(v) => setFieldGuideFile(v as 'provider' | 'market')}>
                 <TabsList className="w-full justify-start rounded-none border-b border-border/60 bg-muted/30 px-4 pt-2">
-                  <TabsTrigger value="provider">Provider file</TabsTrigger>
-                  <TabsTrigger value="market">Market file</TabsTrigger>
+                  <TabsTrigger value="provider">Provider Upload</TabsTrigger>
+                  <TabsTrigger value="market">Survey upload</TabsTrigger>
                 </TabsList>
                 <TabsContent value="provider" className="mt-0">
                   <div className="max-h-[60vh] overflow-y-auto p-6 space-y-6">

@@ -86,49 +86,38 @@ export function CompareScenariosScreen({
 
   return (
     <div className="space-y-6">
-      {/* Title row — match CF Optimizer / Productivity Target */}
-      <SectionTitleWithIcon icon={<GitCompare className="size-5 text-muted-foreground" />}>
-        Compare scenarios
-      </SectionTitleWithIcon>
-      <p className="flex items-center gap-1.5 text-xs text-muted-foreground -mt-4">
-        <Lock className="size-3.5 shrink-0" aria-hidden />
-        Confidential
-        <span className="tabular-nums"> · {reportDate}</span>
-      </p>
-      {/* Action row: Back left, Export right — match other optimizer screens */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      {/* Title row: title + confidential left, Back top right */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <SectionTitleWithIcon icon={<GitCompare className="size-5 text-muted-foreground" />}>
+            Compare scenarios
+          </SectionTitleWithIcon>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
+            <Lock className="size-3.5 shrink-0" aria-hidden />
+            Confidential
+            <span className="tabular-nums"> · {reportDate}</span>
+          </p>
+        </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={onBack}
-          className="gap-2"
+          className="gap-2 shrink-0"
           aria-label="Back"
         >
           <ArrowLeft className="size-4" />
           Back
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleExportExcel}
-          disabled={!currentComparisonData}
-          className="gap-2"
-          aria-label="Export to Excel"
-        >
-          <FileSpreadsheet className="size-4" />
-          Export to Excel
-        </Button>
       </div>
 
-      {/* Optimizer tabs */}
+      {/* Optimizer tabs (left) + Export (right) */}
       <Tabs
         value={compareTool}
         onValueChange={(v) => setCompareTool(v as CompareTool)}
         className="w-full"
       >
-        <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-b border-border/60 pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border/60 pb-2">
           <TabsList className="h-9 w-full sm:w-auto">
             <TabsTrigger value="cf-optimizer" className="gap-1.5 text-sm">
               <span className="hidden sm:inline">CF Optimizer</span>
@@ -140,6 +129,18 @@ export function CompareScenariosScreen({
               <span className="sm:hidden">Target</span>
             </TabsTrigger>
           </TabsList>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleExportExcel}
+            disabled={!currentComparisonData}
+            className="gap-2 shrink-0"
+            aria-label="Export to Excel"
+          >
+            <FileSpreadsheet className="size-4" />
+            Export to Excel
+          </Button>
         </div>
         <TabsContent value="cf-optimizer" className="mt-2">
           <CompareScenariosContent

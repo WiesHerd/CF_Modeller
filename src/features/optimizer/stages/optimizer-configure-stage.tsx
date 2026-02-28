@@ -1661,9 +1661,26 @@ export function OptimizerConfigureStage({
                 <AlertDescription>
                   <p className="font-medium mb-1">To run the optimizer:</p>
                   <ul className="list-disc list-inside text-sm space-y-0.5">
-                    {runDisabledReasons.map((reason, i) => (
-                      <li key={i}>{reason}</li>
-                    ))}
+                    {runDisabledReasons.map((reason, i) => {
+                    const step1 = '(step 1)'
+                    const idx = reason.indexOf(step1)
+                    if (idx === -1) return <li key={i}>{reason}</li>
+                    const before = reason.slice(0, idx)
+                    const after = reason.slice(idx + step1.length)
+                    return (
+                      <li key={i}>
+                        {before}
+                        <button
+                          type="button"
+                          onClick={() => onSetConfigStep(1)}
+                          className="cursor-pointer text-primary underline underline-offset-2 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-0.5 -ml-0.5"
+                        >
+                          (step 1)
+                        </button>
+                        {after}
+                      </li>
+                    )
+                  })}
                   </ul>
                 </AlertDescription>
               </Alert>
