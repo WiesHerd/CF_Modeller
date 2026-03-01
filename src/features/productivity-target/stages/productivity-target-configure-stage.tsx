@@ -29,6 +29,7 @@ import { Command, CommandInput } from '@/components/ui/command'
 import { ChevronDown, Eraser, Plus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProductivityTargetSettings, TargetApproach, PlanningCFSource, IncentiveDistributionMethod } from '@/types/productivity-target'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 
 const CONFIG_STEPS = [
@@ -99,6 +100,7 @@ export function ProductivityTargetConfigureStage({
   hasData,
   settings,
   runDisabled,
+  runDisabledReasons = [],
   filteredProviderRowsCount,
   targetMode,
   selectedSpecialties,
@@ -137,6 +139,8 @@ export function ProductivityTargetConfigureStage({
   hasData: boolean
   settings: ProductivityTargetSettings
   runDisabled: boolean
+  /** When Run is disabled, friendly reasons to show so the user knows what to fix. */
+  runDisabledReasons?: string[]
   filteredProviderRowsCount: number
   targetMode: 'all' | 'custom'
   selectedSpecialties: string[]
@@ -1365,6 +1369,41 @@ export function ProductivityTargetConfigureStage({
                     <span className="font-medium text-foreground">cFTE</span> per provider. This sets the productivity expectation only—it does not change the conversion factor from the CF Optimizer.
                   </p>
                 </div>
+              ) : null}
+
+              {configStep === 3 && runDisabled && runDisabledReasons.length > 0 ? (
+                <Alert variant="default" className="border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-100 dark:border-amber-400/40 dark:bg-amber-500/15">
+                  <AlertDescription>
+                    <p className="font-medium mb-1">To run the Target Optimizer:</p>
+                    <ul className="list-disc list-inside text-sm space-y-0.5">
+                      {runDisabledReasons.map((reason, i) => {
+                        const step1 = '(step 1)'
+                        const step2 = '(step 2)'
+                        const idx1 = reason.indexOf(step1)
+                        const idx2 = reason.indexOf(step2)
+                        const idx = idx1 >= 0 ? idx1 : idx2
+                        const stepLabel = idx1 >= 0 ? step1 : step2
+                        if (idx === -1) return <li key={i}>{reason}</li>
+                        const before = reason.slice(0, idx)
+                        const after = reason.slice(idx + stepLabel.length)
+                        const stepNum = stepLabel === step1 ? 1 : 2
+                        return (
+                          <li key={i}>
+                            {before}
+                            <button
+                              type="button"
+                              onClick={() => onSetConfigStep(stepNum)}
+                              className="cursor-pointer text-primary underline underline-offset-2 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded px-0.5 -ml-0.5"
+                            >
+                              {stepLabel}
+                            </button>
+                            {after}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
               ) : null}
 
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-4">

@@ -37,6 +37,7 @@ export function ProductivityTargetRunStage({
   incentiveDistributionMethod,
   onIncentiveDistributionMethodChange,
   runDisabled,
+  runDisabledReasons = [],
   onRun,
   onStartOver,
   onExport,
@@ -50,6 +51,8 @@ export function ProductivityTargetRunStage({
   incentiveDistributionMethod: IncentiveDistributionMethod
   onIncentiveDistributionMethodChange: (method: IncentiveDistributionMethod) => void
   runDisabled: boolean
+  /** When Run is disabled, friendly reasons to show. */
+  runDisabledReasons?: string[]
   onRun: () => void
   onStartOver: () => void
   onExport: () => void
@@ -91,11 +94,23 @@ export function ProductivityTargetRunStage({
         </CardHeader>
         <CardContent className="space-y-4">
           {!result && hasData ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button onClick={onRun} disabled={runDisabled} className="gap-2">
-                <Play className="size-4" />
-                Run
-              </Button>
+            <div className="space-y-3">
+              {runDisabled && runDisabledReasons.length > 0 ? (
+                <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-100 dark:border-amber-400/40 dark:bg-amber-500/15">
+                  <p className="font-medium mb-1">To run:</p>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {runDisabledReasons.map((reason, i) => (
+                      <li key={i}>{reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={onRun} disabled={runDisabled} className="gap-2">
+                  <Play className="size-4" />
+                  Run
+                </Button>
+              </div>
             </div>
           ) : null}
 

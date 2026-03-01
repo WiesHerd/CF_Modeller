@@ -411,6 +411,62 @@ export function ProductivityTargetScreen({
         !Number.isFinite(settings.manualTargetWRVU) ||
         settings.manualTargetWRVU < 0))
 
+  const runDisabledReasons = useMemo(() => {
+    const reasons: string[] = []
+    if (!hasData) {
+      reasons.push('Upload provider and market data first.')
+      return reasons
+    }
+    if (targetMode === 'custom' && selectedSpecialties.length === 0) {
+      reasons.push('Select at least one specialty in Target scope (step 1).')
+    }
+    if (modelScopeMode === 'custom' && selectedModels.length === 0) {
+      reasons.push('Select at least one model in Target scope (step 1).')
+    }
+    if (providerTypeScopeMode === 'custom' && selectedProviderTypes.length === 0) {
+      reasons.push('Select at least one provider type in Target scope (step 1).')
+    }
+    if (providerScopeMode === 'custom' && selectedProviderIds.length === 0) {
+      reasons.push('Select at least one provider in Target scope (step 1).')
+    }
+    const scopeOk =
+      (targetMode !== 'custom' || selectedSpecialties.length > 0) &&
+      (modelScopeMode !== 'custom' || selectedModels.length > 0) &&
+      (providerTypeScopeMode !== 'custom' || selectedProviderTypes.length > 0) &&
+      (providerScopeMode !== 'custom' || selectedProviderIds.length > 0)
+    if (scopeOk && filteredProviderRowsForRun.length === 0) {
+      reasons.push(
+        'No providers match your scope. Adjust Target scope (step 1) so at least one provider is included.'
+      )
+    }
+    if (hasInvalidSpecialtyOverride) {
+      reasons.push('Fix invalid specialty overrides in Target method & planning (step 2).')
+    }
+    if (
+      settings.targetApproach === 'pay_per_wrvu' &&
+      (settings.manualTargetWRVU == null ||
+        !Number.isFinite(settings.manualTargetWRVU) ||
+        settings.manualTargetWRVU < 0)
+    ) {
+      reasons.push('Enter a valid manual target wRVU in Target method & planning (step 2).')
+    }
+    return reasons
+  }, [
+    hasData,
+    targetMode,
+    selectedSpecialties.length,
+    modelScopeMode,
+    selectedModels.length,
+    providerTypeScopeMode,
+    selectedProviderTypes.length,
+    providerScopeMode,
+    selectedProviderIds.length,
+    filteredProviderRowsForRun.length,
+    hasInvalidSpecialtyOverride,
+    settings.targetApproach,
+    settings.manualTargetWRVU,
+  ])
+
   const handleRun = useCallback(() => {
     if (!hasData || runDisabled) return
     const runResult = runBySpecialty(filteredProviderRowsForRun, marketRows, synonymMap, settings)
@@ -652,6 +708,7 @@ export function ProductivityTargetScreen({
           hasData={hasData}
           settings={settings}
           runDisabled={runDisabled}
+          runDisabledReasons={runDisabledReasons}
           filteredProviderRowsCount={filteredProviderRowsForRun.length}
           targetMode={targetMode}
           selectedSpecialties={selectedSpecialties}
@@ -695,6 +752,7 @@ export function ProductivityTargetScreen({
           incentiveDistributionMethod={incentiveDistributionMethod ?? 'individual'}
           onIncentiveDistributionMethodChange={setIncentiveDistributionMethod}
           runDisabled={runDisabled}
+          runDisabledReasons={runDisabledReasons}
           onRun={handleRun}
           onStartOver={handleStartOver}
           onExport={handleExport}

@@ -141,7 +141,7 @@ import { LegalPage } from '@/components/legal-page'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
-import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, Eraser, FileSpreadsheet, FileUp, FolderOpen, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
+import { ArrowLeft, BarChart2, ChevronDown, ChevronRight, FileSpreadsheet, FileUp, FolderOpen, Layers, RotateCcw, Save, Trash2, User } from 'lucide-react'
 import type { ProviderRow } from '@/types/provider'
 import type { BatchResults, BatchRowResult, BatchScenarioSnapshot } from '@/types/batch'
 import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
@@ -678,7 +678,9 @@ export default function App() {
                   Export Excel Report
                 </Button>
               )}
-              <TooltipProvider delayDuration={300}>
+              {/* Scenario actions: start over, save, load */}
+              <div className="flex items-center gap-1.5 border-l border-border/60 pl-2 ml-0.5">
+                <TooltipProvider delayDuration={300}>
                 {(modellerStep === 'provider' || modellerStep === 'results') && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -695,7 +697,7 @@ export default function App() {
                         className="text-muted-foreground hover:text-foreground"
                         aria-label={modellerStep === 'results' ? 'Start over' : 'Reset form'}
                       >
-                        <Eraser className="size-4" />
+                        <RotateCcw className="size-4" />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
@@ -783,6 +785,7 @@ export default function App() {
                   </Tooltip>
                 )}
               </TooltipProvider>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">

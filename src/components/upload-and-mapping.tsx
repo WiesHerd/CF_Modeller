@@ -43,7 +43,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /** Sentinel for "Skip" option; Radix Select forbids value="". */
 const SKIP_VALUE = '__skip__'
@@ -157,8 +156,6 @@ export function UploadAndMapping({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState<FileType | null>(null)
   const [expandedCard, setExpandedCard] = useState<ExpandedCard>(null)
-  const [importTab, setImportTab] = useState<'upload' | 'fieldGuide'>('upload')
-  const [fieldGuideFile, setFieldGuideFile] = useState<'provider' | 'market'>('provider')
   const [editingProvider, setEditingProvider] = useState<ProviderRow | null>(null)
   type EditFormState = {
     providerName: string
@@ -799,12 +796,6 @@ export function UploadAndMapping({
 
       {/* CompLens-style tool cards: icon, title (tooltip), file input. Click card to open mapping / view table. */}
       <TooltipProvider>
-      <Tabs value={importTab} onValueChange={(v) => setImportTab(v as 'upload' | 'fieldGuide')} className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="upload">Upload</TabsTrigger>
-          <TabsTrigger value="fieldGuide">Field guide</TabsTrigger>
-        </TabsList>
-        <TabsContent value="upload" className="mt-0">
       {usedSampleDataOnLoad && (
         <Alert className="mb-6 border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
           <AlertCircle className="h-4 w-4" />
@@ -1274,64 +1265,6 @@ export function UploadAndMapping({
         </Card>
       )}
 
-        </TabsContent>
-        <TabsContent value="fieldGuide" className="mt-0">
-          <Card className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
-            <CardContent className="p-0">
-              <Tabs value={fieldGuideFile} onValueChange={(v) => setFieldGuideFile(v as 'provider' | 'market')}>
-                <TabsList className="w-full justify-start rounded-none border-b border-border/60 bg-muted/30 px-4 pt-2">
-                  <TabsTrigger value="provider">Provider Upload</TabsTrigger>
-                  <TabsTrigger value="market">Survey upload</TabsTrigger>
-                </TabsList>
-                <TabsContent value="provider" className="mt-0">
-                  <div className="max-h-[60vh] overflow-y-auto p-6 space-y-6">
-                    {PROVIDER_COLUMN_GROUPS.map((group) => (
-                      <div key={group.label} className="space-y-3">
-                        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {group.label}
-                        </h4>
-                        <ul className="space-y-2">
-                          {group.keys.map((key) => (
-                            <li key={key} className="flex flex-col gap-0.5 rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
-                              <span className="text-[13px] font-medium text-foreground">
-                                {key === 'workRVUs' ? 'Work RVUs (wRVUs)' : key === 'productivityModel' ? 'Productivity model' : key === 'researchFTE' ? 'Research FTE' : key === 'teachingFTE' ? 'Teaching FTE' : key === 'qualityPayments' ? 'Quality pay' : key === 'otherIncentives' ? 'Other incentives' : key === 'otherIncentive1' ? 'Other incentive 1' : key === 'otherIncentive2' ? 'Other incentive 2' : key === 'otherIncentive3' ? 'Other incentive 3' : key === 'currentTCC' ? 'Current TCC from file (optional)' : key === 'adminPay' ? 'Admin pay' : key === 'teachingPay' ? 'Teaching pay' : key === 'researchPay' ? 'Research pay' : key}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {PROVIDER_FIELD_GUIDE[key] ?? `Column: ${key}. Map from your file or skip if not used.`}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-                <TabsContent value="market" className="mt-0">
-                  <div className="max-h-[60vh] overflow-y-auto p-6 space-y-6">
-                    {MARKET_COLUMN_GROUPS.map((group) => (
-                      <div key={group.label} className="space-y-3">
-                        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {group.label}
-                        </h4>
-                        <ul className="space-y-2">
-                          {group.keys.map((key) => (
-                            <li key={key} className="flex flex-col gap-0.5 rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
-                              <span className="text-[13px] font-medium text-foreground">{key}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {MARKET_FIELD_GUIDE[key] ?? `Column: ${key}. Map from your market file or skip if not used.`}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
       </TooltipProvider>
 
     </div>

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   FileUp,
   Table2,
@@ -101,40 +100,37 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
   }, [])
 
   return (
-    <div className="flex flex-col gap-8 lg:flex-row lg:gap-12">
-      {/* Sticky sidebar nav — desktop */}
-      <aside className="shrink-0 lg:w-52">
-        <div className="lg:sticky lg:top-6">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">
-            In this section
-          </h2>
-          <ScrollArea className="lg:max-h-[calc(100vh-8rem)]">
-            <nav className="space-y-0.5" aria-label="Help sections">
-              {SECTION_NAV.map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    setActiveSection(value)
-                    scrollToSection(value)
-                  }}
-                  className={cn(
-                    'block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors',
-                    activeSection === value
-                      ? 'bg-primary/10 font-medium text-primary'
-                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </nav>
-          </ScrollArea>
-        </div>
-      </aside>
+    <div className="flex flex-col gap-6">
+      {/* In this section — horizontal strip above content so main content has full width */}
+      <nav
+        className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-3 py-2"
+        aria-label="Help sections"
+      >
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground mr-2 shrink-0 py-1.5">
+          In this section
+        </span>
+        {SECTION_NAV.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => {
+              setActiveSection(value)
+              scrollToSection(value)
+            }}
+            className={cn(
+              'rounded-md px-3 py-1.5 text-sm transition-colors shrink-0',
+              activeSection === value
+                ? 'bg-primary/15 font-medium text-primary'
+                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
 
-      {/* Main content */}
-      <div className="min-w-0 flex-1 space-y-12">
+      {/* Main content — full width */}
+      <div className="min-w-0 space-y-12">
         {/* Overview */}
         <section id={SECTION_IDS.overview} className="scroll-mt-6">
           <h2 className="text-lg font-semibold text-foreground mb-4">Overview</h2>
@@ -190,6 +186,9 @@ export function HelpContent({ onNavigate }: HelpContentProps) {
                 <li>Synonym mapping for batch (match provider specialty names to market)</li>
                 <li>Save and load scenarios; reset data when starting over</li>
               </ul>
+              <p className="text-muted-foreground text-[15px] leading-relaxed mt-4">
+                <strong className="text-foreground">Column reference</strong> — Provider file: specialty, division, provider type; FTE (CART = Clinical, Admin, Research, Teaching); base salary, quality pay, other incentives, work RVUs, productivity model. TCC is built from base + quality + incentives + wRVU incentive. Market file: specialty (matched to provider via synonym map), TCC/wRVU/CF percentiles (25th–90th). Map each column to your file or skip if not used.
+              </p>
               <GoToButton label="Import data" step="upload" onNavigate={onNavigate} />
             </CardContent>
           </Card>
