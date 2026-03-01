@@ -68,8 +68,8 @@ const MARKET_COLUMN_GROUPS: { label: string; keys: readonly string[] }[] = [
   { label: 'Conversion factors', keys: ['CF_25', 'CF_50', 'CF_75', 'CF_90'] },
 ]
 
-/** Field guide: short description for each provider column. */
-const PROVIDER_FIELD_GUIDE: Record<string, string> = {
+/** Field guide: short description for each provider column. Exported for potential use in Help/tooltips. */
+export const PROVIDER_FIELD_GUIDE: Record<string, string> = {
   providerName: 'Provider name (e.g. Jane Smith). Used for display and as provider ID if no ID column.',
   specialty: 'Clinical specialty (e.g. Cardiology, Internal Medicine). Must match or map to market specialty for modeling.',
   division: 'Division or department (e.g. Heart, Primary Care). Used for filtering and reporting.',
@@ -96,8 +96,8 @@ const PROVIDER_FIELD_GUIDE: Record<string, string> = {
   productivityModel: 'Compensation model: "base" or "productivity". Affects how incentive is calculated.',
 }
 
-/** Field guide: short description for each market column. */
-const MARKET_FIELD_GUIDE: Record<string, string> = {
+/** Field guide: short description for each market column. Exported for potential use in Help/tooltips. */
+export const MARKET_FIELD_GUIDE: Record<string, string> = {
   specialty: 'Survey specialty name (e.g. Cardiology). Provider specialty is matched or synonym-mapped to this for benchmarks.',
   providerType: 'Provider type in survey (e.g. Physician, APP). Optional; use to segment benchmarks.',
   region: 'Region (e.g. Midwest, Northeast). Optional; use to segment benchmarks.',
