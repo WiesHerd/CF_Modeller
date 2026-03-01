@@ -131,6 +131,8 @@ interface UploadAndMappingProps {
   onRemoveSynonym: (key: string) => void
   /** When provided, navigating to Data screen after Apply and Eye when data is loaded. Pass tab to open Provider or Market table. */
   onNavigateToData?: (tab?: 'providers' | 'market') => void
+  /** When true, the specialty mapping panel is expanded on mount (e.g. when navigating from sidebar "Specialty mapping"). */
+  initialShowMappings?: boolean
 }
 
 export function UploadAndMapping({
@@ -144,6 +146,7 @@ export function UploadAndMapping({
   onAddSynonym,
   onRemoveSynonym,
   onNavigateToData,
+  initialShowMappings = false,
 }: UploadAndMappingProps) {
   const [providerRaw, setProviderRaw] = useState<RawFileState | null>(null)
   const [marketRaw, setMarketRaw] = useState<RawFileState | null>(null)
@@ -208,7 +211,7 @@ export function UploadAndMapping({
     productivityModel: '',
   }
   const [editForm, setEditForm] = useState<EditFormState>(emptyEditForm)
-  const [showMappings, setShowMappings] = useState(false)
+  const [showMappings, setShowMappings] = useState(initialShowMappings)
   const providerFileInputRef = useRef<HTMLInputElement>(null)
   const marketFileInputRef = useRef<HTMLInputElement>(null)
 

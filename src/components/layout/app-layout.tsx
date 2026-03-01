@@ -200,15 +200,15 @@ export function AppLayout({
             onClick={() => handleNav('upload')}
             collapsed={true}
           />
-          <NavButton
-            icon={<Table2 className="size-5 shrink-0" />}
-            label="Data browser"
-            tooltip="Browse and filter provider and market data"
-            active={isDataActive}
-            disabled={false}
-            onClick={() => handleNav('data')}
-            collapsed={true}
-          />
+            <NavButton
+              icon={<Table2 className="size-5 shrink-0" />}
+              label="Data browser"
+              tooltip="Browse and filter provider and market data"
+              active={isDataActive}
+              disabled={false}
+              onClick={() => handleNav('data')}
+              collapsed={true}
+            />
           <NavButton
             icon={<User className="size-5 shrink-0" />}
             label="Single scenario"

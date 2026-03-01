@@ -313,7 +313,7 @@ export function SynonymEditor({
         {hasProviderOptions && hasMarketOptions && providerSpecialties.length > 0 && (
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex items-center">
+              <div className="relative flex shrink-0 items-center w-[260px]">
                 <Search className="absolute left-2.5 size-4 text-muted-foreground pointer-events-none" aria-hidden />
                 <Input
                   type="search"
@@ -323,24 +323,30 @@ export function SynonymEditor({
                     setSearchQuery(e.target.value)
                     setBulkPage(0)
                   }}
-                  className="h-8 w-[260px] pl-8 pr-2 text-sm"
+                  className="h-8 w-full pl-8 pr-2 text-sm"
                   aria-label="Search provider or market specialty"
                 />
               </div>
               {unmappedSpecialties.length > 0 && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant={showUnmappedOnly ? 'secondary' : 'outline'}
                   size="sm"
-                  className="h-8 text-muted-foreground hover:text-foreground"
+                  className={cn(
+                    'h-8 shrink-0',
+                    showUnmappedOnly
+                      ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/15'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
                   onClick={() => {
                     setShowUnmappedOnly((v) => !v)
                     setBulkPage(0)
                   }}
+                  title={showUnmappedOnly ? 'Show all specialties' : 'Show only specialties with no market match'}
                 >
                   {showUnmappedOnly
-                    ? `Show unmapped only (${unmappedSpecialties.length})`
-                    : `Show all (${filteredProviderSpecialties.length})`}
+                    ? `Unmapped (${unmappedSpecialties.length})`
+                    : `All (${filteredProviderSpecialties.length})`}
                 </Button>
               )}
               <Tooltip>
@@ -349,6 +355,7 @@ export function SynonymEditor({
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="shrink-0"
                     onClick={handleSuggestBySimilarity}
                     disabled={disabled || providerSpecialties.length === 0 || marketSpecialties.length === 0}
                   >
@@ -359,32 +366,37 @@ export function SynonymEditor({
                   Pre-fill dropdowns with suggestions so you can review or edit in the table, then use &quot;Save selections&quot; to save.
                 </TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    onClick={handleSuggestAndSaveMappings}
-                    disabled={disabled || providerSpecialties.length === 0 || marketSpecialties.length === 0 || unmappedSpecialties.length === 0}
-                    className="gap-1.5"
-                  >
-                    <Sparkles className="size-4" />
-                    Suggest & save
-                    {unmappedSpecialties.length > 0 && (
-                      <span className="opacity-90 font-normal">
-                        ({unmappedSpecialties.length})
-                      </span>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent sideOffset={6} className="max-w-[260px]">
-                  Finds similar market names for unmapped provider specialties and saves them immediately. Use &quot;Pre-fill for review&quot; if you want to edit before saving.
-                </TooltipContent>
-              </Tooltip>
-              <div className="ml-auto shrink-0 border-l border-border pl-3 flex items-center gap-2">
+              <div className="min-w-4 flex-1" aria-hidden />
+              <div className="flex shrink-0 items-center gap-2 border-l border-border pl-3">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      className="gap-1.5 shrink-0"
+                      onClick={handleSuggestAndSaveMappings}
+                      disabled={disabled || providerSpecialties.length === 0 || marketSpecialties.length === 0 || unmappedSpecialties.length === 0}
+                    >
+                      <Sparkles className="size-4" />
+                      Suggest & save
+                      {unmappedSpecialties.length > 0 && (
+                        <span className="opacity-90 font-normal">
+                          ({unmappedSpecialties.length})
+                        </span>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent sideOffset={6} className="max-w-[260px]">
+                    Finds similar market names for unmapped provider specialties and saves them immediately. Use &quot;Pre-fill for review&quot; if you want to edit before saving.
+                  </TooltipContent>
+                </Tooltip>
                 {saveMessage && (
-                  <span className="text-xs text-muted-foreground animate-in fade-in" role="status">
+                  <span
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400 animate-in fade-in shrink-0"
+                    role="status"
+                  >
+                    <CheckIcon className="size-4 shrink-0" aria-hidden />
                     {saveMessage}
                   </span>
                 )}
@@ -394,6 +406,7 @@ export function SynonymEditor({
                       type="button"
                       size="sm"
                       variant={bulkAddCount > 0 && !disabled ? 'default' : 'secondary'}
+                      className="shrink-0"
                       onClick={handleSaveSelections}
                       disabled={saveSelectionsDisabled}
                     >
@@ -412,8 +425,8 @@ export function SynonymEditor({
               <table className="w-full caption-bottom text-sm border-collapse">
                 <thead className="sticky top-0 z-20 border-b border-border bg-muted [&_th]:bg-muted [&_th]:text-foreground">
                   <tr>
-                    <th className="text-left px-3 py-2.5 font-medium whitespace-normal break-words">Provider specialty</th>
-                    <th className="text-left px-3 py-2.5 font-medium min-w-[320px] whitespace-normal break-words">→ Market specialty</th>
+                    <th className="text-left px-3 py-2.5 font-medium whitespace-normal break-words w-[42%] min-w-[200px]">Provider specialty</th>
+                    <th className="text-left pl-8 pr-3 py-2.5 font-medium whitespace-normal break-words">→ Market specialty</th>
                   </tr>
                 </thead>
                 <tbody className="[&_tr:last-child]:border-0">
@@ -430,8 +443,8 @@ export function SynonymEditor({
                           isUnmapped && 'border-l-4 border-l-amber-400 bg-amber-50/40 dark:bg-amber-950/20 dark:border-l-amber-500'
                         )}
                       >
-                        <td className="px-3 py-2.5 font-medium">{prov}</td>
-                        <td className="px-3 py-2.5 min-w-[320px]">
+                        <td className="px-3 py-2.5 font-medium w-[42%] min-w-[200px]">{prov}</td>
+                        <td className="pl-8 pr-3 py-2.5 w-full">
                           <DropdownMenu
                             open={openBulkKey === prov}
                             onOpenChange={(open) => setOpenBulkKey(open ? prov : null)}
@@ -443,14 +456,14 @@ export function SynonymEditor({
                                 role="combobox"
                                 aria-expanded={openBulkKey === prov}
                                 disabled={disabled}
-                                className="min-h-8 min-w-[320px] max-w-[420px] w-full justify-between font-normal"
+                                className="min-h-8 min-w-[280px] w-full max-w-full justify-between font-normal"
                               >
                                 <span className="truncate">{displayLabel}</span>
                                 <ChevronDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
-                              className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[320px] max-w-[420px] p-0"
+                              className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[320px] max-w-[min(100vw-2rem,42rem)] p-0"
                               align="start"
                               onCloseAutoFocus={(e) => e.preventDefault()}
                               {...({
