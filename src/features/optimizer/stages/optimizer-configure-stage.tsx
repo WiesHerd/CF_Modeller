@@ -49,18 +49,18 @@ function getRecommendedErrorMetric(
   if (isTargetFixed) {
     return {
       metric: 'absolute',
-      reason: "You're targeting a single percentile; absolute (MAE) spreads adjustments more evenly across providers.",
+      reason: 'Spreads adjustments evenly for a single target.',
     }
   }
   if (isSmallCohort) {
     return {
       metric: 'absolute',
-      reason: 'With a small group, absolute (MAE) avoids one or two providers dominating the solution.',
+      reason: 'Avoids one or two providers dominating.',
     }
   }
   return {
     metric: 'squared',
-    reason: 'With this many providers, squared (MSE) helps avoid a few being badly out of line.',
+    reason: 'Avoids a few providers badly out of line.',
   }
 }
 import {
@@ -74,11 +74,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 
 const CONFIG_STEPS = [
-  { id: 1, label: 'Target population' },
+  { id: 1, label: 'Target scope' },
   { id: 2, label: 'Objective' },
   { id: 3, label: 'Governance' },
   { id: 4, label: 'Total cash compensation' },
 ] as const
+
+const STEP_TOOLTIPS: Record<number, string> = {
+  1: 'Choose which providers are included in this run: by compensation model (all, productivity-based only, or base salary only) and optionally by specialty and division.',
+  2: 'Choose how to target pay (fixed percentile, align to productivity, or hybrid), error metric (MAE = even spread, MSE = penalize big gaps), and optional budget constraint.',
+  3: 'Exclusion rules and limits on how much the recommended conversion factor can change (min FTE, min wRVU, CF bounds, max CF percentile).',
+  4: 'Build your TCC by turning components on or off. Base is always included; each component has a single data source (upload, computed, or override).',
+}
 
 function SectionHeaderWithTooltip({
   title,
@@ -254,37 +261,59 @@ export function OptimizerConfigureStage({
     <Card>
       <CardContent className="space-y-6">
         <TooltipProvider delayDuration={200}>
-          <nav
-            className="flex items-center justify-end gap-0.5 rounded-md p-0.5 bg-muted/50 w-fit ml-auto"
-            aria-label="Configuration steps"
-          >
-            {CONFIG_STEPS.map((step) => {
-              const isActive = configStep === step.id
-              return (
-                <Tooltip key={step.id}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      onClick={() => onSetConfigStep(step.id)}
-                      aria-current={isActive ? 'step' : undefined}
-                      aria-label={`${step.label}${isActive ? ' (current)' : ''}`}
-                      className={cn(
-                        'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium transition-colors',
-                        isActive
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                      )}
-                    >
-                      {step.id}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {step.label}
-                  </TooltipContent>
-                </Tooltip>
-              )
-            })}
-          </nav>
+          {/* Step title and stepper on same row */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-base font-semibold text-primary">
+                {CONFIG_STEPS.find((s) => s.id === configStep)?.label ?? 'Configuration'}
+              </h2>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full text-muted-foreground hover:text-foreground p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label="What is this step?"
+                  >
+                    <Info className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[320px] text-xs">
+                  {STEP_TOOLTIPS[configStep] ?? ''}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <nav
+              className="flex items-center gap-0.5 rounded-md p-0.5 bg-muted/50 w-fit"
+              aria-label="Configuration steps"
+            >
+              {CONFIG_STEPS.map((step) => {
+                const isActive = configStep === step.id
+                return (
+                  <Tooltip key={step.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => onSetConfigStep(step.id)}
+                        aria-current={isActive ? 'step' : undefined}
+                        aria-label={`${step.label}${isActive ? ' (current)' : ''}`}
+                        className={cn(
+                          'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium transition-colors',
+                          isActive
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                        )}
+                      >
+                        {step.id}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {step.label}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </nav>
+          </div>
           {!hasData ? (
             <WarningBanner
               message="Upload provider and market data on the Upload screen before running optimization."
@@ -296,18 +325,9 @@ export function OptimizerConfigureStage({
               {/* Step 1: Target population */}
               {configStep === 1 ? (
                 <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
-                  <div>
-                    <SectionHeaderWithTooltip
-                      variant="section"
-                      title="Target scope"
-                      tooltip="Choose which providers are included in this run: by compensation model (all, productivity-based only, or base salary only) and optionally by specialty and division. The specialty and division lists only show options that exist in your data for the selected model."
-                      className="text-primary/90"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Configure who is included first, then apply exclusions and assumptions.
-                    </p>
-                  </div>
-
+                  <p className="text-xs text-muted-foreground">
+                    Configure who is included first, then apply exclusions and assumptions.
+                  </p>
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                     <div className="space-y-4 rounded-lg border border-border/50 bg-background/70 p-4">
                       <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -737,246 +757,137 @@ export function OptimizerConfigureStage({
 
               {/* Step 2: Objective */}
               {configStep === 2 ? (
-                <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
-                  <div>
-                    <SectionHeaderWithTooltip
-                      variant="section"
-                      title="A. Objective"
-                      tooltip="Set how the optimizer should target pay: align TCC percentile to wRVU percentile, target a fixed percentile, or a hybrid. The error metric (MSE vs MAE) affects how outliers are weighted when minimizing misalignment."
-                      className="text-primary/90"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Set how the optimizer should target pay, then choose the error metric and optional budget assumption.
-                    </p>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold text-primary/90">Optimization objective</Label>
-              <Select
-                value={settings.optimizationObjective.kind}
-                onValueChange={(value) => {
-                  if (value === 'align_percentile') {
-                    onSetOptimizationObjective({ kind: 'align_percentile' })
-                  } else if (value === 'target_fixed_percentile') {
-                    onSetOptimizationObjective({ kind: 'target_fixed_percentile', targetPercentile: 40 })
-                  } else if (value === 'productivity_lead') {
-                    onSetOptimizationObjective({ kind: 'productivity_lead', leadPctile: 7.5 })
-                  } else {
-                    onSetOptimizationObjective({
-                      kind: 'hybrid',
-                      alignWeight: 0.7,
-                      targetWeight: 0.3,
-                      targetPercentile: 40,
-                    })
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="align_percentile">Align TCC percentile to wRVU percentile</SelectItem>
-                  <SelectItem value="target_fixed_percentile">Target fixed TCC percentile</SelectItem>
-                  <SelectItem value="productivity_lead">Productivity above pay (wRVU %ile 5–10 pts above TCC)</SelectItem>
-                  <SelectItem value="hybrid">Hybrid (alignment + fixed target)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-muted-foreground text-xs">
-                {settings.optimizationObjective.kind === 'align_percentile'
-                  ? 'Match pay rank to productivity rank: higher wRVU percentile → higher TCC percentile.'
-                  : settings.optimizationObjective.kind === 'target_fixed_percentile'
-                    ? 'Move everyone toward one target percentile (e.g. median); good for standardizing to a market level.'
-                    : settings.optimizationObjective.kind === 'productivity_lead'
-                      ? 'Target work RVU percentile above TCC percentile (higher productivity culture, pay slightly less).'
-                      : 'Combine alignment with a target: partly match productivity rank, partly pull toward a chosen percentile.'}
-              </p>
-              {settings.optimizationObjective.kind === 'target_fixed_percentile' ? (
-                <div className="flex items-center gap-2">
-                  <Label className="text-muted-foreground">Target percentile</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={99}
-                    value={settings.optimizationObjective.targetPercentile}
-                    onChange={(e) =>
-                      onSetOptimizationObjective({
-                        kind: 'target_fixed_percentile',
-                        targetPercentile: Number(e.target.value) || 40,
-                      })
-                    }
-                    className="w-20"
-                  />
-                </div>
-              ) : null}
-              {settings.optimizationObjective.kind === 'productivity_lead' ? (() => {
-                const leadObj = settings.optimizationObjective as OptimizationObjectiveProductivityLead
-                return (
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Label className="text-muted-foreground">wRVU percentile lead (pts above TCC)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={20}
-                      step={0.5}
-                      value={leadObj.leadPctile}
-                      onChange={(e) =>
-                        onSetOptimizationObjective({
-                          kind: 'productivity_lead',
-                          leadPctile: Number(e.target.value) || 7.5,
-                        })
-                      }
-                      className="w-20"
-                    />
-                    <div className="flex gap-2">
-                      {[5, 7.5, 10].map((pct) => (
-                        <button
-                          key={pct}
-                          type="button"
-                          onClick={() =>
-                            onSetOptimizationObjective({ kind: 'productivity_lead', leadPctile: pct })
-                          }
-                          className={`rounded-md border px-3 py-1.5 text-sm font-medium min-w-[2.5rem] ${
-                            leadObj.leadPctile === pct
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
-                          }`}
-                        >
-                          {pct}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    Target: work RVU percentile {leadObj.leadPctile} points above TCC
-                    percentile (higher productivity culture, pay slightly less).
+                <div className="space-y-4">
+                  <p className="text-xs text-muted-foreground">
+                    Target pay → error metric → budget (optional).
                   </p>
-                </div>
-                )
-              })() : null}
-              {settings.optimizationObjective.kind === 'hybrid' ? (
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step={5}
-                      value={Math.round((settings.optimizationObjective.alignWeight ?? 0.7) * 100)}
-                      onChange={(e) => {
-                        const align = (Number(e.target.value) || 70) / 100
-                        onSetOptimizationObjective({
-                          kind: 'hybrid',
-                          alignWeight: align,
-                          targetWeight: 1 - align,
-                          targetPercentile:
-                            (settings.optimizationObjective as { targetPercentile?: number }).targetPercentile ??
-                            40,
-                        })
-                      }}
-                      className="w-16"
-                    />
-                    <span className="text-muted-foreground">% productivity alignment</span>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={99}
-                      value={(settings.optimizationObjective as { targetPercentile?: number }).targetPercentile ?? 40}
-                      onChange={(e) => {
-                        const objective = settings.optimizationObjective
-                        const targetPercentile = Number(e.target.value) || 40
-                        onSetOptimizationObjective(
-                          objective.kind === 'hybrid'
-                            ? { ...objective, targetPercentile }
-                            : {
+                  {/* Objective + Error metric: one dense row; related options compact below */}
+                  <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-3">
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Label className="text-sm font-medium text-foreground shrink-0">Optimization objective</Label>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex size-4 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label="What is optimization objective?"
+                              >
+                                <Info className="size-4" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[300px] text-xs">
+                              <p className="font-medium mb-1">How the optimizer targets pay</p>
+                              <p className="mb-2"><strong>Align TCC to wRVU:</strong> Pay rank follows productivity rank.</p>
+                              <p className="mb-2"><strong>Target fixed percentile:</strong> Move everyone toward one market percentile (e.g. 40th or 50th).</p>
+                              <p className="mb-2"><strong>Productivity above pay:</strong> wRVU percentile a few points above TCC (higher productivity culture).</p>
+                              <p><strong>Hybrid:</strong> Mix of alignment and a fixed target.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        <Select
+                          value={settings.optimizationObjective.kind}
+                          onValueChange={(value) => {
+                            if (value === 'align_percentile') {
+                              onSetOptimizationObjective({ kind: 'align_percentile' })
+                            } else if (value === 'target_fixed_percentile') {
+                              onSetOptimizationObjective({ kind: 'target_fixed_percentile', targetPercentile: 40 })
+                            } else if (value === 'productivity_lead') {
+                              onSetOptimizationObjective({ kind: 'productivity_lead', leadPctile: 7.5 })
+                            } else {
+                              onSetOptimizationObjective({
                                 kind: 'hybrid',
                                 alignWeight: 0.7,
                                 targetWeight: 0.3,
-                                targetPercentile,
-                              }
-                        )
-                      }}
-                      className="w-16"
-                    />
-                    <span className="text-muted-foreground">target %ile</span>
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    {Math.round((settings.optimizationObjective.alignWeight ?? 0.7) * 100)}% is the weight for “match pay to productivity”; the rest pulls pay toward the target percentile. Higher % = more “pay follows productivity”; lower % = more “move everyone toward the target.”
-                  </p>
-                </div>
-              ) : null}
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Label className="text-sm font-semibold text-primary/90">Error metric</Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className="inline-flex size-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label="What is error metric?"
-                    >
-                      <Info className="size-4" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[320px] text-xs">
-                    <p className="font-medium mb-1">How we measure “how far off” pay is from the goal</p>
-                    <p className="mb-2">The optimizer tries to match total cash compensation (TCC) to productivity (wRVU). The error metric decides how we count those mismatches.</p>
-                    <p className="mb-1"><strong>Squared (MSE):</strong> Big misses count much more than small ones. Use when you want to avoid a few providers being badly out of line, even if that means more small tweaks overall.</p>
-                    <p><strong>Absolute (MAE):</strong> Every unit of “off by” counts the same. Use when you want adjustments spread more evenly and are less concerned about a few large outliers.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              {(() => {
-                const recommendation = getRecommendedErrorMetric(settings.optimizationObjective, filteredProviderRowsCount)
-                const matchesRecommendation = settings.errorMetric === recommendation.metric
-                return (
-                  <>
-                    <Select value={settings.errorMetric} onValueChange={(value) => onSetErrorMetric(value as OptimizerErrorMetric)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="squared">Squared (MSE)</SelectItem>
-                        <SelectItem value="absolute">Absolute (MAE)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      {matchesRecommendation ? (
-                        <span className="text-muted-foreground">
-                          ✓ Recommended for your setup ({filteredProviderRowsCount} provider{filteredProviderRowsCount !== 1 ? 's' : ''}, {settings.optimizationObjective.kind === 'target_fixed_percentile' ? 'fixed target' : settings.optimizationObjective.kind === 'hybrid' ? 'hybrid' : settings.optimizationObjective.kind === 'productivity_lead' ? 'productivity above pay' : 'alignment'}).
-                        </span>
-                      ) : (
-                        <>
-                          <span className="text-muted-foreground">
-                            Recommended: {recommendation.metric === 'squared' ? 'Squared (MSE)' : 'Absolute (MAE)'} — {recommendation.reason}
-                          </span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={() => onSetErrorMetric(recommendation.metric)}
-                          >
-                            Use recommended
-                          </Button>
-                        </>
-                      )}
+                                targetPercentile: 40,
+                              })
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-[260px] h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="align_percentile">Align TCC percentile to wRVU percentile</SelectItem>
+                            <SelectItem value="target_fixed_percentile">Target fixed TCC percentile</SelectItem>
+                            <SelectItem value="productivity_lead">Productivity above pay (wRVU %ile 5–10 pts above TCC)</SelectItem>
+                            <SelectItem value="hybrid">Hybrid (alignment + fixed target)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2 min-w-0 justify-end">
+                        <Label className="text-sm font-medium text-foreground shrink-0">Error metric</Label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button type="button" className="shrink-0 rounded-full text-muted-foreground hover:text-foreground p-0.5" aria-label="What is error metric?">
+                              <Info className="size-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[320px] text-xs">
+                            <p className="font-medium mb-1">How we measure “how far off” pay is from the goal</p>
+                            <p className="mb-1"><strong>Squared (MSE):</strong> Big misses count more.</p>
+                            <p><strong>Absolute (MAE):</strong> Spreads adjustments evenly (recommended for single target).</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Select value={settings.errorMetric} onValueChange={(value) => onSetErrorMetric(value as OptimizerErrorMetric)}>
+                          <SelectTrigger className="w-[140px] h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="squared">Squared (MSE)</SelectItem>
+                            <SelectItem value="absolute">Absolute (MAE)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {(() => {
+                          const rec = getRecommendedErrorMetric(settings.optimizationObjective, filteredProviderRowsCount)
+                          return settings.errorMetric === rec.metric ? <span className="text-xs text-muted-foreground">✓ Recommended</span> : <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onSetErrorMetric(rec.metric)}>Use recommended</Button>
+                        })()}
+                      </div>
                     </div>
-                  </>
-                )
-              })()}
-            </div>
-          </div>
-          <div className="space-y-3 border-t border-border/40 pt-4">
+                    <p className="text-xs text-muted-foreground">
+                      {settings.optimizationObjective.kind === 'align_percentile' && 'Pay rank follows productivity rank.'}
+                      {settings.optimizationObjective.kind === 'target_fixed_percentile' && 'One target percentile for everyone (e.g. 40th or 50th).'}
+                      {settings.optimizationObjective.kind === 'productivity_lead' && 'wRVU percentile above TCC (productivity leads pay).'}
+                      {settings.optimizationObjective.kind === 'hybrid' && 'Mix alignment + fixed target.'}
+                    </p>
+                    {(settings.optimizationObjective.kind === 'target_fixed_percentile' || settings.optimizationObjective.kind === 'productivity_lead' || settings.optimizationObjective.kind === 'hybrid') && (
+                      <div className="flex flex-wrap items-center gap-3 border-t border-border/40 pt-2">
+                        {settings.optimizationObjective.kind === 'target_fixed_percentile' && (
+                          <>
+                            <Label className="text-xs text-muted-foreground">Target percentile</Label>
+                            <Input type="number" min={1} max={99} value={settings.optimizationObjective.targetPercentile} onChange={(e) => onSetOptimizationObjective({ kind: 'target_fixed_percentile', targetPercentile: Number(e.target.value) || 40 })} className="w-16 h-8 text-sm" />
+                          </>
+                        )}
+                        {settings.optimizationObjective.kind === 'productivity_lead' && (() => {
+                          const leadObj = settings.optimizationObjective as OptimizationObjectiveProductivityLead
+                          return (
+                            <>
+                              <Label className="text-xs text-muted-foreground">wRVU lead (pts)</Label>
+                              <Input type="number" min={1} max={20} step={0.5} value={leadObj.leadPctile} onChange={(e) => onSetOptimizationObjective({ kind: 'productivity_lead', leadPctile: Number(e.target.value) || 7.5 })} className="w-14 h-8 text-sm" />
+                              {[5, 7.5, 10].map((pct) => (
+                                <button key={pct} type="button" onClick={() => onSetOptimizationObjective({ kind: 'productivity_lead', leadPctile: pct })} className={`rounded border px-2.5 py-1 text-xs font-medium h-8 min-w-[2.25rem] ${leadObj.leadPctile === pct ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'}`}>{pct}</button>
+                              ))}
+                            </>
+                          )
+                        })()}
+                        {settings.optimizationObjective.kind === 'hybrid' && (
+                          <>
+                            <Input type="number" min={0} max={100} step={5} value={Math.round((settings.optimizationObjective.alignWeight ?? 0.7) * 100)} onChange={(e) => { const align = (Number(e.target.value) || 70) / 100; onSetOptimizationObjective({ kind: 'hybrid', alignWeight: align, targetWeight: 1 - align, targetPercentile: (settings.optimizationObjective as { targetPercentile?: number }).targetPercentile ?? 40 }); }} className="w-12 h-8 text-sm" />
+                            <span className="text-xs text-muted-foreground">% align</span>
+                            <Input type="number" min={1} max={99} value={(settings.optimizationObjective as { targetPercentile?: number }).targetPercentile ?? 40} onChange={(e) => { const o = settings.optimizationObjective; const p = Number(e.target.value) || 40; onSetOptimizationObjective(o.kind === 'hybrid' ? { ...o, targetPercentile: p } : { kind: 'hybrid', alignWeight: 0.7, targetWeight: 0.3, targetPercentile: p }); }} className="w-12 h-8 text-sm" />
+                            <span className="text-xs text-muted-foreground">target %ile</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+          <div className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-2">
             <SectionHeaderWithTooltip
-              title="Budget constraint"
+              title="3. Budget constraint (optional)"
               tooltip="Optional budget assumption for this scenario. None = no constraint. Neutral = assume budget-neutral. Cap by % or $ = cap total incentive spend at a percentage of baseline or a dollar amount. Stored with the scenario for comparison; the optimizer does not currently enforce caps."
               className="text-primary/90"
             />
             <div className="flex flex-wrap items-end gap-4">
               <div className="space-y-2">
-                <Label>Kind</Label>
                 <Select
                   value={settings.budgetConstraint?.kind ?? 'none'}
                   onValueChange={(value: BudgetConstraintKind) => {
@@ -1066,18 +977,10 @@ export function OptimizerConfigureStage({
               {/* Step 3: Governance */}
               {configStep === 3 ? (
                 <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
-                  <div>
-                    <SectionHeaderWithTooltip
-                      variant="section"
-                      title="B. Governance guardrails"
-                      tooltip="Exclusion rules: providers below min clinical FTE or min wRVU per 1.0 cFTE are excluded from optimization. CF bounds limit how much the recommended CF can change from current (± %). Max recommended CF percentile caps the suggestion at a market percentile (e.g. 50 = median) per specialty."
-                      className="text-primary/90"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Set exclusion rules and limits on how much the recommended conversion factor can change.
-                    </p>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 border-t border-border/40 pt-4">
+                  <p className="text-xs text-muted-foreground">
+                    Set exclusion rules and limits on how much the recommended conversion factor can change.
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-primary/90">Min clinical FTE</Label>
               <Input
@@ -1165,23 +1068,14 @@ export function OptimizerConfigureStage({
               {/* Step 4: Total cash compensation */}
               {configStep === 4 ? (
                 <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
-                  <div>
-                    <SectionHeaderWithTooltip
-                      variant="section"
-                      title="C. Total cash compensation"
-                      tooltip="Build your TCC by turning components on or off. Base is always included. Each component has a single data source: upload column, computed, or override. Leave optional pills off if you don't have that column."
-                      className="text-primary/90"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Turn components on or off to define what counts as total cash compensation for this scenario.
+                  <p className="text-xs text-muted-foreground">
+                    Turn components on or off to define what counts as total cash compensation for this scenario.
+                  </p>
+                  {tccComponentAvailability ? (
+                    <p className="text-xs text-muted-foreground">
+                      Only components that have data in your current upload (for the providers in scope) are shown below.
                     </p>
-                    {tccComponentAvailability ? (
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Only components that have data in your current upload (for the providers in scope) are shown below.
-                      </p>
-                    ) : null}
-                  </div>
-
+                  ) : null}
                   <div className="space-y-3 rounded-lg border border-border/50 bg-background/70 p-4 border-t border-border/40 pt-4">
                     <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What’s in your TCC</Label>
                     {(() => {

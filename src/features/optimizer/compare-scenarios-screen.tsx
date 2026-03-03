@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { ArrowLeft, FileSpreadsheet, GitCompare, Lock, Target } from 'lucide-react'
+import { ArrowLeft, FileSpreadsheet, GitCompare, Target } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -77,13 +77,6 @@ export function CompareScenariosScreen({
     }
   }, [compareTool, cfComparisonData, targetComparisonData])
 
-  const reportDate = new Date().toLocaleDateString(undefined, {
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-
   return (
     <div className="space-y-6">
       {/* Title row: title + confidential left, Back top right */}
@@ -92,11 +85,6 @@ export function CompareScenariosScreen({
           <SectionTitleWithIcon icon={<GitCompare className="size-5 text-muted-foreground" />}>
             Compare scenarios
           </SectionTitleWithIcon>
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1.5">
-            <Lock className="size-3.5 shrink-0" aria-hidden />
-            Confidential
-            <span className="tabular-nums"> · {reportDate}</span>
-          </p>
         </div>
         <Button
           type="button"
@@ -142,13 +130,13 @@ export function CompareScenariosScreen({
             Export to Excel
           </Button>
         </div>
-        <TabsContent value="cf-optimizer" className="mt-2">
+        <TabsContent value="cf-optimizer" className="mt-2 min-h-[320px] flex flex-col">
           <CompareScenariosContent
             savedOptimizerConfigs={savedOptimizerConfigs}
             onComparisonChange={handleCfComparisonChange}
           />
         </TabsContent>
-        <TabsContent value="productivity-target" className="mt-2">
+        <TabsContent value="productivity-target" className="mt-2 min-h-[320px] flex flex-col">
           <CompareTargetScenariosContent
             savedProductivityTargetConfigs={savedProductivityTargetConfigs}
             onComparisonChange={handleTargetComparisonChange}

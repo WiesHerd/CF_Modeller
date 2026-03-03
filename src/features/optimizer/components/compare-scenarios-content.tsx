@@ -267,8 +267,8 @@ export function CompareScenariosContent({
           </section>
 
           {!hasSelection ? (
-            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-5 text-center">
-              <span className={cn(iconBoxClass, 'size-10 [&_svg]:size-6')} aria-hidden>
+            <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-4 text-center">
+              <span className={cn(iconBoxClass, 'size-9 [&_svg]:size-5')} aria-hidden>
                 <GitCompare />
               </span>
               <p className="text-sm text-muted-foreground">

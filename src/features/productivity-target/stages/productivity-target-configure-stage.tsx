@@ -38,6 +38,12 @@ const CONFIG_STEPS = [
   { id: 3, label: 'Review & run' },
 ] as const
 
+const STEP_TOOLTIPS: Record<number, string> = {
+  1: 'Choose which providers are included. Specialty, Model, Provider type (role), and Provider scope: all or custom selection. Then apply exclusions if needed.',
+  2: 'Target is expressed at 1.0 cFTE; provider-level targets are prorated by cFTE. Choose market wRVU percentile (A) or enter a gross target wRVU (B), then set planning CF and incentive distribution.',
+  3: 'Review scope, target method, and planning incentive before running. Group target is the same wRVU (at 1.0 cFTE) for everyone in the specialty; scaled by cFTE per provider.',
+}
+
 function LabelWithTooltip({ label, tooltip }: { label: string; tooltip: string }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -76,7 +82,7 @@ function SectionHeaderWithTooltip({
     <div className={cn('flex items-center gap-2', className)}>
       <h3 className={cn(
         'font-semibold',
-        variant === 'section' ? 'text-base' : 'text-sm'
+        variant === 'section' ? 'text-base text-primary' : 'text-sm'
       )}>{title}</h3>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -227,9 +233,28 @@ export function ProductivityTargetConfigureStage({
 
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center justify-end gap-3">
-          <TooltipProvider delayDuration={200}>
+      <TooltipProvider delayDuration={200}>
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-base font-semibold text-primary">
+                {CONFIG_STEPS.find((s) => s.id === configStep)?.label ?? 'Configuration'}
+              </h2>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-full text-muted-foreground hover:text-foreground p-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label="What is this step?"
+                  >
+                    <Info className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[320px] text-xs">
+                  {STEP_TOOLTIPS[configStep] ?? ''}
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <nav className="flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5" aria-label="Configuration steps">
               {CONFIG_STEPS.map((step) => {
                 const isActive = configStep === step.id
@@ -256,11 +281,9 @@ export function ProductivityTargetConfigureStage({
                 )
               })}
             </nav>
-          </TooltipProvider>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <TooltipProvider delayDuration={200}>
           {!hasData ? (
             <WarningBanner message="Upload provider and market data on the Upload screen before running." />
           ) : null}
@@ -269,18 +292,9 @@ export function ProductivityTargetConfigureStage({
             <>
               {configStep === 1 ? (
                 <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
-                  <div>
-                    <SectionHeaderWithTooltip
-                      variant="section"
-                      title="Target scope"
-                      tooltip="Choose which providers are included. Specialty, Model, Provider type (role), and Provider scope: all or custom selection."
-                      className="text-primary/90"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Configure who is included first, then apply exclusions.
-                    </p>
-                  </div>
-
+                  <p className="text-xs text-muted-foreground">
+                    Configure who is included first, then apply exclusions.
+                  </p>
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                     <div className="space-y-4 min-w-0 rounded-lg border border-border/50 bg-background/70 p-4">
                       <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -757,18 +771,9 @@ export function ProductivityTargetConfigureStage({
 
               {configStep === 2 ? (
                 <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
-                  <div>
-                    <SectionHeaderWithTooltip
-                      variant="section"
-                      title="Target method"
-                      tooltip="Target is expressed at 1.0 cFTE; provider-level targets are prorated by each provider's cFTE. A = market wRVU at a percentile. B = you enter a gross target wRVU (at 1.0 cFTE); we prorate for calculations."
-                      className="text-primary/90"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Choose how the productivity target is defined, then set the values used for alignment and planning payout estimates.
-                    </p>
-                  </div>
-
+                  <p className="text-xs text-muted-foreground">
+                    Choose how the productivity target is defined, then set the values used for alignment and planning payout estimates.
+                  </p>
                   <div className="rounded-lg border border-border/50 bg-background/70 p-4">
                     <Label className="text-sm font-semibold text-primary/90">Choose target approach & set inputs</Label>
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1283,17 +1288,9 @@ export function ProductivityTargetConfigureStage({
 
               {configStep === 3 ? (
                 <div className="space-y-6 rounded-lg border border-border/60 bg-muted/20 p-4">
-                  <div>
-                    <SectionHeaderWithTooltip
-                      variant="section"
-                      title="Summary"
-                      tooltip="Review scope, target method, and planning incentive before running. Group target is the same wRVU (at 1.0 cFTE) for everyone in the specialty; scaled by cFTE per provider."
-                      className="text-primary/90"
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Review your choices below, then run to see productivity target results by specialty.
-                    </p>
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Review your choices below, then run to see productivity target results by specialty.
+                  </p>
                   <ul className="list-inside list-disc space-y-1.5 text-sm text-muted-foreground border-t border-border/40 pt-4">
                     <li>
                       <span className="text-foreground font-medium">Scope:</span>{' '}
@@ -1426,8 +1423,8 @@ export function ProductivityTargetConfigureStage({
               </div>
             </>
           ) : null}
-        </TooltipProvider>
       </CardContent>
+      </TooltipProvider>
     </Card>
   )
 }
