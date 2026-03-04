@@ -1,4 +1,4 @@
-import { ArrowLeft, DollarSign, ArrowRightLeft, TrendingUp, Gauge, Gift } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ImpactComparisonTable } from '@/components/impact-comparison-table'
 import { PercentilePositionChart } from '@/components/charts/percentile-position-chart'
@@ -89,78 +89,38 @@ export function ImpactReportPage({
             {headerActions && <div className="flex flex-wrap items-center gap-2 shrink-0 no-print">{headerActions}</div>}
           </div>
         )}
-        {/* KPI cards: full-width grid, cards fill space with consistent proportions */}
-        <div className="grid grid-cols-1 gap-4 border-border/40 border-t pt-6 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-                <DollarSign className="size-5" />
-              </span>
-              <p className="text-base font-medium tracking-tight">Current TCC</p>
+        {/* Summary: SV dashboard style — clear card, dense labels, scannable values */}
+        <div className="rounded-lg border border-border bg-card px-4 py-3.5 mt-4 shadow-sm">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Summary</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Current TCC</p>
+              <p className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(results.currentTCC, { decimals: 0 })}</p>
             </div>
-            <p className="tabular-nums text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {formatCurrency(results.currentTCC, { decimals: 0 })}
-            </p>
-          </div>
-          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-                <DollarSign className="size-5" />
-              </span>
-              <p className="text-base font-medium tracking-tight">Modeled TCC</p>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Modeled TCC</p>
+              <p className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(results.modeledTCC, { decimals: 0 })}</p>
             </div>
-            <p className="tabular-nums text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {formatCurrency(results.modeledTCC, { decimals: 0 })}
-            </p>
-          </div>
-          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-                <ArrowRightLeft className="size-5" />
-              </span>
-              <p className="text-base font-medium tracking-tight">TCC %ile</p>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">TCC %ile</p>
+              <p className="text-sm font-semibold tabular-nums text-foreground">{formatOrdinal(results.tccPercentile)} → {formatOrdinal(results.modeledTCCPercentile)}</p>
             </div>
-            <p className="tabular-nums text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {formatOrdinal(results.tccPercentile)} → {formatOrdinal(results.modeledTCCPercentile)}
-            </p>
-          </div>
-          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-                <TrendingUp className="size-5" />
-              </span>
-              <p className="text-base font-medium tracking-tight">Change in TCC</p>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Change in TCC</p>
+              <p className={cn('text-sm font-semibold tabular-nums', results.changeInTCC >= 0 ? 'value-positive' : 'value-negative')}>
+                {results.changeInTCC >= 0 ? '+' : ''}{formatCurrency(results.changeInTCC, { decimals: 0 })}
+              </p>
             </div>
-            <p
-              className={cn(
-                'tabular-nums text-center text-xl font-semibold tracking-tight sm:text-2xl',
-                results.changeInTCC >= 0 ? 'value-positive' : 'value-negative'
-              )}
-            >
-              {results.changeInTCC >= 0 ? '+' : ''}{formatCurrency(results.changeInTCC, { decimals: 0 })}
-            </p>
-          </div>
-          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-                <Gauge className="size-5" />
-              </span>
-              <p className="text-base font-medium tracking-tight">CF ($/wRVU)</p>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">CF ($/wRVU)</p>
+              <p className="text-sm font-semibold tabular-nums text-foreground">{formatCurrency(results.currentCF, { decimals: 2 })} → {formatCurrency(results.modeledCF, { decimals: 2 })}</p>
             </div>
-            <p className="tabular-nums text-center text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-              {formatCurrency(results.currentCF, { decimals: 2 })} → {formatCurrency(results.modeledCF, { decimals: 2 })}
-            </p>
-          </div>
-          <div className="flex min-h-[132px] min-w-0 flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card px-5 py-6 shadow-sm">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80 text-accent-icon">
-                <Gift className="size-5" />
-              </span>
-              <p className="text-base font-medium tracking-tight">Modeled incentive</p>
+            <div>
+              <p className="text-xs text-muted-foreground mb-0.5">Modeled incentive</p>
+              <p className={cn('text-sm font-semibold tabular-nums', results.annualIncentive >= 0 ? 'text-foreground' : 'value-negative')}>
+                {formatCurrency(results.annualIncentive, { decimals: 0 })}
+              </p>
             </div>
-            <p className="tabular-nums text-center text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {formatCurrency(results.annualIncentive, { decimals: 0 })}
-            </p>
           </div>
         </div>
       </header>

@@ -462,15 +462,25 @@ export function CustomCfBySpecialtyReport({
     return { bySpecialty }
   }, [specialties, specialtyValues, mode])
 
+  /** Display name for the scenario (table + export): include chosen percentile or $/wRVU. */
+  const customCFScenarioName = useMemo(() => {
+    if (mode === 'percentile') {
+      const pct = effectivePercentileForDisplay
+      return `Custom CF (${pct}th %ile)`
+    }
+    const dollar = baseScenarioInputs.overrideCF ?? 0
+    return `Custom CF ($${Number(dollar).toFixed(2)})`
+  }, [mode, effectivePercentileForDisplay, baseScenarioInputs.overrideCF])
+
   const results = useMemo((): BatchResults | null => {
     if (scopedProviderRows.length === 0 || marketRows.length === 0) return null
     return runBatch(
       scopedProviderRows,
       marketRows,
-      [{ id: 'custom-cf', name: 'Custom CF by specialty', scenarioInputs: baseScenarioInputs }],
+      [{ id: 'custom-cf', name: customCFScenarioName, scenarioInputs: baseScenarioInputs }],
       { synonymMap: batchSynonymMap, overrides }
     )
-  }, [scopedProviderRows, marketRows, baseScenarioInputs, batchSynonymMap, overrides])
+  }, [scopedProviderRows, marketRows, baseScenarioInputs, customCFScenarioName, batchSynonymMap, overrides])
 
   const specialtyOptions = useMemo(() => {
     if (!results?.rows?.length) return []
@@ -558,7 +568,7 @@ export function CustomCfBySpecialtyReport({
       }
     >()
     for (const r of rows) {
-      const spec = (r.specialty ?? '').trim() || '—'
+      const spec = (r.specialty ?? '').trim() || '?'
       const res = r.results
       let entry = bySpec.get(spec)
       if (!entry) {
@@ -723,7 +733,7 @@ export function CustomCfBySpecialtyReport({
 
   return (
     <div className="space-y-4 report-print">
-      {/* Title row then action row — match CF Optimizer / Compare scenarios */}
+      {/* Title row then action row ? match CF Optimizer / Compare scenarios */}
       <SectionTitleWithIcon icon={<FileText className="size-5 text-muted-foreground" />}>
         Custom CF by specialty
       </SectionTitleWithIcon>
@@ -894,7 +904,7 @@ export function CustomCfBySpecialtyReport({
                   >
                     <Command shouldFilter={false} className="rounded-none border-0">
                       <CommandInput
-                        placeholder="Search specialties…"
+                        placeholder="Search specialties?"
                         value={specialtyScopeSearch}
                         onValueChange={setSpecialtyScopeSearch}
                         className="h-9"
@@ -953,7 +963,7 @@ export function CustomCfBySpecialtyReport({
                   >
                     <Command shouldFilter={false} className="rounded-none border-0">
                       <CommandInput
-                        placeholder="Search provider types…"
+                        placeholder="Search provider types?"
                         value={providerTypeScopeSearch}
                         onValueChange={setProviderTypeScopeSearch}
                         className="h-9"
@@ -1012,7 +1022,7 @@ export function CustomCfBySpecialtyReport({
                   >
                     <Command shouldFilter={false} className="rounded-none border-0">
                       <CommandInput
-                        placeholder="Search compensation types…"
+                        placeholder="Search compensation types?"
                         value={compTypeScopeSearch}
                         onValueChange={setCompTypeScopeSearch}
                         className="h-9"
@@ -1139,7 +1149,7 @@ export function CustomCfBySpecialtyReport({
                         {mode === 'dollar' ? 'CF ($/wRVU)' : 'CF (%ile)'}
                       </TableHead>
                       <TableHead className="min-w-[100px] px-3 py-2.5 text-muted-foreground">
-                        Δ CF ($)
+                        ? CF ($)
                       </TableHead>
                       <TableHead className="min-w-[140px] px-3 py-2.5 text-muted-foreground">
                         Market line
@@ -1153,12 +1163,12 @@ export function CustomCfBySpecialtyReport({
                         <TableCell className="text-muted-foreground tabular-nums text-sm px-3 py-2.5">
                           {marketCFAtPercentileBySpecialty[s] != null
                             ? formatCurrency(Number(marketCFAtPercentileBySpecialty[s]), { decimals: 2 })
-                            : '—'}
+                            : '?'}
                         </TableCell>
                         <TableCell className="text-muted-foreground tabular-nums text-sm px-3 py-2.5">
                           {currentCFBySpecialty[s] != null
                             ? formatCurrency(Number(currentCFBySpecialty[s]), { decimals: 2 })
-                            : '—'}
+                            : '?'}
                         </TableCell>
                         <TableCell className="px-3 py-2.5">
                           <Input
@@ -1198,7 +1208,7 @@ export function CustomCfBySpecialtyReport({
                                 const sign = delta > 0 ? '+' : ''
                                 return `${sign}${formatCurrency(delta, { decimals: 2 })}`
                               })()
-                            : '—'}
+                            : '?'}
                         </TableCell>
                         <TableCell className="px-3 py-2.5">
                           {(() => {
@@ -1234,21 +1244,18 @@ export function CustomCfBySpecialtyReport({
       {results ? (
         <>
           <Card>
-          <CardHeader className="space-y-2">
+          <CardHeader className="flex flex-row flex-wrap items-baseline justify-between gap-2">
             <p className="text-sm font-medium text-foreground">TCC & wRVU results</p>
-            <p className="text-xs text-muted-foreground">
-              Mode: {mode === 'dollar' ? '$/wRVU' : 'Percentile'}. Generated {reportDate}.{' '}
+            <p className="text-xs text-muted-foreground shrink-0">
+              {mode === 'dollar' ? '$/wRVU' : 'Percentile'} | {reportDate} |{' '}
               {filteredRows.length} row(s)
-              {filteredRows.length !== results.rows.length ? ` of ${results.rows.length}` : ''}.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {specialties.length} specialties, {results.rows.length} providers in scope. Modeled scenario uses “use
-              for all” when set, with table overrides per specialty where entered.
+              {filteredRows.length !== results.rows.length ? ` of ${results.rows.length}` : ''}
+              {' | '}{specialties.length} specialty(ies), {results.rows.length} providers.
             </p>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4">
             {results.rows.length > 0 && (
-              <div className="sticky top-0 z-20 rounded-lg border border-border/70 bg-background/95 p-3 backdrop-blur-sm">
+              <div className="sticky top-0 z-20 rounded-lg border border-border/70 bg-background/95 p-2.5 backdrop-blur-sm">
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="relative flex-1 min-w-[200px] max-w-sm">
                     <Search
@@ -1273,7 +1280,7 @@ export function CustomCfBySpecialtyReport({
                           className="w-full min-w-0 justify-between bg-white dark:bg-background h-9 font-normal"
                         >
                           <span className="truncate">
-                            {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter || '—'}
+                            {specialtyFilter === 'all' ? 'All specialties' : specialtyFilter || '?'}
                           </span>
                           <ChevronDown className="size-4 opacity-50 shrink-0" />
                         </Button>
@@ -1285,7 +1292,7 @@ export function CustomCfBySpecialtyReport({
                       >
                         <Command shouldFilter={false} className="rounded-none border-0">
                           <CommandInput
-                            placeholder="Search specialties…"
+                            placeholder="Search specialties?"
                             value={specialtySearch}
                             onValueChange={setSpecialtySearch}
                             className="h-9"
@@ -1304,7 +1311,7 @@ export function CustomCfBySpecialtyReport({
                                 key={s ?? ''}
                                 onSelect={() => setSpecialtyFilter(s ?? '')}
                               >
-                                {s ?? '—'}
+                                {s ?? '?'}
                               </DropdownMenuItem>
                             ))
                           )}
@@ -1358,6 +1365,27 @@ export function CustomCfBySpecialtyReport({
                   Showing {filteredRows.length} of {results.rows.length} providers.
                 </p>
               )}
+            {filteredRows.length > 0 && (
+              <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
+                <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground mr-1">Summary:</span>
+                  <span className="text-sm">
+                    <span className="text-muted-foreground">Total current TCC:</span>{' '}
+                    <span className="font-semibold tabular-nums">{formatCurrency(summaryTotals.totalCurrentTCC, { decimals: 0 })}</span>
+                  </span>
+                  <span className="text-sm">
+                    <span className="text-muted-foreground">Total modeled TCC:</span>{' '}
+                    <span className="font-semibold tabular-nums">{formatCurrency(summaryTotals.totalModeledTCC, { decimals: 0 })}</span>
+                  </span>
+                  <span className="text-sm">
+                    <span className="text-muted-foreground">Change in TCC:</span>{' '}
+                    <span className={cn('font-semibold tabular-nums', summaryTotals.totalDeltaTCC >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-400')}>
+                      {summaryTotals.totalDeltaTCC >= 0 ? '+' : ''}{formatCurrency(summaryTotals.totalDeltaTCC, { decimals: 0 })}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            )}
             {(specialtyFilter !== 'all' || providerSearch.trim() || payVsProdFilter !== 'all') &&
             filteredRows.length === 0 ? (
               <p className="py-6 text-sm text-muted-foreground">
@@ -1367,8 +1395,14 @@ export function CustomCfBySpecialtyReport({
               <TccWrvuSummaryTable
                 key={`results-${reportDate}-${results.rows.length}`}
                 rows={filteredRows}
+                totalRowCountWhenFiltered={filteredRows.length !== results.rows.length ? results.rows.length : undefined}
                 showScenarioName={true}
                 onProviderClick={handleProviderClick}
+                footerTotals={{
+                  totalCurrentTCC: summaryTotals.totalCurrentTCC,
+                  totalModeledTCC: summaryTotals.totalModeledTCC,
+                  totalIncentive: summaryTotals.totalIncentive,
+                }}
               />
             )}
           </CardContent>
@@ -1429,7 +1463,7 @@ export function CustomCfBySpecialtyReport({
                             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground cursor-help mb-1.5">Total TCC change</p>
                           </TooltipTrigger>
                           <TooltipContent side="bottom" className="max-w-[200px]">
-                            Modeled − current TCC.
+                            Modeled - current TCC.
                           </TooltipContent>
                         </Tooltip>
                         <p className={cn(
@@ -1489,10 +1523,10 @@ export function CustomCfBySpecialtyReport({
                           <TableHead className="w-[72px] px-3 py-2.5 text-right">Providers</TableHead>
                           <TableHead className="min-w-[90px] px-3 py-2.5 text-right">Current TCC</TableHead>
                           <TableHead className="min-w-[90px] px-3 py-2.5 text-right">Modeled TCC</TableHead>
-                          <TableHead className="min-w-[72px] px-3 py-2.5 text-right">Δ TCC</TableHead>
+                          <TableHead className="min-w-[72px] px-3 py-2.5 text-right">? TCC</TableHead>
                           <TableHead className="min-w-[90px] px-3 py-2.5 text-right" title="Sum of productivity (wRVU) incentive dollars at modeled CF for providers in this specialty">Incentive</TableHead>
                           <TableHead className="min-w-[72px] px-3 py-2.5 text-right" title="Average current TCC percentile vs market for providers in this specialty">Avg TCC %ile</TableHead>
-                          <TableHead className="min-w-[80px] px-3 py-2.5 text-right" title="Average modeled TCC percentile vs market—where this scenario places the group’s pay vs market, on average">Avg Modeled %ile</TableHead>
+                          <TableHead className="min-w-[80px] px-3 py-2.5 text-right" title="Average modeled TCC percentile vs market?where this scenario places the group?s pay vs market, on average">Avg Modeled %ile</TableHead>
                           <TableHead className="min-w-[72px] px-3 py-2.5 text-right" title="Average wRVU productivity percentile vs market for providers in this specialty">Avg wRVU %ile</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1520,15 +1554,15 @@ export function CustomCfBySpecialtyReport({
                               {formatCurrency(row.sumIncentive, { decimals: 2 })}
                             </TableCell>
                             <TableCell className="text-right tabular-nums px-3 py-2.5 text-muted-foreground">
-                              {row.avgTccPercentile != null ? row.avgTccPercentile.toFixed(1) : '—'}
+                              {row.avgTccPercentile != null ? row.avgTccPercentile.toFixed(1) : '?'}
                             </TableCell>
                             <TableCell className="text-right tabular-nums px-3 py-2.5 text-muted-foreground">
                               {row.avgModeledTCCPercentile != null
                                 ? row.avgModeledTCCPercentile.toFixed(1)
-                                : '—'}
+                                : '?'}
                             </TableCell>
                             <TableCell className="text-right tabular-nums px-3 py-2.5 text-muted-foreground">
-                              {row.avgWrvuPercentile != null ? row.avgWrvuPercentile.toFixed(1) : '—'}
+                              {row.avgWrvuPercentile != null ? row.avgWrvuPercentile.toFixed(1) : '?'}
                             </TableCell>
                             </TableRow>
                           ))}
@@ -1540,11 +1574,11 @@ export function CustomCfBySpecialtyReport({
                         How to read this summary
                       </p>
                       <p className="text-sm text-muted-foreground leading-relaxed">
-                        The table rolls up TCC & wRVU results from your current run by specialty. Current TCC and Modeled TCC are summed totals per specialty; Δ TCC is modeled minus current (negative = scenario pays less, e.g. lower CF or below wRVU threshold). Incentive is the sum of productivity (wRVU) incentive dollars at the modeled CF for providers in that specialty.
+                        The table rolls up TCC & wRVU results from your current run by specialty. Current TCC and Modeled TCC are summed totals per specialty; ? TCC is modeled minus current (negative = scenario pays less, e.g. lower CF or below wRVU threshold). Incentive is the sum of productivity (wRVU) incentive dollars at the modeled CF for providers in that specialty.
                       </p>
                       <ul className="mt-2 space-y-1 text-sm text-muted-foreground leading-relaxed list-none pl-0">
-                        <li><strong className="text-foreground/90">Avg TCC %ile:</strong> Average, across providers in that specialty, of where each provider’s <em>current</em> total compensation (per FTE) falls in the market distribution (e.g. 56 = 56th percentile vs market).</li>
-                        <li><strong className="text-foreground/90">Avg Modeled %ile:</strong> Average, across providers in that specialty, of where each provider’s <em>modeled</em> total compensation (per FTE) would fall in the market. So it’s “where does this scenario put the group’s pay vs market, on average?”—higher means the scenario pays more relative to market.</li>
+                        <li><strong className="text-foreground/90">Avg TCC %ile:</strong> Average, across providers in that specialty, of where each provider?s <em>current</em> total compensation (per FTE) falls in the market distribution (e.g. 56 = 56th percentile vs market).</li>
+                        <li><strong className="text-foreground/90">Avg Modeled %ile:</strong> Average, across providers in that specialty, of where each provider?s <em>modeled</em> total compensation (per FTE) would fall in the market. So it?s ?where does this scenario put the group?s pay vs market, on average???higher means the scenario pays more relative to market.</li>
                         <li><strong className="text-foreground/90">Avg wRVU %ile:</strong> Average wRVU productivity percentile vs market for providers in that specialty (volume, not pay).</li>
                       </ul>
                       <p className="mt-2 text-sm text-muted-foreground leading-relaxed">

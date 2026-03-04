@@ -147,6 +147,12 @@ function getCellDisplayString(row: BatchRowResult, columnId: string): string {
   }
 }
 
+export interface TccWrvuSummaryTableFooterTotals {
+  totalCurrentTCC: number
+  totalModeledTCC: number
+  totalIncentive: number
+}
+
 export interface TccWrvuSummaryTableProps {
   rows: BatchRowResult[]
   title?: string
@@ -158,6 +164,10 @@ export interface TccWrvuSummaryTableProps {
   maxHeight?: string
   /** When true, wrapper min-height grows with page size so 25/50/75 rows fit without internal scroll (capped at 85vh). Default true. */
   expandWithPageSize?: boolean
+  /** When provided, a totals row is rendered at the bottom of the table for Current TCC, Modeled TCC, and Incentive. */
+  footerTotals?: TccWrvuSummaryTableFooterTotals
+  /** When set and greater than rows.length, footer shows "(filtered from N)" to match Batch results. */
+  totalRowCountWhenFiltered?: number
 }
 
 export function TccWrvuSummaryTable({
@@ -169,6 +179,8 @@ export function TccWrvuSummaryTable({
   onProviderClick,
   maxHeight = '60vh',
   expandWithPageSize = true,
+  footerTotals,
+  totalRowCountWhenFiltered,
 }: TccWrvuSummaryTableProps) {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'providerName', desc: false }])
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 })
@@ -873,14 +885,80 @@ export function TccWrvuSummaryTable({
               </TableRow>
             ))}
           </tbody>
+          {footerTotals && (
+            <tfoot>
+              <TableRow className="border-t-4 border-border bg-muted/50 font-semibold">
+                {table.getVisibleLeafColumns()
+                  .filter((col) => col.getIsVisible())
+                  .map((col) => {
+                    const colId = col.id
+                    const isPinnedLeft =
+                      typeof col.getIsPinned === 'function' && col.getIsPinned() === 'left'
+                    const rawStart = isPinnedLeft && typeof col.getStart === 'function' ? col.getStart('left') : undefined
+                    const start = typeof rawStart === 'number' && Number.isFinite(rawStart) ? rawStart : (isPinnedLeft ? 0 : undefined)
+                    const pinnedCellClass = isPinnedLeft
+                      ? 'sticky z-20 bg-muted/50 left-0'
+                      : ''
+                    let content: React.ReactNode = '—'
+                    if (colId === 'providerName') {
+                      content = 'Total'
+                    } else if (colId === 'currentTCC') {
+                      content = formatCurrency(footerTotals.totalCurrentTCC, { decimals: 0 })
+                    } else if (colId === 'modeledTCC') {
+                      content = formatCurrency(footerTotals.totalModeledTCC, { decimals: 0 })
+                    } else if (colId === 'incentive') {
+                      content = (
+                        <span className={footerTotals.totalIncentive >= 0 ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-400'}>
+                          {footerTotals.totalIncentive >= 0 ? '+' : ''}{formatCurrency(footerTotals.totalIncentive, { decimals: 0 })}
+                        </span>
+                      )
+                    }
+                    return (
+                      <TableCell
+                        key={col.id}
+                        className={cn(
+                          'px-3 py-2.5 tabular-nums',
+                          colId === 'providerName' ? 'text-left' : 'text-right',
+                          pinnedCellClass
+                        )}
+                        style={{
+                          width: col.getSize(),
+                          minWidth: col.getSize(),
+                          maxWidth: col.getSize(),
+                          ...(isPinnedLeft && start !== undefined && start >= 0 ? { position: 'sticky' as const, left: start } : {}),
+                        }}
+                      >
+                        {content}
+                      </TableCell>
+                    )
+                  })}
+              </TableRow>
+            </tfoot>
+          )}
         </table>
           </div>
         </div>
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <p className="text-xs text-muted-foreground tabular-nums">
           Showing {start}–{end} of {filteredRowCount} row{filteredRowCount !== 1 ? 's' : ''}
+          {totalRowCountWhenFiltered != null && filteredRowCount < totalRowCountWhenFiltered &&
+            ` (filtered from ${totalRowCountWhenFiltered})`}
         </p>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="tcc-rows-per-page-footer" className="text-xs whitespace-nowrap text-muted-foreground">Rows</Label>
+            <Select value={String(pageSize)} onValueChange={(v) => table.setPageSize(Number(v))}>
+              <SelectTrigger id="tcc-rows-per-page-footer" className="h-8 w-[75px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="sm"
@@ -902,6 +980,7 @@ export function TccWrvuSummaryTable({
           >
             Next <ChevronRight className="size-4" />
           </Button>
+          </div>
         </div>
       </div>
     </div>

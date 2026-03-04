@@ -788,8 +788,8 @@ export default function App() {
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            {modellerStep === 'provider' ? (
+          {modellerStep === 'provider' && (
+            <div className="flex flex-wrap items-center gap-4 mb-4">
               <Tabs
                 value={modelMode}
                 onValueChange={(v) => {
@@ -803,42 +803,43 @@ export default function App() {
                   <TabsTrigger value="new">Custom</TabsTrigger>
                 </TabsList>
               </Tabs>
-            ) : (
-              <div />
-            )}
+            </div>
+          )}
+          {/* Step pills on their own row above content so they’re tied to the flow, not the action bar */}
+          {modellerStep !== 'results' && (
             <TooltipProvider delayDuration={200}>
-              <nav
-                className="flex items-center gap-0.5 rounded-md p-0.5 bg-muted/50"
-                aria-label="Single scenario steps"
-              >
-                {MODELLER_STEP_PILLS.map((s) => {
-                  const isActive = modellerStep === s.id
-                  return (
-                    <Tooltip key={s.id}>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          onClick={() => setModellerStep(s.id)}
-                          aria-current={isActive ? 'step' : undefined}
-                          aria-label={`${s.label}${isActive ? ' (current)' : ''}`}
-                          className={
-                            isActive
-                              ? 'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium bg-primary text-primary-foreground shadow-sm transition-colors'
-                              : 'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
-                          }
-                        >
-                          {s.num}
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="text-xs">
-                        {s.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  )
-                })}
-              </nav>
-            </TooltipProvider>
-          </div>
+            <nav
+              className="flex items-center gap-0.5 rounded-md p-0.5 bg-muted/50 w-fit mb-4"
+              aria-label="Single scenario steps"
+            >
+              {MODELLER_STEP_PILLS.map((s) => {
+                const isActive = modellerStep === s.id
+                return (
+                  <Tooltip key={s.id}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => setModellerStep(s.id)}
+                        aria-current={isActive ? 'step' : undefined}
+                        aria-label={`${s.label}${isActive ? ' (current)' : ''}`}
+                        className={
+                          isActive
+                            ? 'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium bg-primary text-primary-foreground shadow-sm transition-colors'
+                            : 'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+                        }
+                      >
+                        {s.num}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">
+                      {s.label}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </nav>
+          </TooltipProvider>
+          )}
 
           {/* Step content: keyed so transition runs when step changes */}
           <div key={modellerStep} className="animate-in fade-in-0 duration-200">
@@ -985,6 +986,40 @@ export default function App() {
                       effectiveProvider?.providerName
                         ? `${effectiveProvider.providerName}${effectiveProvider.specialty ? ` · ${effectiveProvider.specialty}` : ''}`
                         : undefined
+                    }
+                    headerActions={
+                      <TooltipProvider delayDuration={200}>
+                        <nav
+                          className="flex items-center gap-0.5 rounded-md p-0.5 bg-muted/50"
+                          aria-label="Single scenario steps"
+                        >
+                          {MODELLER_STEP_PILLS.map((s) => {
+                            const isActive = modellerStep === s.id
+                            return (
+                              <Tooltip key={s.id}>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={() => setModellerStep(s.id)}
+                                    aria-current={isActive ? 'step' : undefined}
+                                    aria-label={`${s.label}${isActive ? ' (current)' : ''}`}
+                                    className={
+                                      isActive
+                                        ? 'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium bg-primary text-primary-foreground shadow-sm transition-colors'
+                                        : 'flex size-8 shrink-0 items-center justify-center rounded text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors'
+                                    }
+                                  >
+                                    {s.num}
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom" className="text-xs">
+                                  {s.label}
+                                </TooltipContent>
+                              </Tooltip>
+                            )
+                          })}
+                        </nav>
+                      </TooltipProvider>
                     }
                   />
                   <section className="border-border/60 border-t pt-5">
