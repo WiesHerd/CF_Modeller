@@ -17,6 +17,7 @@ const SESSION_REPORTS_VIEW_KEY = 'cf-modeler-reports-view'
 const SESSION_COMPARE_TOOL_KEY = 'cf-modeler-compare-tool'
 const SESSION_BATCH_SCENARIO_MODE_KEY = 'cf-modeler-batch-scenario-mode'
 const SESSION_LAST_BATCH_RUN_MODE_KEY = 'cf-modeler-last-batch-run-mode'
+const FIRST_VISIT_DONE_KEY = 'cf-modeler-first-visit-done'
 
 const VALID_APP_STEPS: AppStep[] = ['upload', 'data', 'modeller', 'batch-scenario', 'batch-results', 'compare-scenarios', 'reports', 'help']
 const VALID_BATCH_CARDS: BatchCardId[] = ['cf-optimizer', 'imputed-vs-market', 'productivity-target', 'run-scenario']
@@ -138,6 +139,7 @@ import { DataTablesScreen } from '@/features/data/data-tables-screen'
 import { HelpScreen } from '@/features/help/help-screen'
 import { ReportsScreen } from '@/features/reports/reports-screen'
 import { LegalPage } from '@/components/legal-page'
+import { ErrorBoundary } from '@/components/error-boundary'
 import { WarningBanner } from '@/features/optimizer/components/warning-banner'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionTitleWithIcon } from '@/components/section-title-with-icon'
@@ -253,6 +255,10 @@ export default function App() {
   const [reportView, setReportView] = useState<(typeof VALID_REPORT_VIEW_IDS)[number]>(getInitialReportView)
   const [selectedSavedRunId, setSelectedSavedRunId] = useState<string | null>(null)
   const [compareTool, setCompareTool] = useState<CompareTool>(getInitialCompareTool)
+  const [showFirstRunNudge, setShowFirstRunNudge] = useState(() => {
+    if (typeof window === 'undefined' || !window.localStorage) return false
+    return !window.localStorage.getItem(FIRST_VISIT_DONE_KEY)
+  })
 
   // When user clicks Reports in sidebar (focus key bumps), return to report library list. Skip initial mount so restored reportView is not overwritten.
   const reportLibraryFocusKeyPrev = useRef(reportLibraryFocusKey)
@@ -506,8 +512,53 @@ export default function App() {
         setReportView('manage-scenarios')
       }}
     >
+      <ErrorBoundary>
       {step === 'upload' && (
         <div className="space-y-6">
+          {!hasData && showFirstRunNudge && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-foreground">
+                  New to TCC Modeler? Take a quick tour or tell us what you need — we’ll point you to the right place.
+                </p>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      try { window.localStorage?.setItem(FIRST_VISIT_DONE_KEY, '1') } catch { /* ignore */ }
+                      setShowFirstRunNudge(false)
+                      handleStepChange('help')
+                    }}
+                  >
+                    Take a quick tour
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      try { window.localStorage?.setItem(FIRST_VISIT_DONE_KEY, '1') } catch { /* ignore */ }
+                      setShowFirstRunNudge(false)
+                      handleStepChange('help')
+                    }}
+                  >
+                    Find what I need
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    onClick={() => {
+                      try { window.localStorage?.setItem(FIRST_VISIT_DONE_KEY, '1') } catch { /* ignore */ }
+                      setShowFirstRunNudge(false)
+                    }}
+                  >
+                    Maybe later
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           <SectionTitleWithIcon icon={<FileUp />}>Import data</SectionTitleWithIcon>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <TooltipProvider delayDuration={300}>
@@ -889,7 +940,10 @@ export default function App() {
                   ) : (
                     <Card>
                       <CardContent>
-                        <EmptyState message="Upload provider and market files on the Upload screen first." />
+                        <EmptyState
+                          message="Upload provider and market files on the Upload screen first."
+                          action={<Button onClick={() => handleStepChange('upload')}>Go to Upload</Button>}
+                        />
                       </CardContent>
                     </Card>
                   )}
@@ -921,7 +975,10 @@ export default function App() {
                   {state.marketRows.length === 0 && (
                     <Card>
                       <CardContent>
-                        <EmptyState message="Upload market data on the Upload screen first to model a hypothetical provider." />
+                        <EmptyState
+                          message="Upload market data on the Upload screen first to model a hypothetical provider."
+                          action={<Button onClick={() => handleStepChange('upload')}>Go to Upload</Button>}
+                        />
                       </CardContent>
                     </Card>
                   )}
@@ -948,7 +1005,10 @@ export default function App() {
               ) : (
                 <Card>
                   <CardContent>
-                    <EmptyState message="Select a provider on the Provider step first to set scenario parameters." />
+                    <EmptyState
+                      message="Select a provider on the Provider step first to set scenario parameters."
+                      action={<Button onClick={() => setModellerStep('provider')}>Go to Provider step</Button>}
+                    />
                   </CardContent>
                 </Card>
               )}
@@ -966,7 +1026,10 @@ export default function App() {
               ) : (
                 <Card>
                   <CardContent>
-                    <EmptyState message="Select a provider and specialty on the Provider step first." />
+                    <EmptyState
+                      message="Select a provider and specialty on the Provider step first."
+                      action={<Button onClick={() => setModellerStep('provider')}>Go to Provider step</Button>}
+                    />
                   </CardContent>
                 </Card>
               )}
@@ -1035,7 +1098,10 @@ export default function App() {
               ) : (
                 <Card>
                   <CardContent>
-                    <EmptyState message="Select a provider and set scenario parameters in the previous steps to see results." />
+                    <EmptyState
+                      message="Select a provider and set scenario parameters in the previous steps to see results."
+                      action={<Button onClick={() => setModellerStep('provider')}>Go to Provider step</Button>}
+                    />
                   </CardContent>
                 </Card>
               )}
@@ -1328,7 +1394,7 @@ export default function App() {
           </div>
         )
       })()}
-
+      </ErrorBoundary>
     </AppLayout>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Users, BarChart2, FileSpreadsheet, AlertCircle, Eye, Download, Trash2, Link2 } from 'lucide-react'
+import { Users, BarChart2, FileSpreadsheet, AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Download, Eye, Link2, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -154,6 +154,9 @@ export function UploadAndMapping({
   const [, setAppliedProviderRows] = useState<ProviderRow[] | null>(null)
   const [, setAppliedMarketRows] = useState<MarketRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [validationErrors, setValidationErrors] = useState<string[]>([])
+  const [showAllValidationErrors, setShowAllValidationErrors] = useState(false)
   const [loading, setLoading] = useState<FileType | null>(null)
   const [expandedCard, setExpandedCard] = useState<ExpandedCard>(null)
   const [editingProvider, setEditingProvider] = useState<ProviderRow | null>(null)
@@ -249,6 +252,8 @@ export function UploadAndMapping({
     async (file: File | null, type: FileType) => {
       if (!file) return
       setError(null)
+      setSuccessMessage(null)
+      setValidationErrors([])
       setLoading(type)
       try {
         const { rows, headers } = await parseFile(file)
@@ -286,12 +291,18 @@ export function UploadAndMapping({
     )
     if (rows.length === 0) {
       setError(`Provider: ${errors.length ? errors.slice(0, 5).join('; ') + (errors.length > 5 ? '...' : '') : 'No valid rows (each row needs provider name and base salary).'}`)
+      setSuccessMessage(null)
+      setValidationErrors([])
       return
     }
-    if (errors.length) {
-      setError(`Provider: ${rows.length} rows applied. Skipped: ${errors.slice(0, 5).join('; ')}${errors.length > 5 ? ` ... and ${errors.length - 5} more` : ''}`)
+    setError(null)
+    if (errors.length > 0) {
+      setSuccessMessage(`Loaded ${rows.length} provider row${rows.length === 1 ? '' : 's'}. Some rows were skipped due to validation.`)
+      setValidationErrors(errors)
+      setShowAllValidationErrors(false)
     } else {
-      setError(null)
+      setSuccessMessage(`Loaded ${rows.length} provider row${rows.length === 1 ? '' : 's'}. You can review them in Data or go to Single scenario.`)
+      setValidationErrors([])
     }
     onProviderData(rows, { ...providerMapping }, providerRaw?.fileName)
     setProviderRaw(null)
@@ -308,10 +319,15 @@ export function UploadAndMapping({
       marketMapping
     )
     if (errors.length) {
-      setError(`Market: ${errors.slice(0, 5).join('; ')}${errors.length > 5 ? '...' : ''}`)
+      setError(null)
+      setSuccessMessage(null)
+      setValidationErrors(errors)
+      setShowAllValidationErrors(false)
       return
     }
     setError(null)
+    setValidationErrors([])
+    setSuccessMessage(`Loaded ${rows.length} market row${rows.length === 1 ? '' : 's'}. You can review them in Data or run scenarios.`)
     onMarketData(rows, { ...marketMapping })
     setMarketRaw(null)
     setAppliedMarketRows(rows)
@@ -1114,10 +1130,46 @@ export function UploadAndMapping({
         <p className="text-muted-foreground text-sm">Parsing file…</p>
       )}
 
+      {successMessage && !error && (
+        <Alert variant="default">
+          <CheckCircle2 className="size-4" />
+          <AlertDescription>{successMessage}</AlertDescription>
+        </Alert>
+      )}
+
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {validationErrors.length > 0 && !error && (
+        <Alert variant="warning">
+          <AlertTriangle className="size-4" />
+          <AlertDescription>
+            <span className="block">
+              {validationErrors.length} validation error{validationErrors.length === 1 ? '' : 's'} (rows skipped or issues to fix).
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowAllValidationErrors((v) => !v)}
+              className="mt-2 flex items-center gap-1 text-left font-medium underline-offset-4 hover:underline"
+            >
+              {showAllValidationErrors ? (
+                <>Hide details <ChevronUp className="size-4" /></>
+              ) : (
+                <>Show all {validationErrors.length} error{validationErrors.length === 1 ? '' : 's'} <ChevronDown className="size-4" /></>
+              )}
+            </button>
+            {showAllValidationErrors && (
+              <ul className="mt-2 list-inside list-disc space-y-0.5 text-sm">
+                {validationErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 
