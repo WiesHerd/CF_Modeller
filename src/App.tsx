@@ -149,6 +149,7 @@ import type { BatchResults, BatchRowResult, BatchScenarioSnapshot } from '@/type
 import { BatchResultsDashboard } from '@/components/batch/batch-results-dashboard'
 import { DEFAULT_SCENARIO_INPUTS } from '@/types/scenario'
 import { exportSingleScenarioXLSX } from '@/lib/single-scenario-export'
+import { buildDemoSeed, isDemoModeRequested } from '@/utils/demo-seed'
 
 type ModelMode = 'existing' | 'new'
 
@@ -259,6 +260,39 @@ export default function App() {
     if (typeof window === 'undefined' || !window.localStorage) return false
     return !window.localStorage.getItem(FIRST_VISIT_DONE_KEY)
   })
+
+  // Demo-mode auto-seed: when the app is opened with `?demo=1`, populate state
+  // from the built-in sample CSVs and land the visitor on the modelling Results
+  // screen instead of the empty Upload step. Runs once on mount. No-ops if real
+  // data is already in state (so refresh with `?demo=1` doesn't clobber work).
+  const demoSeededRef = useRef(false)
+  useEffect(() => {
+    if (demoSeededRef.current) return
+    if (!isDemoModeRequested()) return
+    if (state.providerRows.length > 0 || state.marketRows.length > 0) {
+      demoSeededRef.current = true
+      return
+    }
+    demoSeededRef.current = true
+    try {
+      const seed = buildDemoSeed()
+      if (seed.providerRows.length === 0 || seed.marketRows.length === 0) return
+      setProviderData(seed.providerRows, seed.providerMapping)
+      setMarketData(seed.marketRows, seed.marketMapping)
+      if (seed.defaultSpecialty) setSelectedSpecialty(seed.defaultSpecialty)
+      if (seed.defaultProviderId) setSelectedProvider(seed.defaultProviderId)
+      setStep('modeller')
+      setModellerStep('results')
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(FIRST_VISIT_DONE_KEY, '1')
+      }
+    } catch (err) {
+      // Demo seed is best-effort; never block the app if sample parse fails.
+      console.warn('Demo seed failed:', err)
+    }
+    // Intentionally only runs on mount; downstream setters are stable from useCallback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // When user clicks Reports in sidebar (focus key bumps), return to report library list. Skip initial mount so restored reportView is not overwritten.
   const reportLibraryFocusKeyPrev = useRef(reportLibraryFocusKey)
